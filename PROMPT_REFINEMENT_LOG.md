@@ -144,3 +144,31 @@
 - Reports separate technical endpoint checks from legal/account eligibility. Romania not appearing in a provider's prohibited list is not treated as proof of permission.
 - The first CI attempts found lint issues in the new probe/test code; repairs were committed, and the newer CI/probe results are being rechecked. No exchange is approved until the results are green and independently inspected.
 - Defined the full-universe acceptance test as the next major gate: complete instrument coverage plus ticker, L2 book, completed candle, funding, mark/index and precision validation for every retained symbol and every available class, not a BTC-only sample.
+
+
+## 2026-11-16 — v2.7 to v2.8: correct asset-class interpretation and Perps provider order
+
+### Prompt refinement pass 17 — interpret asset classes as an instrument-universe property
+- The user clarified that a venue need not offer every asset class.
+- Include every active cross-margin instrument on the selected venue, independent of its category; categories are preserved for reporting and later attribution.
+- Isolated-only instruments are excluded. Close-only instruments are not selected for new positions. Retired/settled contracts remain in historical data but receive no routine market-data updates.
+- Unknown/future provider category strings are preserved and not silently dropped.
+
+### Prompt refinement pass 18 — provider order and first-pass stop
+- Exact order: Polymarket Perps → MEXC → Bitget.
+- Stop provider probing at the first public API that clears instrument completeness, cross-margin, bulk ticker, fees, daily candle, book and funding checks.
+- A technical API pass permits paper-research implementation only; it is not a trading authorization or account-level legal clearance.
+- Polymarket is first because its official Perps SDK exposes unauthenticated public instrument/ticker/book/fees/klines/funding methods and a non-expiring cross-margin perpetual product. Published country restrictions do not list Romania; do not infer individual account entitlement.
+
+### Prompt refinement pass 19 — operational cadence and durable data layout
+- Five-minute workflow cadence captures every cross-margin instrument's latest ticker/mark/index/funding snapshot.
+- The first successful five-minute workflow after a new completed UTC daily candle runs the daily indicator/ranking/portfolio transition. Daily decisions are keyed by completed candle timestamp and must be idempotent.
+- Bootstrap each eligible instrument once with up to 365 days of available daily history; all later API candle requests begin after the stored last candle.
+- New listings get a resumable one-time backfill. Close-only assets stop new entries. Permanently settled/delisted contracts are archived and stop routine updates.
+- Public market data goes to the new `market-data` branch; immutable paper-account events remain on `state`. Five-minute snapshots are gzip-compressed into hourly partitions; daily OHLCV uses date partitions.
+
+### Evidence and implementation status
+- Added the Polymarket Perps public API adapter and unit tests.
+- Added ordered Polymarket/MEXC/Bitget qualification script and GitHub Actions workflow.
+- Added `MarketDataStore` with incremental candle persistence, lifecycle manifest, hourly snapshot append and snapshot retention.
+- The first priority workflow did not reach the public API because the shared lint/test gate found fallback-probe and adapter formatting issues. These are being repaired; no provider pass is claimed until the workflow runs through its API step.
