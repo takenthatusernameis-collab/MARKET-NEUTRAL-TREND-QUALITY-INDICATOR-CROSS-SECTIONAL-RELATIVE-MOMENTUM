@@ -27,11 +27,11 @@ Successful preflight and UTC daily boundary evidence: [GitHub Actions run 439761
 ## Universe and market data
 
 - Filter each instrument, not the exchange by asset class.
-- Include only active perpetuals with cross-margin available, quoteCoin=USDT and settleCoin=USDT.
-- Use positionOpenType=2 or 3; exclude isolated-only, inactive and non-USDT settlement contracts from the USDT strategy account.
-- Preserve unknown asset categories.
+- The Q research universe includes every active perpetual with per-instrument cross-margin available, across all quote/settlement currencies and asset categories. Preserve unknown asset categories.
+- Use positionOpenType=2 or 3; exclude isolated-only, inactive and retired/settled contracts.
+- The current single-currency USDT paper execution subset is restricted to quoteCoin=USDT and settleCoin=USDT. Non-USDT perps remain research-only until quote/collateral conversion, inverse contract value and settlement P&L are validated.
 - Read the bulk ticker endpoint once each cycle.
-- Convert contract-count depth and Kline volume using contractSize. Do not mistake amount24 or Kline amount for contract volume; these are USDT turnover.
+- Convert contract-count depth and Kline volume using contractSize for the supported USDT linear execution path. For other settlements, retain contract counts and native quote turnover; never label non-USDT turnover as USDT.
 - Use volUnit, minVol, maxVol, priceUnit, contractSize and fee fields from the instrument record.
 
 The MEXC workflow is scheduled every five minutes. Initial history bootstrap is up to 365 days, 150 instruments per default batch; later calls begin after the last stored completed daily candle. New listings get a one-time resumable backfill. Only completed Day1 bars may feed Q. Representative sampled bars opened at 00:00 UTC; every timestamp still requires validation.
