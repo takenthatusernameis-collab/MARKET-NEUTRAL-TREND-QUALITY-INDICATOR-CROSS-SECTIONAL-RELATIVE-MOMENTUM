@@ -11,6 +11,7 @@ import os
 import re
 import tempfile
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -39,17 +40,24 @@ def _event_hash(event_without_hash: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(event_without_hash).encode("utf-8")).hexdigest()
 
 
+def _is_positive_timestamp(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
 def build_event_batch(
     run_id: str,
     created_at_ms: int,
     events: Iterable[dict[str, Any]],
     previous_batch_hash: str | None = None,
 ) -> dict[str, Any]:
-    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", run_id):
+    if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", run_id):
         raise EventJournalError("run_id contains unsupported characters")
-    if created_at_ms <= 0:
-        raise EventJournalError("created_at_ms must be positive")
-    if previous_batch_hash is not None and not re.fullmatch(r"[0-9a-f]{64}", previous_batch_hash):
+    if not _is_positive_timestamp(created_at_ms):
+        raise EventJournalError("created_at_ms must be a positive integer")
+    if previous_batch_hash is not None and (
+        not isinstance(previous_batch_hash, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", previous_batch_hash)
+    ):
         raise EventJournalError("previous_batch_hash must be a SHA-256 hex digest or null")
 
     seen_ids: set[str] = set()
@@ -70,14 +78,26 @@ def build_event_batch(
         missing = required - event.keys()
         if missing:
             raise EventJournalError(f"Event missing required keys: {sorted(missing)}")
-        event_id = str(event["event_id"])
-        idempotency_key = str(event["idempotency_key"])
-        if not event_id or event_id in seen_ids:
-            raise EventJournalError("Duplicate or empty event_id")
-        if not idempotency_key or idempotency_key in seen_keys:
-            raise EventJournalError("Duplicate or empty idempotency_key")
-        if int(event["occurred_at_ms"]) <= 0:
-            raise EventJournalError("occurred_at_ms must be positive")
+        for field in (
+            "event_id",
+            "idempotency_key",
+            "account_id",
+            "strategy_id",
+            "event_type",
+        ):
+            if not isinstance(event[field], str) or not event[field]:
+                raise EventJournalError(f"{field} must be a non-empty string")
+        if not _is_positive_timestamp(event["occurred_at_ms"]):
+            raise EventJournalError("occurred_at_ms must be a positive integer")
+        if not isinstance(event["payload"], dict):
+            raise EventJournalError("event payload must be a JSON object")
+
+        event_id = event["event_id"]
+        idempotency_key = event["idempotency_key"]
+        if event_id in seen_ids:
+            raise EventJournalError("Duplicate event_id")
+        if idempotency_key in seen_keys:
+            raise EventJournalError("Duplicate idempotency_key")
         seen_ids.add(event_id)
         seen_keys.add(idempotency_key)
         event.pop("event_hash", None)
@@ -100,36 +120,76 @@ def build_event_batch(
 
 def verify_event_batch(batch: dict[str, Any]) -> bool:
     try:
-        if batch.get("schema_version") != 1 or not isinstance(batch.get("events"), list):
+        if not isinstance(batch, dict) or batch.get("schema_version") != 1:
+            return False
+        run_id = batch.get("run_id")
+        if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", run_id):
+            return False
+        if not _is_positive_timestamp(batch.get("created_at_ms")):
             return False
         expected_previous = batch.get("previous_batch_hash")
-        if expected_previous is not None and not re.fullmatch(
-            r"[0-9a-f]{64}", str(expected_previous)
+        if expected_previous is not None and (
+            not isinstance(expected_previous, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", expected_previous)
         ):
             return False
-        events = batch["events"]
-        prior = expected_previous
+        events = batch.get("events")
+        if not isinstance(events, list):
+            return False
         event_ids: set[str] = set()
         idempotency: set[str] = set()
+        prior = expected_previous
         for event in events:
-            if event.get("previous_event_hash") != prior:
+            if not isinstance(event, dict):
                 return False
-            event_hash = event.get("event_hash")
+            required = {
+                "event_id",
+                "idempotency_key",
+                "account_id",
+                "strategy_id",
+                "occurred_at_ms",
+                "event_type",
+                "payload",
+                "previous_event_hash",
+                "event_hash",
+            }
+            if not required.issubset(event):
+                return False
+            for field in (
+                "event_id",
+                "idempotency_key",
+                "account_id",
+                "strategy_id",
+                "event_type",
+                "event_hash",
+            ):
+                if not isinstance(event[field], str) or not event[field]:
+                    return False
+            if not _is_positive_timestamp(event["occurred_at_ms"]):
+                return False
+            if not isinstance(event["payload"], dict):
+                return False
+            if event["previous_event_hash"] != prior:
+                return False
+            if event["event_id"] in event_ids or event["idempotency_key"] in idempotency:
+                return False
+            event_ids.add(event["event_id"])
+            idempotency.add(event["idempotency_key"])
+            event_hash = event["event_hash"]
             without_hash = dict(event)
             without_hash.pop("event_hash", None)
             if _event_hash(without_hash) != event_hash:
                 return False
-            if event.get("event_id") in event_ids or event.get("idempotency_key") in idempotency:
-                return False
-            event_ids.add(event.get("event_id"))
-            idempotency.add(event.get("idempotency_key"))
             prior = event_hash
+
         without_batch_hash = dict(batch)
         actual_hash = without_batch_hash.pop("batch_hash", None)
-        calculated_hash = hashlib.sha256(
+        if not isinstance(actual_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", actual_hash):
+            return False
+        calculated = hashlib.sha256(
             canonical_json(without_batch_hash).encode("utf-8")
         ).hexdigest()
-        return calculated_hash == actual_hash
+        return calculated == actual_hash
     except (EventJournalError, TypeError, ValueError, KeyError):
         return False
 
@@ -139,9 +199,7 @@ def write_batch_atomic(root: str | Path, batch: dict[str, Any]) -> Path:
     if not verify_event_batch(batch):
         raise EventJournalError("Refusing to persist an invalid event batch")
     created_at_ms = int(batch["created_at_ms"])
-    import datetime
-
-    date = datetime.datetime.fromtimestamp(created_at_ms / 1000, tz=datetime.UTC)
+    date = datetime.fromtimestamp(created_at_ms / 1000, tz=UTC)
     directory = Path(root) / "events" / date.strftime("%Y") / date.strftime("%m")
     directory.mkdir(parents=True, exist_ok=True)
     destination = directory / f"{batch['run_id']}.json"
