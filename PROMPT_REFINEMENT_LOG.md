@@ -85,3 +85,38 @@
 - Run `43912788709`: 3/3 jobs passed. All read HTTP 206 ranges, decompressed 27,914 bytes from 8,192 compressed bytes, and found the columns `timestamp,symbol,side,size,price,tickDirection,trdMatchID,grossValue,homeNotional,foreignNotional,RPI`.
 - The first sample row parsed as a BTCUSDT sell trade with timestamp, quantity and price values, confirming the archive payload schema on the actual official file rather than relying only on a third-party description.
 - This remains a prefix/schema test; it does not prove full-file CRC validation, complete-day integrity, chronological ordering, or the coverage of other symbols and dates. The downloader must validate the complete gzip stream before trusting a file.
+
+
+## 2026-11-16 — v2.5 to v2.6: emergency red-team and provider qualification
+
+### Review pass 10 — exchange readiness false positive
+- Reviewed the Crypto.com derivative diagnostic run `43924834692`, which had returned success whenever the instrument endpoint found any perpetual instruments.
+- Identified six USD-quoted crypto perpetuals only; the funding-history API call returned HTTP 400 and the old workflow still passed.
+- Replaced the weak pass condition with a strict readiness gate requiring at least 20 eligible crypto perpetuals, successful nonempty book/ticker/candlestick/funding data, USDT quote compatibility and explicit account-collateral/jurisdiction verification.
+- Follow-up run `43930116624`: all three Ubuntu runner jobs returned NOT_READY. The observed universe was six symbols, quote currency USD; funding-history API code 40004 was returned for both tested index-name formats; minimum universe, funding-data and USDT-quote gates failed; collateral/jurisdiction remained UNVERIFIED.
+- Official Crypto.com derivatives restrictions list Romania. This candidate is rejected for the current use case and is not a production adapter.
+- Updated the exchange-migration directive: provider substitution is permitted only through explicit evaluation and all qualification gates, not by endpoint reachability alone.
+
+### Review pass 11 — performance analytics red-team
+- Found that `maximum_drawdown_duration_days` previously measured the duration of the deepest drawdown rather than the longest period spent below a high-water mark.
+- Reworked the calculation to track all high-watermark-to-recovery episodes, including the currently open episode.
+- Added regression tests where a shallower drawdown lasts longer than the deepest drawdown and where NAV exactly returns to the prior high before a later drawdown begins.
+- CI run `43930818436`: Ruff passed, 64 tests passed.
+- Confirmed the following state-chain changes separately with tests: run `43931058486` passed Ruff and 67 tests.
+
+### Review pass 12 — remote event-chain integrity
+- Found that the original GitHub state publisher validated the new batch's internal SHA hashes but did not anchor `previous_batch_hash` to the actual state branch's latest batch.
+- Added remote tree/blob reconstruction and full-chain verification before append. The publisher now fails closed on multiple genesis batches, forks, cycles, orphan batches, disconnected chains, bad event paths, invalid blobs and truncated trees. A submitted new batch must extend the unique remote chain tip.
+- Added mocked publisher tests for valid sequential continuation, an unanchored second genesis and a pre-existing fork.
+- This is mocked API verification only. No real event batch has been written to GitHub state.
+
+### Review pass 13 — server-side state protection and privacy
+- Checked branches and rulesets: GitHub reports `main` and `state` as unprotected; repository rulesets endpoint returns an empty list.
+- Branch-protection detail GET was not accessible to the connected integration, and available GitHub actions did not expose a branch-protection mutation. No server-side protection was claimed or applied.
+- Because the repository is public, future event files on `state` would also be public and persistent. The branch currently contains only policy documentation; no account or event batches exist.
+- Server-side state-branch protection and a decision on public-vs-private event storage remain release blockers.
+
+### Final red-team evidence
+- Successful core CI after code repairs: run `43931058486`, commit `a1c0e083893e5566fb2173b22c7afe81b196b4b9`, Ruff passed, 67 passed.
+- Latest performance/persistence fixes are covered by mocked/unit tests; no real exchange integration, real state-branch publishing, portfolio restore, historical replay or forward paper operation is verified.
+- Overall release state remains RED-TEAM NO-GO. No replacement exchange is approved.
