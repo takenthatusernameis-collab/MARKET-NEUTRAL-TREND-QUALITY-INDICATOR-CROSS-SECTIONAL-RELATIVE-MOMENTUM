@@ -1,9 +1,9 @@
 """Deterministic cross-sectional candidate ranking."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import isfinite
-from typing import Iterable
 
 from .indicators import QObservation
 
@@ -43,7 +43,9 @@ def rank_candidates(
             )
         elif q_value < -threshold:
             bearish.append(
-                Candidate(symbol, float(q_value), point.b, "short", point.cycle_age, point.direction)
+                Candidate(
+                    symbol, float(q_value), point.b, "short", point.cycle_age, point.direction
+                )
             )
     bullish.sort(key=lambda item: (-item.q, item.symbol))
     bearish.sort(key=lambda item: (item.q, item.symbol))
