@@ -141,7 +141,12 @@ jobs:
           if not isinstance(book_data, dict) and isinstance(book_payload, dict):
               book_data = book_payload.get("orderbook")
 
-          candles = chart(f"trade/{symbol}/1d", {"count": "5"})
+          import time
+          now_seconds = int(time.time())
+          candles = chart(
+              f"trade/{symbol}/1d",
+              {"from": str(now_seconds - 10 * 86400), "to": str(now_seconds), "count": "5"},
+          )
           candles_payload = candles.get("payload")
           candle_rows = (
               candles_payload.get("candles", [])
@@ -150,7 +155,7 @@ jobs:
               else []
           )
 
-          funding = rest("/historicalfundingrates", {"symbol": symbol})
+          funding = get_json(REST.replace("/api/v3", "/api/v4") + "/historicalfundingrates?" + urllib.parse.urlencode({"symbol": symbol}))
           funding_payload = funding.get("payload")
           funding_rows = (
               funding_payload.get("rates", [])
