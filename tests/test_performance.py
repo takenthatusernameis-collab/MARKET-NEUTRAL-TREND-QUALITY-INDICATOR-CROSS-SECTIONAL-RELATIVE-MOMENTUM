@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from decimal import Decimal
-from unittest import TestCase
+import decimal
+import unittest
 
 from trend_quality.performance import (
     DAY_MS,
@@ -13,12 +13,12 @@ from trend_quality.performance import (
 
 
 BASE_TIME = 1794787200000
-CHECKS = TestCase()
+CHECKS = unittest.TestCase()
 
 
 def _equity(values: list[str], start_ms: int = BASE_TIME) -> list[EquityPoint]:
     return [
-        EquityPoint(start_ms + index * DAY_MS, Decimal(value))
+        EquityPoint(start_ms + index * DAY_MS, decimal.Decimal(value))
         for index, value in enumerate(values)
     ]
 
@@ -34,7 +34,7 @@ def test_daily_returns_and_drawdown_series() -> None:
         [item.drawdown for item in series], expected, strict=True
     ):
         CHECKS.assertAlmostEqual(actual, target, places=10)
-    assert series[2].high_watermark == Decimal("110")
+    assert series[2].high_watermark == decimal.Decimal("110")
 
 
 def test_drawdown_duration_and_recovery_period() -> None:
@@ -72,11 +72,11 @@ def test_cagr_is_available_after_one_year() -> None:
 
 
 def test_sharpe_requires_30_returns_and_nonzero_volatility() -> None:
-    points = [EquityPoint(BASE_TIME, Decimal("100"))]
-    nav = Decimal("100")
+    points = [EquityPoint(BASE_TIME, decimal.Decimal("100"))]
+    nav = decimal.Decimal("100")
     for index in range(30):
-        rate = Decimal("0.001") if index % 2 == 0 else Decimal("0.002")
-        nav *= Decimal("1") + rate
+        rate = decimal.Decimal("0.001") if index % 2 == 0 else decimal.Decimal("0.002")
+        nav *= decimal.Decimal("1") + rate
         points.append(EquityPoint(BASE_TIME + (index + 1) * DAY_MS, nav))
     metrics = compute_performance_metrics(points)
     assert metrics["sharpe"].value is not None
@@ -84,22 +84,22 @@ def test_sharpe_requires_30_returns_and_nonzero_volatility() -> None:
 
 
 def test_sortino_requires_20_returns_and_five_negative_returns() -> None:
-    points = [EquityPoint(BASE_TIME, Decimal("100"))]
-    nav = Decimal("100")
-    rates = [Decimal("0.002")] * 20 + [Decimal("-0.001")] * 5
+    points = [EquityPoint(BASE_TIME, decimal.Decimal("100"))]
+    nav = decimal.Decimal("100")
+    rates = [decimal.Decimal("0.002")] * 20 + [decimal.Decimal("-0.001")] * 5
     for index, rate in enumerate(rates):
-        nav *= Decimal("1") + rate
+        nav *= decimal.Decimal("1") + rate
         points.append(EquityPoint(BASE_TIME + (index + 1) * DAY_MS, nav))
     metrics = compute_performance_metrics(points)
     assert metrics["sortino"].value is not None
 
 
 def test_sortino_withholds_for_insufficient_negative_returns() -> None:
-    points = [EquityPoint(BASE_TIME, Decimal("100"))]
-    nav = Decimal("100")
+    points = [EquityPoint(BASE_TIME, decimal.Decimal("100"))]
+    nav = decimal.Decimal("100")
     for index in range(25):
-        rate = Decimal("-0.001") if index < 4 else Decimal("0.001")
-        nav *= Decimal("1") + rate
+        rate = decimal.Decimal("-0.001") if index < 4 else decimal.Decimal("0.001")
+        nav *= decimal.Decimal("1") + rate
         points.append(EquityPoint(BASE_TIME + (index + 1) * DAY_MS, nav))
     metrics = compute_performance_metrics(points)
     assert metrics["sortino"].value is None
@@ -108,7 +108,7 @@ def test_sortino_withholds_for_insufficient_negative_returns() -> None:
 def test_trade_statistics_use_net_closed_trade_pnl() -> None:
     metrics = compute_performance_metrics(
         _equity(["100", "101", "102"]),
-        [Decimal("10"), Decimal("-5"), Decimal("0"), Decimal("-5")],
+        [decimal.Decimal("10"), decimal.Decimal("-5"), decimal.Decimal("0"), decimal.Decimal("-5")],
     )
     assert metrics["closed_trade_count"].value == 4
     CHECKS.assertAlmostEqual(metrics["win_rate"].value or 0.0, 0.25, places=10)
@@ -127,7 +127,7 @@ def test_trade_statistics_use_net_closed_trade_pnl() -> None:
 def test_profit_factor_is_not_claimed_without_losing_trades() -> None:
     metrics = compute_performance_metrics(
         _equity(["100", "101", "102"]),
-        [Decimal("1"), Decimal("2")],
+        [decimal.Decimal("1"), decimal.Decimal("2")],
     )
     assert metrics["profit_factor"].value is None
     assert "No losing" in str(metrics["profit_factor"].reason)
@@ -137,8 +137,8 @@ def test_daily_metrics_reject_missing_dates_and_nonpositive_nav() -> None:
     with CHECKS.assertRaisesRegex(ValueError, "consecutive UTC daily"):
         daily_returns(
             [
-                EquityPoint(BASE_TIME, Decimal("100")),
-                EquityPoint(BASE_TIME + 2 * DAY_MS, Decimal("101")),
+                EquityPoint(BASE_TIME, decimal.Decimal("100")),
+                EquityPoint(BASE_TIME + 2 * DAY_MS, decimal.Decimal("101")),
             ]
         )
     with CHECKS.assertRaisesRegex(ValueError, "positive"):
