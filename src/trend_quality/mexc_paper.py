@@ -166,12 +166,22 @@ def size_mexc_leg(
     reference_price: Decimal,
     *,
     allocation_fraction: Decimal = Decimal("0.5"),
+    leverage: Decimal = Decimal("2"),
 ) -> Decimal:
-    """Size base-asset quantity while respecting MEXC contract volume increments."""
+    """Size from margin allocation × leverage, respecting MEXC increments.
+
+    Default: 50% of NAV margin at 2x leverage = 1x NAV notional per leg.
+    Two balanced legs therefore target 2x gross exposure.
+    """
+    if not leverage.is_finite() or leverage <= 0:
+        raise ValueError("leverage must be finite and positive")
+    notional_fraction = allocation_fraction * leverage
+    if notional_fraction <= 0 or notional_fraction > 1:
+        raise ValueError("allocation_fraction × leverage must be in (0, 1]")
     step, minimum, maximum, _ = base_quantity_rules(instrument, reference_price)
     return target_quantity(
         nav,
-        allocation_fraction,
+        notional_fraction,
         reference_price,
         step,
         minimum,
