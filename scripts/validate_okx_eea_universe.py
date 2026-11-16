@@ -315,8 +315,14 @@ def main() -> int:
         "paper_account_activation_authorized": False,
         "remaining_gates": [
             "Romania account-level product entitlement and appropriateness assessment",
-            "Currency-aware ledger, stop/funding ordering, portfolio limits and independent NAV reconstruction",
-            "Durable private persistence design; do not store private account events in the public repository",
+            (
+                "Currency-aware ledger, stop/funding ordering, portfolio limits and "
+                "independent NAV reconstruction"
+            ),
+            (
+                "Durable private persistence design; do not store private account events "
+                "in the public repository"
+            ),
         ],
     }
     output = json.dumps(report, indent=2)
