@@ -67,9 +67,10 @@ Six jobs were run on GitHub-hosted standard Linux runners using Ubuntu 22.04, 24
 ### Official historical trade archive
 A separate read-only probe tested the official Bybit archive host from the same standard Linux runner pool.
 
-- Workflow run [43912009008](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912009008): 3/3 passed.
-- Each job fetched bytes 0–2047 of `https://public.bybit.com/trading/BTCUSDT/BTCUSDT2026-11-15.csv.gz`, received HTTP 206 and validated gzip magic bytes.
-- GitHub assigned the jobs to Azure `centralus`, Azure `westus3`, and AWS `us-west-2`.
+- Workflow run [43912009008](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912009008): 3/3 initial gzip/range probes passed.
+- Follow-up [schema probe 43912788709](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912788709): 3/3 passed. Each fetched bytes 0–8191, decompressed a prefix, parsed the CSV header and first trade row, and received HTTP 206.
+- Verified header: `timestamp,symbol,side,size,price,tickDirection,trdMatchID,grossValue,homeNotional,foreignNotional,RPI`.
+- The three follow-up jobs were assigned to Azure `southcentralus`, AWS `us-east-1`, and Azure `northcentralus`.
 - The archive index shows daily BTCUSDT trade files beginning 2020-03-25 and extending through 2026-11-15. The tested file advertises 126,793,002 compressed bytes.
 
 The archive gives a credible path for selective historical trade ingestion and OHLCV reconstruction. It is not integrated yet, and it is not a replacement for live V5 data: funding history, mark/index prices, fresh order books, current instrument rules, and intraday execution are not established by this archive. Historical symbol coverage and survivorship bias also require audit before universe-level claims.
