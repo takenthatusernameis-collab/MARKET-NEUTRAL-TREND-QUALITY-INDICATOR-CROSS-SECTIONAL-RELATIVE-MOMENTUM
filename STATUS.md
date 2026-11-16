@@ -1,133 +1,101 @@
 # Market-Neutral Trend-Quality System — Status
 
-**Report date:** 2026-11-16  
-**Overall status:** POLYMARKET-FIRST QUALIFICATION — public adapter, priority probe and incremental data store committed; exchange API acceptance pending  
-**Trading mode:** Paper-only; no exchange orders or authenticated account access  
-**Forward paper account:** Not initialized  
-**Historical replay:** Not implemented  
-**Verified portfolio NAV:** Not available  
-**Historical / forward performance claims:** None
+**Report date:** 2026-11-17  
+**Selected provider:** MEXC Futures public API — technical data qualification passed  
+**Research universe:** active cross-margin USDT-settled linear perpetuals  
+**Forward paper account:** NOT INITIALIZED — state branch protection gate is closed  
+**Historical replay:** not implemented  
+**Verified portfolio NAV:** not available  
+**Performance claims:** none
 
-## Repository and deployment
+## Provider selection and evidence
 
-- Public repository verified; default branch is `main`.
-- Code and documentation are committed on `main`.
-- Dedicated `state` branch exists and is reserved for immutable paper-account events.
-- The state branch currently contains only its policy/README file; no account or event batch has been initialized.
-- No live trading, Testnet, private API calls, exchange credentials or real capital are used.
+The required search order was Polymarket Perps → MEXC → Bitget. The first provider to pass the configured public-data screen was MEXC. Bitget was checked separately for curiosity only; it did not change selection.
+
+| Provider | Evidence | Current result |
+|---|---|---|
+| MEXC Futures | 1,152 instruments discovered; 1,143 cross-margin perpetuals across settlements; 1,061 active USDT-settled cross-margin perpetuals; sampled market data and full selected-universe ticker coverage | SELECTED — TECHNICAL PUBLIC-DATA PASS |
+| Polymarket Perps | 90 active cross-margin instruments discovered; missing fee coverage for four categories and sampled order-book reads failed | NOT READY |
+| Bitget | 886 active cross-margin USDT perpetuals; instrument, precision and sampled ticker/book/candle/funding checks passed | CURIOSITY-ONLY PASS; NOT SELECTED |
+
+Verified MEXC workflow: [run 43976183941](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976183941).
+
+The MEXC response provided 1,161 bulk ticker rows; every one of the 1,061 selected instruments had a matching ticker. Public order-book, daily-candle and funding-history calls passed for sampled high-turnover instruments across crypto, equity, commodity, FX and unclassified categories. The sampled daily candles began at 00:00 UTC. This verifies API shapes and representative category coverage, not every book or funding record on the entire universe.
+
+Romanian derivatives-product/account eligibility has not been independently confirmed. Public API reachability is not an authorization determination.
 
 ## Research configuration
 
-| Setting | Current value | Status |
+| Setting | Value | Status |
 |---|---:|---|
 | Fast / slow EMA | 7 / 15 | Illustrated in source paper; not optimized |
 | Trend smoothing m | 5 | Provisional |
-| Noise smoothing n | 10 | Provisional; n>m |
+| Noise smoothing n | 10 | Provisional; n > m |
 | Noise method | Absolute deviation | Baseline; RMS option also implemented |
-| Qualification | Strict |Q|>2 | Research threshold, not a validated trading edge |
+| Qualification | Strict |Q| > 2 | Research filter, not a validated trading edge |
 | Correction factor | 1.0 | Provisional |
 | ATR | Wilder 14 | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial forward paper capital | 100 pUSD (if Polymarket selected) | Not yet initialized |
-| Target long / short gross allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
+| Initial paper capital | 100 USDT | Account code only; account not initialized |
+| Long / short allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
 
 ## Implemented on main
 
-| Component | Current evidence / limitation |
+| Component | Evidence / status |
 |---|---|
-| Specification and research safeguards | Master directive v2.8; exchange-neutral research core and explicit candidate qualification gates |
-| Indicator engine | EMA, causal semi-cycle/CPC, Trend, absolute and RMS Noise, Q, B and Wilder ATR; tested |
-| Cross-sectional ranking | Signed-Q candidate ranking and distinct-symbol pair-selection primitives; not yet applied to a complete live universe |
-| Bybit public client | Server time, paginated USDT linear perpetual instruments, backward Kline retrieval, funding history subdivision and public order-book parsing; mocked API tests pass |
-| Decimal accounting | Position P&L, funding cashflow, exposure/NAV arithmetic, quantity flooring and sizing primitives; tested |
-| Paper execution models | Order-book VWAP, partial-fill handling, fee and shortfall calculations, impact rejection, and historical next-minute slippage model; pure simulator only |
-| Performance analytics | Daily net returns, total return, sample-gated CAGR/volatility/Sharpe/Sortino, drawdown/duration/recovery, Calmar and closed-trade statistics; tested but not yet connected to a portfolio equity history |
-| Immutable event journal | Canonical JSON, SHA-256 event/batch chains, validation and local atomic batch writing; tested |
-| Git state publisher | Remote event-chain tip, fork, orphan and duplicate-genesis validation implemented; mocked tests pass. Server-side branch protection remains absent, so state writes are blocked |
-| SQLite projection | Transactional, idempotent event projection, chain ordering and integrity checks; tested locally |
-| CI | Ruff and pytest run on Python 3.12 |
+| Exchange-neutral Q indicator | EMA, causal semi-cycle/CPC, Trend, absolute and RMS Noise, Q, B and Wilder ATR modules retained |
+| MEXC public adapter | Instrument details, cross-margin filter, bulk tickers, public depth, daily Klines and funding history; adapter unit tests added |
+| USDT universe normalization | 1,061 active USDT-settled cross-margin contracts observed; all categories retained, including unclassified |
+| Contract-unit handling | contractSize, volUnit, minVol, maxVol and priceUnit normalized; book and Kline contract volume converted to base units; quote turnover retained separately |
+| Research/execution split | Q ranker produces independent long and short research lists; liquidity/turnover and order-book impact are execution gates |
+| Incremental data storage | Provider-isolated manifest, date-partitioned daily candles, compressed five-minute ticker snapshots, funding partitions, new listing lifecycle and delisting/settlement tracking |
+| MEXC paper execution | Book VWAP simulation, taker fee, shortfall and stale-book rejection; no order endpoint |
+| MEXC portfolio accounting | USDT cash/NAV, realized and unrealized P&L, fee/funding ledger, ATR stops, daily equity and sample-gated performance report functions; unit tests added |
+| State journal | Immutable hash-chained event journal and GitHub state publisher retained; runtime gate strengthened |
+| MEXC read-only preflight | Successful hosted-runner integration workflow and UTC daily-bar boundary sample |
+| Five-minute cycle | New MEXC market-data/ranking workflow configured; first cycle completed a 150-instrument bootstrap batch, but its first data-branch commit failed because the branch ignored the data directory. Workflow was changed to force-add public data; a subsequent successful branch commit is still required before treating persistence as operational. |
 
-## Verified CI evidence
+Latest green pre-MEXC-cycle CI evidence: [run 43976183687](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976183687). A later CI run found a duplicate normalized metadata key; this was removed. CI on the current documentation/workflow revisions must be checked before calling the current main revision green.
 
-- Latest successful core-code run: [GitHub Actions run 43931058486](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43931058486).
-- Commit tested: `a1c0e083893e5566fb2173b22c7afe81b196b4b9`.
-- Ruff: all checks passed.
-- Pytest: **67 passed in 0.25 seconds**.
-- Coverage includes the drawdown-duration regressions and mocked remote state-chain continuity/fork tests; it does not establish a real GitHub state write or a live exchange integration.
-- These tests cover deterministic calculations, mocked API response/pagination behavior, accounting, simulated execution, performance metrics, local event persistence, SQLite projection and mocked Git state publication. They do not establish successful live Bybit access or strategy profitability.
+## Market-data bootstrap and cadence
 
-## External Bybit API and archive access
+- MEXC provider key is stored separately from any older Polymarket market-data manifest; the store refuses cross-provider history mixing.
+- Initial backfill target: up to 365 days of available daily candles for each active eligible instrument.
+- Batches are bounded to 150 instruments by default; the first observed cycle completed 150 and left 911 pending.
+- Subsequent API requests begin after the last successfully stored/completed daily bar; newly listed instruments receive their own resumable backfill.
+- Incomplete or insufficient history is explicitly marked; an instrument with insufficient history remains ineligible for Q ranking until it has enough completed bars.
+- Routine snapshots are scheduled every five minutes. The daily Q decision uses only the latest completed UTC daily bar, and the decision key is its timestamp.
+- A scheduled GitHub workflow is best-effort and is not a continuous monitoring service.
 
-### Live V5 API
-Six jobs were run on GitHub-hosted standard Linux runners using Ubuntu 22.04, 24.04 and 26.04. Each made one request to `https://api.bybit.com/v5/market/time`.
+The first MEXC data/ranking execution successfully ran its Python cycle and produced a report showing 150 bootstrap instruments completed and 911 remaining. Its public-data commit failed because Git ignored the data/ directory. The workflow now uses a forced add of that directory on the dedicated market-data branch. Do not claim those first-run records are durably stored until a subsequent run confirms the commit.
 
-- Workflow run [43911753549](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43911753549): 6/6 failed with HTTP 403 and a CloudFront country-block response.
-- Five jobs were assigned to Azure US regions. One job was assigned to AWS `us-west-2`; it also received HTTP 403.
-- The standard Linux multi-cloud pool is automatic and provides no user-selectable region. This test therefore did not create a compliant route to the live API.
+## Portfolio state and no-write gate
 
-### Official historical trade archive
-A separate read-only probe tested the official Bybit archive host from the same standard Linux runner pool.
+**The forward paper account remains uninitialized.**
 
-- Workflow run [43912009008](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912009008): 3/3 initial gzip/range probes passed.
-- Follow-up [schema probe 43912788709](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912788709): 3/3 passed. Each fetched bytes 0–8191, decompressed a prefix, parsed the CSV header and first trade row, and received HTTP 206.
-- Verified header: `timestamp,symbol,side,size,price,tickDirection,trdMatchID,grossValue,homeNotional,foreignNotional,RPI`.
-- The three follow-up jobs were assigned to Azure `southcentralus`, AWS `us-east-1`, and Azure `northcentralus`.
-- The archive index shows daily BTCUSDT trade files beginning 2020-03-25 and extending through 2026-11-15. The tested file advertises 126,793,002 compressed bytes.
+The GitHub state branch is reported as unprotected; the branch-protection endpoint could not be verified through the connected integration and the repository rulesets endpoint returned an empty list. As a result:
 
-The archive gives a credible path for selective historical trade ingestion and OHLCV reconstruction. It is not integrated yet, and it is not a replacement for live V5 data: funding history, mark/index prices, fresh order books, current instrument rules, and intraday execution are not established by this archive. Historical symbol coverage and survivorship bias also require audit before universe-level claims.
+- MEXC workflow sets PAPER_STATE_WRITE_ENABLED=false.
+- No paper positions are opened, closed or maintained.
+- No financial event batches are written to the state branch.
+- No verified portfolio NAV, equity curve, trade count, return, CAGR, Sharpe, Sortino, drawdown or profitability metric is available.
+- The cycle must not treat a rebuildable market-data projection as the durable financial ledger.
 
-**Release decision:** Live ranking-dependent portfolio workflows remain disabled. The historical archive path may be implemented for selective price research only after schema, integrity, coverage, storage and cost validation. No NAV, trade count, return, CAGR, Sharpe, drawdown or profitability statistic is claimed until historical or forward account data actually exists.
+Before enabling paper-account transitions, configure and verify server-side state-branch protection, prohibit force-push/deletion, restrict writers, and pass a real GitHub event-publisher and recovery test. This repository is public; all branch data are public and permanent.
 
-## Emergency red-team findings
+## Not yet complete
 
-- Report: [RED_TEAM_REPORT.md](RED_TEAM_REPORT.md).
-- Crypto.com candidate: **NOT_READY**. The former probe incorrectly passed on instrument discovery alone; the repaired gate requires universe breadth, USDT compatibility, successful funding history, all required public data and verified jurisdiction/collateral.
-- Follow-up Crypto.com readiness run [43930116624](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43930116624): all three Ubuntu jobs reported NOT_READY. Six USD-quoted contracts were found; funding-history API code 40004 was returned for both tested instrument-name formats.
-- Performance analytics: longest underwater drawdown duration now tracks all drawdown episodes and restarts its clock after exact high-water recovery; regression tests pass.
-- State publisher: new batches must extend the verified remote event-chain tip; forked, orphaned and second-genesis chains are rejected in code and mocked tests.
-- Critical unresolved integrity gate: GitHub reports `state` as unprotected and repository rulesets are empty. No account/event writes are permitted until server-side branch protection and writer restrictions are configured.
-- This is a public repository. Future state-branch files would be public and persistent; no confidential or personal account data may be stored there.
-- No replacement exchange is approved. The Bybit adapter remains the only implemented provider client, and its live V5 API remains blocked on tested GitHub-hosted runner routes.
+- Successfully persisted MEXC candle/snapshot bootstrap in market-data branch with verified integrity and recovery.
+- Independent full-universe data quality, missing/gap and funding-history completeness audit.
+- Full real-universe Q ranking verified against independent calculations and persisted daily report.
+- End-to-end MEXC paper portfolio transition and real GitHub durable event write/replay test.
+- State-branch server-side protection and restricted writers.
+- Separate chronological historical replay with point-in-time universe reconstruction and survivorship audit.
+- Sampled-stop delay/recovery analysis using MEXC detection-time public books.
+- Forward account initialization after every data, execution, accounting and persistence gate passes.
+- Equity curve, drawdown chart and human-readable risk report from actual persisted NAV observations.
+- Independent audit of account state and performance.
 
-**Release decision:** no historical or forward performance claims, no paper-account initialization, no event-ledger writes and no exchange migration approval.
+## Safety and disclosure
 
-## Not yet implemented or operational
-
-- Complete full-universe data collection and daily historical persistence.
-- End-to-end completeness/freshness gates over every eligible instrument.
-- Historical replay and survivorship-aware universe reconstruction.
-- Fully integrated paper broker/state machine, stop/funding event sequencing and cash/NAV reconciliation.
-- Real GitHub state-branch publication and automated restore/rebuild from that branch.
-- Forward paper account initialization and daily/hourly scheduled runs.
-- Generated equity curve, drawdown chart and human-readable portfolio risk report from actual persisted performance.
-
-**Release decision:** Do not activate ranking-dependent portfolio workflows. No NAV, trade count, return, CAGR, Sharpe, drawdown or profitability statistic is claimed until the missing data, replay/portfolio integration and persistence gates are passed.
-
-This report is evidence-based and must be regenerated from persisted account state once that system exists.
-
-
-## Ordered 24/7 cross-margin perpetual exchange search
-
-**Required search order:** HTX → MEXC → Binance → WEEX → Bitget.
-
-- HTX: hard jurisdiction rejection for Romania while its current published terms exclude EU member states. No account access or geographic workaround is attempted.
-- MEXC, Binance, WEEX and Bitget: read-only public market-data qualification is being executed. No candidate is approved from endpoint reachability alone; Romanian/EEA derivatives product eligibility must be independently confirmed.
-- If none of the five clears the complete gate, the specified fallback is OKX EEA primary, Kraken EEA backup.
-- Candidate screens enumerate documented perpetual contract classes and require cross-margin mode. They preserve unclassified asset types and exclude isolated-only, delivery/expiry and metadata-incomplete contracts.
-- New parser tests and the read-only public qualification workflow are committed. The corresponding CI and public API results are pending verification as of this report update.
-
-The first qualification screen samples market-data endpoints by available asset class. It is not the full-universe acceptance test. Before a paper account can be initialized, the selected provider must pass ticker, book, candle, funding, mark/index and contract-precision validation across every retained eligible instrument. For Kraken, retain only the 69 previously reconciled contracts and exclude the 26 mismatches; the 69-symbol full-universe coverage test has not yet run.
-
-**No replacement adapter, paper account, equity curve or performance result is claimed.** The system remains paper-only and all scheduled portfolio workflows remain disabled.
-
-
-## Updated provider and scheduling scope — 16 November 2026
-
-- User clarified that an exchange does **not** need to offer every asset class. The research universe must include every active perpetual on the selected provider for which cross margin is available, across every category the provider offers.
-- Provider order is exactly **Polymarket Perps → MEXC → Bitget**. Stop at the first technical API pass. Romania not appearing on Polymarket's published geoblock table is not individual legal/account clearance.
-- Added `src/trend_quality/polymarket_api.py`: unauthenticated read-only instrument, bulk ticker/statistics, fees, order book, daily candle and funding-history reads.
-- Added `scripts/probe_polymarket_mexc_bitget.py` and its GitHub Actions qualification workflow. The first run stopped at the lint/test gate; the corrected run is pending. No Polymarket API result is claimed yet.
-- Created `market-data` branch for public instrument manifest, daily candle partitions and five-minute compressed ticker snapshots. The `state` branch remains reserved for immutable paper-account events.
-- Added `src/trend_quality/market_data_store.py` for incremental history and lifecycle tracking. A new listing is backfilled once; daily updates start after each instrument's last stored candle; permanently settled markets remain archived and stop routine updates.
-- Planned cadence: five-minute snapshots; daily Q/ranking/portfolio transition only on the first successful workflow run after a new completed UTC daily candle. The daily bar timestamp is the idempotency key.
-- Forward portfolio remains uninitialized. The first position transition is gated on a qualifying provider, full active cross-margin ticker coverage, sufficient daily history, accounting/fee validation and the stop/exit simulation checks.
+No live trading, Testnet, private account endpoints, exchange credentials, wallet, proxy/VPN or paid infrastructure were used. No exchange orders were submitted. The paper modules only simulate hypothetical fills. MEXC account access in Romania remains unverified. No historical or forward profitability claim is made.
