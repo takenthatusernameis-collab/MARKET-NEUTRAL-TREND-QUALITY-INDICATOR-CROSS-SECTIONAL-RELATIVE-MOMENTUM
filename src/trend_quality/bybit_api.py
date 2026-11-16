@@ -302,10 +302,26 @@ class BybitPublicClient:
                     fetch_window(midpoint + 1, right, depth + 1)
                 return
             for row in rows:
-                if not isinstance(row, dict) or "fundingRateTimestamp" not in row:
-                    raise BybitAPIError("Malformed funding record")
-                timestamp = int(row["fundingRateTimestamp"])
+                if (
+                    not isinstance(row, dict)
+                    or row.get("symbol") != symbol
+                    or "fundingRateTimestamp" not in row
+                    or "fundingRate" not in row
+                ):
+                    raise BybitAPIError("Malformed or mismatched funding record")
+                try:
+                    timestamp = int(row["fundingRateTimestamp"])
+                except (TypeError, ValueError, OverflowError) as exc:
+                    raise BybitAPIError("Invalid funding timestamp") from exc
+                _decimal(row["fundingRate"], "fundingRate")
+                if timestamp < 0:
+                    raise BybitAPIError("Negative funding timestamp")
                 if left <= timestamp <= right:
+                    previous = collected.get(timestamp)
+                    if previous is not None and previous != row:
+                        raise BybitAPIError(
+                            f"Conflicting funding records at timestamp {timestamp}"
+                        )
                     collected[timestamp] = row
 
         fetch_window(start_ms, end_ms, 0)
