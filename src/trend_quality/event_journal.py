@@ -10,8 +10,9 @@ import json
 import os
 import re
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 class EventJournalError(RuntimeError):
@@ -102,7 +103,9 @@ def verify_event_batch(batch: dict[str, Any]) -> bool:
         if batch.get("schema_version") != 1 or not isinstance(batch.get("events"), list):
             return False
         expected_previous = batch.get("previous_batch_hash")
-        if expected_previous is not None and not re.fullmatch(r"[0-9a-f]{64}", str(expected_previous)):
+        if expected_previous is not None and not re.fullmatch(
+            r"[0-9a-f]{64}", str(expected_previous)
+        ):
             return False
         events = batch["events"]
         prior = expected_previous
@@ -123,7 +126,10 @@ def verify_event_batch(batch: dict[str, Any]) -> bool:
             prior = event_hash
         without_batch_hash = dict(batch)
         actual_hash = without_batch_hash.pop("batch_hash", None)
-        return hashlib.sha256(canonical_json(without_batch_hash).encode("utf-8")).hexdigest() == actual_hash
+        calculated_hash = hashlib.sha256(
+            canonical_json(without_batch_hash).encode("utf-8")
+        ).hexdigest()
+        return calculated_hash == actual_hash
     except (EventJournalError, TypeError, ValueError, KeyError):
         return False
 
@@ -135,7 +141,7 @@ def write_batch_atomic(root: str | Path, batch: dict[str, Any]) -> Path:
     created_at_ms = int(batch["created_at_ms"])
     import datetime
 
-    date = datetime.datetime.fromtimestamp(created_at_ms / 1000, tz=datetime.timezone.utc)
+    date = datetime.datetime.fromtimestamp(created_at_ms / 1000, tz=datetime.UTC)
     directory = Path(root) / "events" / date.strftime("%Y") / date.strftime("%m")
     directory.mkdir(parents=True, exist_ok=True)
     destination = directory / f"{batch['run_id']}.json"
@@ -157,7 +163,7 @@ def write_batch_atomic(root: str | Path, batch: dict[str, Any]) -> Path:
             os.link(temporary_path, destination)
         except FileExistsError:
             if destination.read_text(encoding="utf-8") != payload:
-                raise EventJournalError("Concurrent run_id collision")
+                raise EventJournalError("Concurrent run_id collision") from None
         directory_fd = os.open(directory, os.O_RDONLY)
         try:
             os.fsync(directory_fd)
