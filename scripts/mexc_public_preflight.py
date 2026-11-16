@@ -57,7 +57,6 @@ def main() -> int:
 
         # Probe the most liquid member of each reported classification, plus
         # unknown categories. Class labels are observational, not a filter.
-        instrument_by_symbol = {row["symbol"]: row for row in instruments}
         samples: dict[str, dict[str, Any]] = {}
         for instrument in instruments:
             category = str(instrument["category"])
