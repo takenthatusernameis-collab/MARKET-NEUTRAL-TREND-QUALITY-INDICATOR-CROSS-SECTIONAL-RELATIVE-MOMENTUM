@@ -23,21 +23,33 @@ class MarketDataStoreError(RuntimeError):
 
 
 class MarketDataStore:
-    def __init__(self, root: str | Path) -> None:
+    def __init__(self, root: str | Path, *, provider: str = "polymarket") -> None:
+        if not provider or not provider.strip():
+            raise ValueError("provider must be a non-empty name")
+        self.provider = provider.strip().lower()
         self.root = Path(root)
         self.data_dir = self.root / "data"
         self.candles_dir = self.data_dir / "candles"
+        self.funding_dir = self.data_dir / "funding"
         self.snapshots_dir = self.data_dir / "snapshots"
         self.manifest_path = self.data_dir / "manifest.json"
         self.candles_dir.mkdir(parents=True, exist_ok=True)
+        self.funding_dir.mkdir(parents=True, exist_ok=True)
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
         self.manifest = self._load_manifest()
+        stored_provider = self.manifest.get("provider")
+        if stored_provider and str(stored_provider).lower() != self.provider:
+            raise MarketDataStoreError(
+                f"Market-data store belongs to {stored_provider}, not {self.provider}; "
+                "refusing to mix exchange histories"
+            )
+        self.manifest["provider"] = self.provider
 
     def _load_manifest(self) -> dict[str, Any]:
         if not self.manifest_path.exists():
             return {
                 "schema_version": SCHEMA_VERSION,
-                "provider": "polymarket",
+                "provider": self.provider,
                 "created_at_ms": None,
                 "updated_at_ms": None,
                 "last_snapshot_ms": None,
@@ -150,8 +162,95 @@ class MarketDataStore:
                 timestamp = int(row["timestamp_ms"])
                 if latest is None or timestamp > int(latest):
                     instrument["last_candle_timestamp_ms"] = timestamp
-                instrument["bootstrap_complete"] = True
         return sum(len(items) for items in grouped.values())
+
+
+    def mark_bootstrap_complete(
+        self,
+        instrument_id: int,
+        *,
+        completed_at_ms: int,
+        history_status: str,
+    ) -> None:
+        """Mark bootstrap only after the caller verifies the requested history window."""
+        instrument = self.manifest["instruments"].get(str(int(instrument_id)))
+        if instrument is None:
+            raise MarketDataStoreError(f"Unknown instrument {instrument_id}")
+        if history_status not in {
+            "AVAILABLE", "INSUFFICIENT_HISTORY", "NO_TRADES_IN_WINDOW"
+        }:
+            raise ValueError("Unsupported history_status")
+        instrument["bootstrap_complete"] = True
+        instrument["bootstrap_completed_at_ms"] = int(completed_at_ms)
+        instrument["history_status"] = history_status
+
+    def append_funding(self, rows: list[dict[str, Any]]) -> int:
+        """Append deduplicated settlement observations in daily gzip partitions."""
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        seen: set[tuple[int, int]] = set()
+        for row in rows:
+            instrument_id = row.get("instrument_id")
+            timestamp = row.get("timestamp_ms")
+            if (
+                isinstance(instrument_id, bool)
+                or not isinstance(instrument_id, int)
+                or isinstance(timestamp, bool)
+                or not isinstance(timestamp, int)
+                or timestamp <= 0
+            ):
+                raise MarketDataStoreError("Funding row has invalid instrument or timestamp")
+            key = (instrument_id, timestamp)
+            if key in seen:
+                continue
+            seen.add(key)
+            day = datetime.fromtimestamp(timestamp / 1000, tz=UTC).strftime("%Y-%m-%d")
+            grouped[day].append(row)
+        for day, day_rows in grouped.items():
+            path = self.funding_dir / f"{day}.jsonl.gz"
+            block = "".join(
+                json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n"
+                for row in sorted(
+                    day_rows,
+                    key=lambda item: (item["instrument_id"], item["timestamp_ms"]),
+                )
+            ).encode("utf-8")
+            with path.open("ab") as handle:
+                handle.write(gzip.compress(block, mtime=0))
+        for row in rows:
+            instrument = self.manifest["instruments"].get(str(row["instrument_id"]))
+            if instrument is not None:
+                latest = instrument.get("last_funding_timestamp_ms")
+                timestamp = int(row["timestamp_ms"])
+                if latest is None or timestamp > int(latest):
+                    instrument["last_funding_timestamp_ms"] = timestamp
+        return sum(len(items) for items in grouped.values())
+
+    def load_funding(
+        self,
+        instrument_id: int,
+        *,
+        start_timestamp_ms: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Load one instrument's funding events, deduplicated by settlement time."""
+        result: dict[int, dict[str, Any]] = {}
+        for path in sorted(self.funding_dir.glob("*.jsonl.gz")):
+            try:
+                with gzip.open(path, "rt", encoding="utf-8") as source:
+                    for line in source:
+                        if not line.strip():
+                            continue
+                        row = json.loads(line)
+                        if int(row.get("instrument_id", -1)) != int(instrument_id):
+                            continue
+                        timestamp = int(row["timestamp_ms"])
+                        if start_timestamp_ms is not None and timestamp < start_timestamp_ms:
+                            continue
+                        result[timestamp] = row
+            except (
+                OSError, EOFError, json.JSONDecodeError, KeyError, TypeError, ValueError
+            ) as exc:
+                raise MarketDataStoreError(f"Invalid funding partition {path}: {exc}") from exc
+        return [result[timestamp] for timestamp in sorted(result)]
 
     def save_snapshot(self, snapshot_ms: int, rows: list[dict[str, Any]]) -> Path:
         stamp = datetime.fromtimestamp(snapshot_ms / 1000, tz=UTC)
