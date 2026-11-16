@@ -35,6 +35,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
+          from collections import Counter
           import urllib.error
           import urllib.parse
           import urllib.request
@@ -110,18 +111,26 @@ jobs:
               )
               and "RO" not in x.get("countriesBanned", [])
           ]
-          # Exclude tokenised equities and indices explicitly visible in the
-          # official EEA instrument naming scheme; still expose all raw PF data.
-          non_crypto_markers = (
-              "AAPLX", "AMZNX", "GOOGLX", "HOODX", "MSTRX",
-              "NV DAX".replace(" ", ""), "QQQX", "SPYX", "TSLAX", "GLDX",
-              "US100", "AMDUSD", "SNDKUSD",
+          # Kraken's native category field is the authoritative classification
+          # field. Permission tags alone do not distinguish crypto from xStocks,
+          # equity indices or commodity indices.
+          category_counts = Counter(
+              str(row.get("category") or "UNCLASSIFIED") for row in pf
           )
+          non_crypto_categories = {"xStocks", "Equities", "Indices", "Commodities"}
           crypto_pf = [
-              x for x in pf
-              if not any(marker in str(x.get("symbol", "")).upper() for marker in non_crypto_markers)
-              and x.get("underlying") not in ("in_us100usd", "rr_us100usd")
+              row for row in pf
+              if isinstance(row.get("category"), str)
+              and row.get("category") not in non_crypto_categories
+              and row.get("category") != "UNCLASSIFIED"
           ]
+          unclassified_pf = [
+              row for row in pf
+              if not isinstance(row.get("category"), str) or not row.get("category")
+          ]
+          crypto_category_counts = Counter(
+              str(row.get("category")) for row in crypto_pf
+          )
           def has_europe_retail_margin(row):
               schedules = row.get("marginSchedules")
               if not isinstance(schedules, dict):
@@ -275,7 +284,11 @@ jobs:
                   funding_rates_valid = False
           latest_funding_timestamp = max(funding_timestamps, default=0)
           checks = {
-              "instruments": valid_success(instrument_result) and len(crypto_pf) >= 50,
+              "instruments": (
+                  valid_success(instrument_result)
+                  and len(crypto_pf) >= 50
+                  and not unclassified_pf
+              ),
               "eea_platform_permissions": bool(pf) and all(
                   "europa_crypto" in row.get("platformsPermitted", [])
                   or "europa" in row.get("platformsPermitted", [])
@@ -317,7 +330,14 @@ jobs:
               "all_instrument_count": len(all_instruments),
               "tradeable_pf_usd_count": len(pf),
               "eea_platform_permitted_pf_usd_count": len(pf),
-              "approx_crypto_pf_usd_count": len(crypto_pf),
+              "category_counts": dict(sorted(category_counts.items())),
+              "crypto_category_counts": dict(sorted(crypto_category_counts.items())),
+              "unclassified_pf_count": len(unclassified_pf),
+              "excluded_non_crypto_category_count": sum(
+                  category_counts.get(category, 0) for category in non_crypto_categories
+              ),
+              "category_filtered_crypto_pf_count": len(crypto_pf),
+              "previous_heuristic_crypto_count_for_comparison": 196,
               "europa_crypto_permission_count": len(permission_tagged_crypto),
               "europa_general_only_pf_count": sum(
                   "europa" in row.get("platformsPermitted", [])
