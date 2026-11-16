@@ -1,13 +1,110 @@
-# Master Implementation Directive v2.8
+# Master Implementation Directive v2.9
 ## Market-Neutral Trend-Quality Indicator — Exchange-Neutral Paper Research
 
 Repository: `takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM`  
 Target: `main`  
-Current ordered provider search: Polymarket Perps → MEXC → Bitget. Polymarket is the first candidate; its public SDK documents cross-margin non-expiring perpetuals and categories including crypto, equity, commodity, index and pre-IPO. Run the current public API acceptance workflow. The first provider that clears all strategy-data gates becomes the selected paper-research provider; do not probe later providers after a pass. Bybit is retained only as a historical/previously blocked adapter.  
+Provider search order was Polymarket Perps → MEXC → Bitget. The first-pass result selected MEXC: Polymarket did not pass fee/book coverage, while MEXC passed the real public-data preflight. Bitget was checked separately for curiosity and passed a sample screen, but it does not displace MEXC. MEXC is the selected research provider until a separately authorized and evidence-based provider change. Bybit is retained only as a historical/previously blocked adapter.  
 Execution: local paper simulation only; no live orders, Testnet, credentials or private endpoints.  
-Initial paper capital: 100 units in the selected provider's collateral denomination. For Polymarket, use pUSD as the ledger denomination and do not silently equate pUSD with USDT. Target gross exposure: 1.0x NAV, 50% long and 50% short.
+Initial paper capital: 100 USDT for the MEXC USDT-settled paper account. Never mix USDC, USD1, coin-margined or other settlement balances into USDT NAV. Historical Polymarket-specific rules remain in this document only for a future provider migration and do not govern the selected MEXC cycle. Target gross exposure: 1.0x NAV, 50% long and 50% short.
 
 Primary source: David Sepiashvili, [Trend-Quality Indicator](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf).
+
+
+## 0. Active provider-selection override — MEXC (2026-11-17)
+
+This section is the current operational authority and supersedes any older Polymarket-first, Bybit-first, pUSD or Polymarket API-specific workflow instructions elsewhere in this historical directive. Do not silently switch providers.
+
+### 0.1 Verified selection evidence
+
+The exact discovery order was Polymarket Perps → MEXC → Bitget.
+
+- Polymarket was not ready: the public qualification run found missing fee coverage across four categories and failed sampled order-book checks.
+- MEXC passed the public unauthenticated data qualification on GitHub-hosted Ubuntu. It returned 1,152 contract records, 1,143 cross-margin perpetuals across settlements and **1,061 active cross-margin USDT-settled linear perpetuals**.
+- MEXC bulk ticker coverage included all 1,061 selected contracts (1,161 ticker rows were returned).
+- Representative public ticker, order-book, daily Kline and funding-history calls passed across crypto, equity, commodity, FX and unclassified contract groups.
+- Representative MEXC Day1 bars opened at 00:00 UTC.
+- Bitget's independent curiosity check found 886 active cross-margin USDT perpetuals and sampled market-data calls passed. This is a comparative observation only; MEXC remains selected because it was the first provider to pass the ordered screen.
+
+These results prove technical API reachability and sampled endpoint contracts, not the legal entitlement of a Romanian user to access derivatives. Record product/account eligibility as UNVERIFIED unless confirmed from current authoritative terms and applicable account status. Never infer authorization merely from absence from a prohibited-country list.
+
+### 0.2 MEXC data contract and exact endpoints
+
+Use only the official public MEXC Futures contract API host, https://contract.mexc.com, with no API key, private account endpoint or order method.
+
+- GET /api/v1/contract/ping — server time.
+- GET /api/v1/contract/detail — full contract metadata and universe discovery.
+- GET /api/v1/contract/ticker — bulk ticker data; call once per cycle, not once per symbol.
+- GET /api/v1/contract/depth/{symbol} — public bid/ask depth.
+- GET /api/v1/contract/kline/{symbol} — daily candles and other documented intervals.
+- GET /api/v1/contract/funding_rate/history — actual published settlement timestamps and funding rates.
+
+The Python adapter is src/trend_quality/mexc_api.py. Its normalized output is defined for the exchange-neutral data and accounting modules. The real API preflight is scripts/mexc_public_preflight.py; the five-minute data/ranking workflow is .github/workflows/mexc-paper-cycle.yml.
+
+### 0.3 Per-instrument universe and USDT ledger
+
+The selected strategy universe includes every active linear perpetual for which cross margin is available on that specific contract and both quoteCoin and settleCoin are USDT. Use futureType=1, positionOpenType=2 or 3, enabled state, and API eligibility. Exclude isolated-only, inactive, retired/settled and non-USDT settlement contracts from the USDT strategy account. Preserve their metadata separately where appropriate; do not mix their collateral into this account.
+
+No exchange-wide category gate is allowed. Include crypto, equity, commodity, FX and all other categories offered by the selected product. Preserve unknown provider classifications as unclassified; do not discard them because the venue category taxonomy is incomplete.
+
+Do not mistake absence of a best bid or ask for an absent research asset. Preserve otherwise valid ticker/history records for research and mark them non-executable until a fresh, two-sided book is available. Execution cannot use a fallback price fabricated from a missing quote.
+
+### 0.4 Contract units, prices, turnover and accounting
+
+MEXC book quantities and Kline volume are contract counts. Convert them to base-asset quantities with the instrument's actual contractSize before applying the common BookLevel, sizing, or simulated fill code.
+
+Respect each instrument's:
+- contractSize;
+- priceUnit and priceScale;
+- volUnit, volScale, minVol and maxVol;
+- takerFeeRate and makerFeeRate;
+- quoteCoin and settleCoin;
+- actual positionOpenType, futureType and state.
+
+Do not infer these from a ticker symbol. Do not treat contracts as base units. Use daily Kline amount and ticker amount24 as USDT turnover, separately from contract volume24 or vol. The MEXC forward paper account, if activated, is denominated in USDT. Funding, realized P&L, fees, cash, NAV, equity and risk metrics must all reconcile in USDT. No alternate settlement asset is converted into USDT without a separately specified, sourced conversion model.
+
+MEXC funding history uses actual settleTime and signed fundingRate values. Positive and negative rates are both valid. Funding is booked only when the paper position is open immediately before the actual published settlement timestamp. Use a stored mark snapshot at or immediately before settlement within the explicit age tolerance; unmatched settlement events remain unresolved and must not be replaced with zero or the latest ticker. Maintain idempotent funding cursors so a previously applied settlement is never applied twice.
+
+### 0.5 Daily candle boundary, incremental history and five-minute cadence
+
+The public preflight sampled Day1 candles on crypto, commodity, equity, FX and unclassified instruments. All observed bar start timestamps aligned to 00:00 UTC. Continue to validate timestamp monotonicity, gaps, duplicates and candle integrity rather than hard-coding a timezone inference from symbol or category.
+
+- Snapshot the bulk ticker/mark/index/funding fields and selected instrument metadata every five minutes, subject to actual workflow cadence.
+- Bootstrap each active eligible instrument once with up to 365 days of available completed Day1 candles, using resumable batches of 150 instruments by default.
+- Persist a per-instrument cursor only after a successful completed response and durable candle append.
+- Later cycles request only missing completed candles after the last verified timestamp, never redownload full histories routinely.
+- Newly listed instruments receive their own bounded backfill. Mark insufficient history explicitly and allow subsequent incremental candles to move them to research eligibility once minimum history is available.
+- Two or more missing inventory observations trigger a lifecycle review; absence from a ticker response alone is not evidence of delisting. Explicit settled/retired contracts stop routine price updates but retain stored history.
+- Only the first successful cycle after a new completed UTC daily bar may perform the daily Q/ranking decision. Key it by the completed daily candle timestamp and make it idempotent.
+- A five-minute GitHub schedule is best effort, not continuous protection. Report delayed/missed runs and the actual maximum snapshot gap.
+
+### 0.6 Ranking, execution and reports
+
+Compute the original causal Q indicator independently for every contract with enough valid completed daily history, regardless of turnover or asset category. Keep research eligibility separate from execution eligibility. Research lists must retain valid low-turnover or temporarily unbooked assets; execution eligibility separately checks price validity, min/max quantity/notional, contract precision, fees, turnover, two-sided book freshness, book depth, spread and maximum modeled impact.
+
+Produce sorted positive-Q long and negative-Q short lists with deterministic tie-breaking. For a pair decision, choose the strongest executable long and short that are distinct instruments and pass the full book/size/fee checks; do not open a one-legged new pair.
+
+The human-readable MEXC report should show universe and data coverage, history-bootstrap progress, exclusions, Q/B values and top research/executable rankings, portfolio cash and NAV if an account exists, positions, realized/unrealized P&L, fees, confirmed/unresolved funding, gross/net exposure, drawdown, stops, trade statistics and daily equity curve. Metrics below their required sample window must be shown as unavailable with the precise reason, not as zero.
+
+### 0.7 Immutable account-state gate — do not bypass
+
+The repository's state branch was observed unprotected and its repository rulesets endpoint returned an empty list. The five-minute MEXC workflow therefore explicitly sets PAPER_STATE_WRITE_ENABLED=false. This is intentional. The workflow may collect public market data and produce rankings, but it must not initialize the portfolio, open/close simulated positions, publish financial event batches or claim a verified portfolio NAV while the gate is closed.
+
+Before any account transition:
+1. Verify server-side state-branch protection or a repository ruleset.
+2. Confirm force-push and branch deletion are prohibited and writers are restricted.
+3. Enforce protections for administrators as appropriate.
+4. Test a real GitHub event publisher append, duplicate/idempotency behavior, conflict handling and full state restore/replay.
+5. Keep the event-batch previous hash anchored to the verified remote chain tip.
+6. Only then, after all market-data and portfolio accounting acceptance gates pass, consider explicitly enabling the paper writer.
+
+Never weaken the guard, create a fake success path, write mutable account state to market-data, or treat a workflow artifact or SQLite projection as the authoritative ledger. The repository is public; every committed market-data or state file is public and permanent.
+
+### 0.8 Current implementation disclosure
+
+The MEXC public adapter, cross-sectional ranker, contract-aware paper-fill functions, USDT portfolio accounting module, funding/stop functions, incremental market-data store and cycle runner are committed to main. Mocked adapter/accounting tests and a real public API preflight have been run. The first data-cycle run completed a 150-instrument bootstrap batch, but its data-branch commit failed because the Git repository ignored the data directory; the workflow was updated to force-add the public data directory and requires a successful subsequent commit before market-data persistence can be called operational.
+
+No forward paper account is initialized. Historical replay is not implemented. No NAV, fills, returns, CAGR, Sharpe, drawdown or profitability is claimed. Romanian user/account eligibility remains unverified. No live orders, Testnet, credentials or private endpoints are permitted.
+
 
 ## 1. Mission and non-negotiable priorities
 
