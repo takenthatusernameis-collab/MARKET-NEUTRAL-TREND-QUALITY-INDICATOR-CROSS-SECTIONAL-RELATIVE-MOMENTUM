@@ -200,8 +200,12 @@ def probe_polymarket() -> dict[str, Any]:
         "cross_margin_instrument_count": len(all_cross),
         "new_position_eligible_count": len(new_entry),
         "close_only_cross_margin_count": len(close_only),
-        "isolated_only_excluded_count": sum(row.get("isolated_only") is True for row in instruments),
-        "retired_settled_excluded_count": sum(row.get("settlement") is not None for row in instruments),
+        "isolated_only_excluded_count": sum(
+            row.get("isolated_only") is True for row in instruments
+        ),
+        "retired_settled_excluded_count": sum(
+            row.get("settlement") is not None for row in instruments
+        ),
         "eligible_category_counts": dict(sorted(Counter(
             str(row.get("category") or "unknown") for row in new_entry
         ).items())),
