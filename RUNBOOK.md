@@ -14,6 +14,13 @@ Uses only Bybit Global public endpoints:
 
 No credentials or order endpoints are used.
 
+## Bybit HTTP 403 / regional restriction
+- Inspect the GitHub Actions runner-region log and the bounded HTTP denial diagnostics.
+- Bybit documentation identifies US/mainland-China source IPs as restricted; a 403 can also have other causes, so retain the response body/header evidence when available.
+- Do not retry a geographic restriction indefinitely, use a VPN/proxy, rotate API hosts, or switch exchanges.
+- Leave automated paper transitions disabled until a public unauthenticated Bybit request succeeds from an approved runner location.
+- A user-installed self-hosted runner on permitted hardware/network is a possible no-paid route, but requires explicit user setup and always-on availability.
+
 ## Data failure
 - Preserve last verified data and account state.
 - Mark the run PARTIAL or FAILED.
