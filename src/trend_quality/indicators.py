@@ -4,8 +4,8 @@ No network, filesystem, or trading side effects are allowed in this module.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 from math import isfinite, sqrt
 from typing import Literal
 
