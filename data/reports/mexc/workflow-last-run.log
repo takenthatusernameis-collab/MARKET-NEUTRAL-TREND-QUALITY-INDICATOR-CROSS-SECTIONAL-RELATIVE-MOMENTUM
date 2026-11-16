@@ -10,8 +10,8 @@
     "unclassified": 200
   },
   "bootstrap_completed_this_run": 150,
-  "bootstrap_remaining": 911,
-  "candle_rows_stored": 54316,
+  "bootstrap_remaining": 761,
+  "candle_rows_stored": 108118,
   "credentials_used": false,
   "excluded_or_unranked_sample": [
     "ZEC_USDT:NO_VALID_Q",
@@ -27,130 +27,230 @@
     "GMX_USDT:NO_VALID_Q",
     "STX_USDT:NO_VALID_Q",
     "USDC_USDT:NO_VALID_Q",
-    "CKB_USDT:INSUFFICIENT_HISTORY:0",
-    "ID_USDT:INSUFFICIENT_HISTORY:0",
-    "ARB_USDT:INSUFFICIENT_HISTORY:0",
-    "DODO_USDT:INSUFFICIENT_HISTORY:0",
-    "QNT_USDT:INSUFFICIENT_HISTORY:0",
-    "RPL_USDT:INSUFFICIENT_HISTORY:0",
-    "PAXG_USDT:INSUFFICIENT_HISTORY:0",
-    "SUPER_USDT:INSUFFICIENT_HISTORY:0",
-    "OG_USDT:INSUFFICIENT_HISTORY:0",
-    "CGPT_USDT:INSUFFICIENT_HISTORY:0",
-    "XVS_USDT:INSUFFICIENT_HISTORY:0",
-    "BNT_USDT:INSUFFICIENT_HISTORY:0",
-    "PEPE_USDT:INSUFFICIENT_HISTORY:0",
-    "POLYX_USDT:INSUFFICIENT_HISTORY:0",
-    "1000BONK_USDT:INSUFFICIENT_HISTORY:0",
-    "CAKE_USDT:INSUFFICIENT_HISTORY:0",
-    "EDU_USDT:INSUFFICIENT_HISTORY:0",
-    "SUI_USDT:INSUFFICIENT_HISTORY:0",
-    "TURBO_USDT:INSUFFICIENT_HISTORY:0",
-    "ORDI_USDT:INSUFFICIENT_HISTORY:0",
-    "CETUS_USDT:INSUFFICIENT_HISTORY:0",
-    "NMR_USDT:INSUFFICIENT_HISTORY:0",
-    "MAV_USDT:INSUFFICIENT_HISTORY:0",
-    "PENDLE_USDT:INSUFFICIENT_HISTORY:0",
-    "XVG_USDT:INSUFFICIENT_HISTORY:0",
-    "MNT_USDT:INSUFFICIENT_HISTORY:0",
-    "ARKM_USDT:INSUFFICIENT_HISTORY:0",
-    "WLD_USDT:INSUFFICIENT_HISTORY:0",
-    "ARK_USDT:INSUFFICIENT_HISTORY:0",
-    "CYBER_USDT:INSUFFICIENT_HISTORY:0",
-    "SEI_USDT:INSUFFICIENT_HISTORY:0",
-    "AUCTION_USDT:INSUFFICIENT_HISTORY:0",
-    "BIGTIME_USDT:INSUFFICIENT_HISTORY:0",
-    "GAS_USDT:INSUFFICIENT_HISTORY:0",
-    "POWR_USDT:INSUFFICIENT_HISTORY:0",
-    "STEEM_USDT:INSUFFICIENT_HISTORY:0",
-    "TIA_USDT:INSUFFICIENT_HISTORY:0"
+    "DODO_USDT:NO_VALID_Q",
+    "PAXG_USDT:NO_VALID_Q",
+    "PEPE_USDT:NO_VALID_Q",
+    "CYBER_USDT:NO_VALID_Q",
+    "POWR_USDT:NO_VALID_Q",
+    "PROM_USDT:NO_VALID_Q",
+    "ETHFI_USDT:NO_VALID_Q",
+    "REZ_USDT:NO_VALID_Q",
+    "ZRO_USDT:NO_VALID_Q",
+    "HMSTR_USDT:NO_VALID_Q",
+    "ACT_USDT:NO_VALID_Q",
+    "CLANKER_USDT:NO_VALID_Q",
+    "USUAL_USDT:NO_VALID_Q",
+    "FLUID_USDT:NO_VALID_Q",
+    "HYPE_USDT:NO_VALID_Q",
+    "BIO_USDT:INSUFFICIENT_HISTORY:0",
+    "ALCH_USDT:INSUFFICIENT_HISTORY:0",
+    "COOKIE_USDT:INSUFFICIENT_HISTORY:0",
+    "AVAAI_USDT:INSUFFICIENT_HISTORY:0",
+    "SWARMS_USDT:INSUFFICIENT_HISTORY:0",
+    "SONIC_USDT:INSUFFICIENT_HISTORY:0",
+    "POWER_USDT:INSUFFICIENT_HISTORY:0",
+    "PIPPIN_USDT:INSUFFICIENT_HISTORY:0",
+    "S_USDT:INSUFFICIENT_HISTORY:0",
+    "SOLV_USDT:INSUFFICIENT_HISTORY:0",
+    "BANANAS31_USDT:INSUFFICIENT_HISTORY:0",
+    "GPS_USDT:INSUFFICIENT_HISTORY:0",
+    "SQD_USDT:INSUFFICIENT_HISTORY:0",
+    "TRUMPOFFICIAL_USDT:INSUFFICIENT_HISTORY:0",
+    "MELANIA_USDT:INSUFFICIENT_HISTORY:0",
+    "PLUME_USDT:INSUFFICIENT_HISTORY:0",
+    "ANIME_USDT:INSUFFICIENT_HISTORY:0",
+    "VVV_USDT:INSUFFICIENT_HISTORY:0",
+    "JELLYJELLY_USDT:INSUFFICIENT_HISTORY:0",
+    "GANG_USDT:INSUFFICIENT_HISTORY:0",
+    "XAUT_USDT:INSUFFICIENT_HISTORY:0",
+    "BERA_USDT:INSUFFICIENT_HISTORY:0"
   ],
   "execution_long_top": [
     {
+      "category": "crypto",
+      "cycle_age": 87,
+      "direction": "long",
+      "instrument_id": 495,
+      "q": "17.98727735368956",
+      "symbol": "BEAMX_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 14,
+      "direction": "long",
+      "instrument_id": 233,
       "q": "5.453625632377747",
-      "symbol": "mexc:233"
+      "symbol": "JST_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 17,
+      "direction": "long",
+      "instrument_id": 574,
+      "q": "2.53781182478884",
+      "symbol": "MERL_USDT"
     }
   ],
   "execution_short_top": [
     {
+      "category": "crypto",
+      "cycle_age": 39,
+      "direction": "short",
+      "instrument_id": 326,
       "q": "-50.76490789884496",
-      "symbol": "mexc:326"
+      "symbol": "BLUR_USDT"
     },
     {
+      "category": "crypto",
+      "cycle_age": 78,
+      "direction": "short",
+      "instrument_id": 226,
       "q": "-44.53237410071944",
-      "symbol": "mexc:226"
+      "symbol": "RVN_USDT"
     },
     {
+      "category": "unclassified",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 500,
+      "q": "-42.32052427762877",
+      "symbol": "1000RATS_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 152,
       "q": "-29.49457479365668",
-      "symbol": "mexc:152"
+      "symbol": "MINA_USDT"
     },
     {
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 59,
       "q": "-28.377525252525263",
-      "symbol": "mexc:59"
+      "symbol": "THETA_USDT"
     },
     {
+      "category": "unclassified",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 307,
       "q": "-27.78761061946903",
-      "symbol": "mexc:307"
+      "symbol": "TWT_USDT"
     },
     {
+      "category": "unclassified",
+      "cycle_age": 54,
+      "direction": "short",
+      "instrument_id": 98,
       "q": "-23.98836786623046",
-      "symbol": "mexc:98"
+      "symbol": "COTI_USDT"
     },
     {
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 552,
+      "q": "-23.752893766612374",
+      "symbol": "BOME_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 33,
+      "direction": "short",
+      "instrument_id": 66,
       "q": "-23.57899585444497",
-      "symbol": "mexc:66"
+      "symbol": "ZIL_USDT"
     },
     {
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 122,
       "q": "-23.37459283387623",
-      "symbol": "mexc:122"
+      "symbol": "VET_USDT"
     },
     {
+      "category": "crypto",
+      "cycle_age": 47,
+      "direction": "short",
+      "instrument_id": 567,
+      "q": "-22.80635717273109",
+      "symbol": "SAGA_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 691,
+      "q": "-22.433483740469914",
+      "symbol": "CATI_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 262,
       "q": "-21.86696544403821",
-      "symbol": "mexc:262"
+      "symbol": "BEL_USDT"
     },
     {
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 458,
+      "q": "-21.298929775692713",
+      "symbol": "SEI_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 517,
+      "q": "-21.175000000000004",
+      "symbol": "DATA_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 25,
       "q": "-21.16243460507848",
-      "symbol": "mexc:25"
+      "symbol": "QTUM_USDT"
     },
     {
+      "category": "crypto",
+      "cycle_age": 39,
+      "direction": "short",
+      "instrument_id": 121,
       "q": "-21.09065155807367",
-      "symbol": "mexc:121"
+      "symbol": "SNX_USDT"
     },
     {
-      "q": "-20.389483933787744",
-      "symbol": "mexc:243"
+      "category": "crypto",
+      "cycle_age": 48,
+      "direction": "short",
+      "instrument_id": 625,
+      "q": "-21.070872274143312",
+      "symbol": "G_USDT"
     },
     {
-      "q": "-20.09850419554908",
-      "symbol": "mexc:76"
+      "category": "crypto",
+      "cycle_age": 24,
+      "direction": "short",
+      "instrument_id": 594,
+      "q": "-20.87640449438201",
+      "symbol": "PHA_USDT"
     },
     {
-      "q": "-19.19633774160733",
-      "symbol": "mexc:186"
-    },
-    {
-      "q": "-19.19499715747584",
-      "symbol": "mexc:272"
-    },
-    {
-      "q": "-19.124751819986766",
-      "symbol": "mexc:227"
-    },
-    {
-      "q": "-18.800917957544446",
-      "symbol": "mexc:97"
-    },
-    {
-      "q": "-18.619569630531874",
-      "symbol": "mexc:211"
-    },
-    {
-      "q": "-18.00110436223082",
-      "symbol": "mexc:267"
-    },
-    {
-      "q": "-17.99098518995494",
-      "symbol": "mexc:324"
+      "category": "crypto",
+      "cycle_age": 28,
+      "direction": "short",
+      "instrument_id": 541,
+      "q": "-20.529047379876094",
+      "symbol": "STRK_USDT"
     }
   ],
   "funding_events": [],
@@ -174,114 +274,216 @@
   "provider": "mexc",
   "research_long_top": [
     {
+      "b": 94.73331546502278,
+      "category": "crypto",
+      "cycle_age": 87,
+      "direction": "long",
+      "instrument_id": 495,
+      "q": "17.98727735368956",
+      "symbol": "BEAMX_USDT"
+    },
+    {
       "b": 84.50483407368698,
+      "category": "crypto",
+      "cycle_age": 14,
+      "direction": "long",
+      "instrument_id": 233,
       "q": "5.453625632377747",
-      "symbol": "mexc:233"
+      "symbol": "JST_USDT"
+    },
+    {
+      "b": 71.73394036977399,
+      "category": "crypto",
+      "cycle_age": 17,
+      "direction": "long",
+      "instrument_id": 574,
+      "q": "2.53781182478884",
+      "symbol": "MERL_USDT"
     }
   ],
   "research_short_top": [
     {
       "b": 98.06818935724927,
+      "category": "crypto",
+      "cycle_age": 39,
+      "direction": "short",
+      "instrument_id": 326,
       "q": "-50.76490789884496",
-      "symbol": "mexc:326"
+      "symbol": "BLUR_USDT"
     },
     {
       "b": 97.80376046768842,
+      "category": "crypto",
+      "cycle_age": 78,
+      "direction": "short",
+      "instrument_id": 226,
       "q": "-44.53237410071944",
-      "symbol": "mexc:226"
+      "symbol": "RVN_USDT"
+    },
+    {
+      "b": 97.69162535155094,
+      "category": "unclassified",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 500,
+      "q": "-42.32052427762877",
+      "symbol": "1000RATS_USDT"
     },
     {
       "b": 96.72072817290763,
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 152,
       "q": "-29.49457479365668",
-      "symbol": "mexc:152"
+      "symbol": "MINA_USDT"
     },
     {
       "b": 96.59603730605578,
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 59,
       "q": "-28.377525252525263",
-      "symbol": "mexc:59"
+      "symbol": "THETA_USDT"
     },
     {
       "b": 96.52628343067938,
+      "category": "unclassified",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 307,
       "q": "-27.78761061946903",
-      "symbol": "mexc:307"
+      "symbol": "TWT_USDT"
     },
     {
       "b": 95.99813799223193,
+      "category": "unclassified",
+      "cycle_age": 54,
+      "direction": "short",
+      "instrument_id": 98,
       "q": "-23.98836786623046",
-      "symbol": "mexc:98"
+      "symbol": "COTI_USDT"
+    },
+    {
+      "b": 95.96006830785645,
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 552,
+      "q": "-23.752893766612374",
+      "symbol": "BOME_USDT"
     },
     {
       "b": 95.93148554187516,
+      "category": "crypto",
+      "cycle_age": 33,
+      "direction": "short",
+      "instrument_id": 66,
       "q": "-23.57899585444497",
-      "symbol": "mexc:66"
+      "symbol": "ZIL_USDT"
     },
     {
       "b": 95.89736736602967,
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 122,
       "q": "-23.37459283387623",
-      "symbol": "mexc:122"
+      "symbol": "VET_USDT"
+    },
+    {
+      "b": 95.79944133096748,
+      "category": "crypto",
+      "cycle_age": 47,
+      "direction": "short",
+      "instrument_id": 567,
+      "q": "-22.80635717273109",
+      "symbol": "SAGA_USDT"
+    },
+    {
+      "b": 95.73260207028889,
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 691,
+      "q": "-22.433483740469914",
+      "symbol": "CATI_USDT"
     },
     {
       "b": 95.62687929691732,
+      "category": "unclassified",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 262,
       "q": "-21.86696544403821",
-      "symbol": "mexc:262"
+      "symbol": "BEL_USDT"
+    },
+    {
+      "b": 95.51547984562889,
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 458,
+      "q": "-21.298929775692713",
+      "symbol": "SEI_USDT"
+    },
+    {
+      "b": 95.49041713641489,
+      "category": "crypto",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 517,
+      "q": "-21.175000000000004",
+      "symbol": "DATA_USDT"
     },
     {
       "b": 95.48786034648535,
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "short",
+      "instrument_id": 25,
       "q": "-21.16243460507848",
-      "symbol": "mexc:25"
+      "symbol": "QTUM_USDT"
     },
     {
       "b": 95.47319825596307,
+      "category": "crypto",
+      "cycle_age": 39,
+      "direction": "short",
+      "instrument_id": 121,
       "q": "-21.09065155807367",
-      "symbol": "mexc:121"
+      "symbol": "SNX_USDT"
     },
     {
-      "b": 95.32480538990303,
-      "q": "-20.389483933787744",
-      "symbol": "mexc:243"
+      "b": 95.46914146582448,
+      "category": "crypto",
+      "cycle_age": 48,
+      "direction": "short",
+      "instrument_id": 625,
+      "q": "-21.070872274143312",
+      "symbol": "G_USDT"
     },
     {
-      "b": 95.26032750600888,
-      "q": "-20.09850419554908",
-      "symbol": "mexc:76"
+      "b": 95.42886492039034,
+      "category": "crypto",
+      "cycle_age": 24,
+      "direction": "short",
+      "instrument_id": 594,
+      "q": "-20.87640449438201",
+      "symbol": "PHA_USDT"
     },
     {
-      "b": 95.04860726338589,
-      "q": "-19.19633774160733",
-      "symbol": "mexc:186"
-    },
-    {
-      "b": 95.04827858007488,
-      "q": "-19.19499715747584",
-      "symbol": "mexc:272"
-    },
-    {
-      "b": 95.0309946232139,
-      "q": "-19.124751819986766",
-      "symbol": "mexc:227"
-    },
-    {
-      "b": 94.94972908759019,
-      "q": "-18.800917957544446",
-      "symbol": "mexc:97"
-    },
-    {
-      "b": 94.90304823789914,
-      "q": "-18.619569630531874",
-      "symbol": "mexc:211"
-    },
-    {
-      "b": 94.7371480049984,
-      "q": "-18.00110436223082",
-      "symbol": "mexc:267"
-    },
-    {
-      "b": 94.734343742583,
-      "q": "-17.99098518995494",
-      "symbol": "mexc:324"
+      "b": 95.35511264221225,
+      "category": "crypto",
+      "cycle_age": 28,
+      "direction": "short",
+      "instrument_id": 541,
+      "q": "-20.529047379876094",
+      "symbol": "STRK_USDT"
     }
   ],
-  "run_utc": "2026-11-16T23:11:27.172892+00:00",
+  "run_utc": "2026-11-16T23:13:23.589220+00:00",
   "snapshot_partition": "../market-data/data/snapshots/2026-11-16/23.jsonl.gz",
   "state_branch_protection": "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION",
   "state_event": null,
