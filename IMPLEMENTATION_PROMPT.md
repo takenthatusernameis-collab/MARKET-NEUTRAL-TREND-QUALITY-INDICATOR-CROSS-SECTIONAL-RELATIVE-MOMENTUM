@@ -1,4 +1,4 @@
-# Master Implementation Directive v2.4
+# Master Implementation Directive v2.5
 ## Market-Neutral Trend-Quality Indicator — Bybit Full-Universe Paper Research
 
 Repository: `takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM`  
@@ -174,13 +174,47 @@ Each workflow produces a uniquely named event batch (for example `events/YYYY/MM
 
 Storage is not unlimited. Estimate and monitor repository growth; partition compressed market data. If Git storage cannot safely support the required data volume, report the blocker instead of silently deleting history or introducing paid services.
 
-## 12. Regional network eligibility gate
+## 12. Network access, automatic runner tests and official historical archive
 
-Bybit's current V5 Integration Guidance states that requests originating from US or mainland-China IP addresses return HTTP 403. The V5 error-code reference also lists US IP use and IP-rate protection among 403 causes. A GitHub-hosted workflow run on 2026-11-16 was provisioned in Azure region `eastus2` and received HTTP 403 from `/v5/market/time` after a single request. Do not label the endpoint unreachable in general; the observed runner/network path is blocked.
+### 12.1 Live API eligibility
 
-The public API smoke workflow may test standard free runner labels, but it must report runner-region/access failures explicitly. Do not use VPNs, proxies, residential proxy services, API-domain rotation or other techniques to disguise a blocked source location. Do not silently switch from `api.bybit.com` to another domain or exchange.
+The live market-data source remains Bybit Global V5 at exactly `https://api.bybit.com`. Bybit's Integration Guidance states that requests from US and mainland-China IP addresses are restricted and return HTTP 403. A 403 may have other causes, so retain the exact response, runner region/cloud, timestamp and endpoint; distinguish a provider-geography denial from rate limiting, malformed requests and general network errors.
 
-Standard GitHub-hosted runners do not expose a documented geographic-region selector. Larger runners offer additional networking options but are paid and outside this project's no-paid-infrastructure constraint. The only currently plausible no-paid route is a user-controlled self-hosted runner on the user's own hardware/network in a jurisdiction and IP range permitted by Bybit; this requires the user to install/configure it, keep it online for schedules, and explicitly authorize its use. Do not assume such a runner exists. Until a valid non-US, non-China runner has passed public Bybit integration tests, keep all ranking-dependent portfolio automation disabled and report the regional blocker.
+The EEA endpoint `https://api.bybit.eu` is not an equivalent fallback for this project: current Bybit documentation limits its EU API to the "Connect to Third-Party Applications" feature for API-broker users. Do not substitute it for this unauthenticated public-market-data integration.
+
+GitHub-hosted standard Linux jobs do not expose a selectable geographic region. Since 2026-10-28, eligible standard 2-core and 4-core Linux jobs may be scheduled automatically on AWS or Azure. The cloud provider and region remain scheduler-controlled; `ubuntu-slim` is not part of this eligible multi-cloud pool.
+
+### 12.2 Automatic no-manual-input egress probe
+
+A one-time matrix probe on 2026-11-16 tested the exact official Bybit server-time URL from six standard GitHub-hosted Linux jobs across Ubuntu 22.04, 24.04 and 26.04. GitHub assigned five jobs to Azure US regions and one to AWS `us-west-2`. All six requests returned HTTP 403 with the CloudFront country-block response. Evidence: workflow run `43911753549`.
+
+This establishes that enabling GitHub's automatic AWS/Azure pool and changing standard Ubuntu labels does not currently provide an allowed egress route. Do not keep spawning jobs hoping for a different country, attempt to pin an undocumented region, or treat a single transient success as a stable deployment. Any future runner candidate must be tested against the exact endpoint, and its reported region/cloud and response must be recorded. Scheduled operation requires a repeatably allowed route, not a one-off pass.
+
+No proxy, VPN, residential proxy, outbound relay, API-domain rotation, API broker, alternate exchange, paid runner or user-installed self-hosted runner may be introduced as an implicit workaround. The task's no-manual-input requirement does not authorize creating third-party accounts, provisioning infrastructure, requesting credentials, or changing the data-provider contract. If no compliant automatic route exists, report that the live API gate remains blocked.
+
+### 12.3 Official Bybit historical trade-archive lane
+
+The official public archive is separately accessible from the tested GitHub-hosted runner pool. On 2026-11-16, Ubuntu 22.04, 24.04 and 26.04 jobs each fetched the first 2,048 bytes of:
+
+`https://public.bybit.com/trading/BTCUSDT/BTCUSDT2026-11-15.csv.gz`
+
+All three received HTTP 206 and valid gzip magic bytes. The response advertised a total compressed file size of 126,793,002 bytes. Evidence: workflow run `43912009008`. Bybit's public-trade documentation also states that archived historical trades can be downloaded from its website.
+
+Daily linear trade archive path:
+
+`https://public.bybit.com/trading/{SYMBOL}/{SYMBOL}{YYYY-MM-DD}.csv.gz`
+
+The documented trade columns are `timestamp,symbol,side,size,price,tickDirection,trdMatchID,grossValue,homeNotional,foreignNotional`; recent files may include an additional `RPI` column. Parse by header name, not fixed trailing-column position. Validate symbol, UTC date, finite positive price, nonnegative size, row count, gzip CRC and source-file checksum. Write downloads atomically and make date/symbol backfill resumable. Do not assume every symbol has every date.
+
+For each UTC day, trades can be aggregated into OHLCV: first price by timestamp, maximum price, minimum price, last price, summed size and turnover; retain trade count and taker-buy/taker-sell volume. Validate chronology and duplicates before declaring a bar complete. This is an archive-derived trade candle, not a native Bybit Kline response.
+
+This lane may support selective historical price research and daily-bar reconstruction without the blocked V5 API. It is not evidence of a complete full-universe or point-in-time dataset: archive coverage varies by symbol/listing date, the directory alone does not establish historical execution eligibility or delisting status, and downloading a daily trade file can be large. Establish coverage and storage estimates before any universe-scale backfill. Do not silently select only surviving symbols and label the result survivorship-free.
+
+The trade archive does not provide a verified replacement for historical funding settlements, mark/index prices, historical L2 order-book depth, current instrument quantity/price filters, or fresh live quotes. No spread, order-book VWAP, funding cashflow or intraday stop fill may be invented from daily trade aggregates. Any price-only replay that omits funding or executable depth must be labelled exploratory/gross and must not be presented as a full strategy validation.
+
+### 12.4 Forward-operation boundary
+
+The daily archive is not a live or intraday feed. It cannot support the current hourly stop monitor, timely order-book simulation, funding settlement reconciliation or reliable current-universe discovery. Do not enable a forward paper account, daily rebalance workflow or hourly monitor from archive files alone. Keep the live API integration gate and all portfolio automation disabled until a repeatably permitted public live-data route and the independent accounting/recovery gates pass.
 
 ## 13. Workflow design
 
