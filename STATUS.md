@@ -49,10 +49,11 @@
 
 ## Verified CI evidence
 
-- Latest successful run: [GitHub Actions run 43903004353](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43903004353).
-- Commit tested: `d7680c009904c4d0daa85a48fb61bc93ddb2dc15`.
+- Latest successful run: [GitHub Actions run 43912962281](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912962281).
+- Commit tested: `73b449593ed32b5dc1d94e4d1c5bc0658533fa54`.
+- Runner: Azure `eastus2`; this is CI only, not the Bybit API probe.
 - Ruff: all checks passed.
-- Pytest: **62 passed in 0.21 seconds**.
+- Pytest: **62 passed in 0.13 seconds**.
 - These tests cover deterministic calculations, mocked API response/pagination behavior, accounting, simulated execution, performance metrics, local event persistence, SQLite projection and mocked Git state publication. They do not establish successful live Bybit access or strategy profitability.
 
 ## External Bybit API and archive access
