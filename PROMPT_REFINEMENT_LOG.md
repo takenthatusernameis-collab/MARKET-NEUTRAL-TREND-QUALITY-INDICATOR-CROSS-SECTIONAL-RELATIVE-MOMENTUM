@@ -210,3 +210,11 @@
 - MEXC remains selected. Bitget's 886-instrument curiosity screen is recorded but does not replace it.
 - The MEXC public API preflight is integration-tested; the market-data scheduler's first successful durable branch write is still to be verified.
 - The forward paper account is uninitialized; no NAV, fills, return or performance claim exists. Romania-specific derivatives account eligibility remains unverified.
+
+
+### Pass 26 — honor the full cross-margin universe across settlement types
+- Reconciled the all-cross-margin-instrument research requirement with the single-currency USDT paper ledger.
+- Widened MEXC instrument discovery and daily history/Q ranking to all 1,143 active cross-margin linear perpetuals, across settlement types and categories.
+- Preserved a narrower 1,061-contract USDT quote+settlement execution universe for the current 100 USDT paper account.
+- Added research-only status for non-USDT contracts until quote/collateral conversion, inverse contract P&L and fee/funding settlement are independently normalized.
+- Renamed turnover fields to quote-currency semantics to avoid treating USDC/USD/BTC quote turnover as USDT.
