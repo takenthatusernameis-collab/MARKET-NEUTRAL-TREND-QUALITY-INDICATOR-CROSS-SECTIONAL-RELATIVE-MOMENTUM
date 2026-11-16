@@ -1,4 +1,4 @@
-# Master Implementation Directive v2.3
+# Master Implementation Directive v2.4
 ## Market-Neutral Trend-Quality Indicator — Bybit Full-Universe Paper Research
 
 Repository: `takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM`  
@@ -174,7 +174,15 @@ Each workflow produces a uniquely named event batch (for example `events/YYYY/MM
 
 Storage is not unlimited. Estimate and monitor repository growth; partition compressed market data. If Git storage cannot safely support the required data volume, report the blocker instead of silently deleting history or introducing paid services.
 
-## 12. Workflow design
+## 12. Regional network eligibility gate
+
+Bybit's current V5 Integration Guidance states that requests originating from US or mainland-China IP addresses return HTTP 403. The V5 error-code reference also lists US IP use and IP-rate protection among 403 causes. A GitHub-hosted workflow run on 2026-11-16 was provisioned in Azure region `eastus2` and received HTTP 403 from `/v5/market/time` after a single request. Do not label the endpoint unreachable in general; the observed runner/network path is blocked.
+
+The public API smoke workflow may test standard free runner labels, but it must report runner-region/access failures explicitly. Do not use VPNs, proxies, residential proxy services, API-domain rotation or other techniques to disguise a blocked source location. Do not silently switch from `api.bybit.com` to another domain or exchange.
+
+Standard GitHub-hosted runners do not expose a documented geographic-region selector. Larger runners offer additional networking options but are paid and outside this project's no-paid-infrastructure constraint. The only currently plausible no-paid route is a user-controlled self-hosted runner on the user's own hardware/network in a jurisdiction and IP range permitted by Bybit; this requires the user to install/configure it, keep it online for schedules, and explicitly authorize its use. Do not assume such a runner exists. Until a valid non-US, non-China runner has passed public Bybit integration tests, keep all ranking-dependent portfolio automation disabled and report the regional blocker.
+
+## 13. Workflow design
 
 Required eventual workflows: CI, public API preflight, resumable bootstrap, daily research/rebalance, hourly monitor, manual recovery.
 
@@ -188,13 +196,13 @@ Hourly sequence: restore; find missed intervals; fetch completed candles; proces
 
 Use bounded batches and resumable checkpoints for full backfill. No partial-universe ranking or positions during BOOTSTRAPPING.
 
-## 13. Historical and forward account separation
+## 14. Historical and forward account separation
 
 Historical replay is chronological, point-in-time where possible, and explicitly survivorship-biased if historical universe snapshots are unavailable. It uses next-minute execution, hourly stop monitoring, one-minute detection execution, historical funding and costs. Historical hourly/minute data is downloaded only for actual holding periods and required intervals.
 
 Forward account begins at its real initialization timestamp with 100 USDT. No historical trades/equity may enter the forward account. Missed daily decisions are not backfilled with invented fills; record skipped dates and make any new decision at actual workflow time with current book.
 
-## 14. Performance reporting
+## 15. Performance reporting
 
 Publish root `STATUS.md`, equity SVG, drawdown SVG and CSV/JSON exports. Forward and historical reports remain separate. All figures derive from persisted ledger/valuation records and carry run ID, account mode, config hash, source commit and UTC timestamp.
 
@@ -202,13 +210,13 @@ Metrics: lifetime return, CAGR, daily volatility, Sharpe, Sortino, Calmar, max d
 
 Equity and drawdown curves must match CSV values. Hourly-sampled drawdown is an observed estimate, not continuous intrahour max drawdown. Show single-leg exposure duration, missing monitor intervals, longest gap and data quality.
 
-## 15. Testing and independent audit
+## 16. Testing and independent audit
 
 Mock API responses in CI. Tests cover indicator golden values, causality, pagination, duplicates, candle validation, missing data gates, ranking, selection, sizing, VWAP, partial fills, fees, funding, stop activation/delay/gaps, missed intervals, idempotency, event hash chain, persistence recovery, NAV reconstruction and report/CSV agreement.
 
 Before completion independently reconstruct several trades from raw data and the entire forward account from persisted event batches. Distinguish implemented, unit-tested, integration-tested, historical-replay-tested, forward-paper-verified and independently audited.
 
-## 16. Phased delivery
+## 17. Phased delivery
 
 1. Repository/specification.
 2. Bybit client and data-quality tests.
@@ -223,7 +231,7 @@ Before completion independently reconstruct several trades from raw data and the
 11. STATUS, equity, drawdown and exports.
 12. Independent audit.
 
-## 17. Acceptance and disclosure
+## 18. Acceptance and disclosure
 
 Do not call the complete system finished until full universe retrieval, available daily history, validated Q, rankings, chronological replay, separate forward paper account, realistic stop timing, verified funding, reconciled NAV, durable event storage, recovery, tests, workflows and main-branch reports are demonstrated.
 
