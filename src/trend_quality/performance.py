@@ -108,11 +108,6 @@ def compute_performance_metrics(
     else:
         trough_index = min(range(len(drawdowns)), key=lambda i: drawdowns[i].drawdown)
         peak_value = drawdowns[trough_index].high_watermark
-        peak_index = max(
-            i
-            for i in range(trough_index + 1)
-            if points[i].nav == peak_value
-        )
         recovery_index = next(
             (
                 i
