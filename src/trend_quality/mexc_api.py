@@ -41,6 +41,16 @@ def _decimal(value: object, field: str, *, allow_zero: bool = False) -> Decimal:
     return result
 
 
+def _signed_decimal(value: object, field: str) -> Decimal:
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise MEXCAPIError(f"Invalid decimal field {field}") from exc
+    if not result.is_finite():
+        raise MEXCAPIError(f"Non-finite decimal field {field}")
+    return result
+
+
 def _integer(value: object, field: str, *, minimum: int = 0) -> int:
     if isinstance(value, bool):
         raise MEXCAPIError(f"Invalid integer field {field}")
@@ -269,8 +279,8 @@ class MEXCPublicClient:
                 "bid_price": str(bid),
                 "ask_price": str(ask),
                 "mid_price": str(mid),
-                "funding_rate": str(_decimal(
-                    row.get("fundingRate", 0), f"{symbol}.fundingRate", allow_zero=True
+                "funding_rate": str(_signed_decimal(
+                    row.get("fundingRate", 0), f"{symbol}.fundingRate"
                 )),
                 "volume_24h_contracts": str(_decimal(
                     row.get("volume24", 0), f"{symbol}.volume24", allow_zero=True
@@ -281,8 +291,8 @@ class MEXCPublicClient:
                 "open_interest_contracts": str(_decimal(
                     row.get("holdVol", 0), f"{symbol}.holdVol", allow_zero=True
                 )),
-                "change_24h": str(_decimal(
-                    row.get("riseFallRate", 0), f"{symbol}.riseFallRate", allow_zero=True
+                "change_24h": str(_signed_decimal(
+                    row.get("riseFallRate", 0), f"{symbol}.riseFallRate"
                 )),
                 "timestamp_ms": _integer(row.get("timestamp"), f"{symbol}.timestamp", minimum=1),
                 "next_funding_timestamp_ms": (
@@ -423,8 +433,8 @@ class MEXCPublicClient:
                     output[stamp] = {
                         "symbol": symbol,
                         "timestamp_ms": stamp,
-                        "funding_rate": str(_decimal(
-                            row.get("fundingRate"), "fundingRate", allow_zero=True
+                        "funding_rate": str(_signed_decimal(
+                            row.get("fundingRate"), "fundingRate"
                         )),
                     }
             oldest = min(
