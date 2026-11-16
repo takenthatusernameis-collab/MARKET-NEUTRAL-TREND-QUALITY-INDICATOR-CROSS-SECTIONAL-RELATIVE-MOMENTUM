@@ -15,6 +15,7 @@ class Candidate:
     b: float | None
     direction: str
     cycle_age: int | None
+    semi_cycle_direction: str | None = None
 
 
 def rank_candidates(
@@ -34,10 +35,16 @@ def rank_candidates(
         q_value = point.q
         if q_value is None or not isfinite(q_value):
             continue
-        if q_value > threshold and point.direction == "bullish":
-            bullish.append(Candidate(symbol, float(q_value), point.b, "long", point.cycle_age))
-        elif q_value < -threshold and point.direction == "bearish":
-            bearish.append(Candidate(symbol, float(q_value), point.b, "short", point.cycle_age))
+        # Signed Q itself determines trend direction. The EMA semi-cycle is
+        # retained as metadata; it must not override Q's signed definition.
+        if q_value > threshold:
+            bullish.append(
+                Candidate(symbol, float(q_value), point.b, "long", point.cycle_age, point.direction)
+            )
+        elif q_value < -threshold:
+            bearish.append(
+                Candidate(symbol, float(q_value), point.b, "short", point.cycle_age, point.direction)
+            )
     bullish.sort(key=lambda item: (-item.q, item.symbol))
     bearish.sort(key=lambda item: (item.q, item.symbol))
     return bullish, bearish
