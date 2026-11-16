@@ -102,7 +102,6 @@ def compute_performance_metrics(
     max_drawdown = max(0.0, -min(item.drawdown for item in drawdowns))
     if max_drawdown == 0:
         trough_index = 0
-        peak_index = 0
         recovery_index = None
         recovery_period_days = None
     else:
