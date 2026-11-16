@@ -22,7 +22,6 @@ from trend_quality.exchange_probe import (
     binance_perpetual,
     bitget_cross_perpetual,
     classify_asset_class,
-    group_asset_classes,
     mexc_cross_perpetual,
     missing_fields,
     weex_perpetual,
