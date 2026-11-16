@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# ruff: noqa: E501  # Long failure samples and public API diagnostics are intentional.
 """Full-universe, read-only acceptance test for OKX's EEA public SWAP API.
 
 Validates every live linear USDT-settled non-pre-market perpetual contract:
@@ -170,7 +169,12 @@ def validate_one(kind: str, symbol: str) -> tuple[str, str, bool, str | None]:
         bids, asks = book.get("bids"), book.get("asks")
         valid = isinstance(bids, list) and bool(bids) and isinstance(asks, list) and bool(asks)
         if valid:
-            valid = positive_decimal(bids[0][0]) and positive_decimal(bids[0][1]) and positive_decimal(asks[0][0]) and positive_decimal(asks[0][1])
+            valid = (
+                positive_decimal(bids[0][0])
+                and positive_decimal(bids[0][1])
+                and positive_decimal(asks[0][0])
+                and positive_decimal(asks[0][1])
+            )
         return kind, symbol, bool(valid), None if valid else "INVALID_BID_ASK_LEVELS"
 
     if kind == "daily_candles":
@@ -246,13 +250,17 @@ def main() -> int:
         raise SystemExit(f"OKX EEA server time unavailable: {server_time}")
     instruments_result, eligible, counts = rows_for_universe()
     if not eligible:
-        raise SystemExit("No live, linear, USDT-settled, non-pre-market SWAP contracts found on EEA host")
+        raise SystemExit(
+            "No live, linear, USDT-settled, non-pre-market SWAP contracts found on EEA host"
+        )
 
     metadata_failures = []
     for row in eligible:
         missing = metadata_check(row)
         if missing:
-            metadata_failures.append({"instId": str(row.get("instId")), "missing_or_invalid": missing})
+            metadata_failures.append(
+                {"instId": str(row.get("instId")), "missing_or_invalid": missing}
+            )
     metadata_failures.sort(key=lambda x: x["instId"])
     tickers = check_tickers(eligible)
     symbols = [str(row["instId"]) for row in eligible]
@@ -262,7 +270,10 @@ def main() -> int:
 
     total = len(eligible)
     metadata_pass = len(metadata_failures) == 0
-    ticker_pass = tickers["missing_count"] == 0 and tickers.get("invalid_last_price_count", 0) == 0
+    ticker_pass = (
+        tickers["missing_count"] == 0
+        and tickers.get("invalid_last_price_count", 0) == 0
+    )
     endpoints_pass = all(result["failed_count"] == 0 for result in endpoint_results.values())
     full_pass = total >= 50 and metadata_pass and ticker_pass and endpoints_pass
     report = {
@@ -277,8 +288,14 @@ def main() -> int:
         "instrument_endpoint_ok": ok(instruments_result),
         "universe_counts": counts,
         "eligible_contract_count": total,
-        "asset_class_scope": "EEA SWAP instruments in this feed are crypto perpetual futures; X-Perps are a separate five-year expiry product",
-        "cross_margin_scope": "Futures mode supports cross margin shared by positions using the same margin currency; all retained contracts settle in USDT",
+        "asset_class_scope": (
+            "EEA SWAP instruments in this feed are crypto perpetual futures; "
+            "X-Perps are a separate five-year expiry product"
+        ),
+        "cross_margin_scope": (
+            "Futures mode supports cross margin shared by positions using the "
+            "same margin currency; all retained contracts settle in USDT"
+        ),
         "metadata_pass_count": total - len(metadata_failures),
         "metadata_failure_count": len(metadata_failures),
         "metadata_failure_sample": metadata_failures[:25],
@@ -299,9 +316,15 @@ def main() -> int:
         with open(summary_path, "a", encoding="utf-8") as summary:
             summary.write("# OKX EEA full-universe acceptance\n\n")
             summary.write(f"- Eligible live linear USDT swaps: **{total}**\n")
-            summary.write(f"- Pre-market instruments excluded: **{counts['excluded_pre_market_swaps']}**\n")
-            summary.write(f"- Metadata-complete instruments: **{total - len(metadata_failures)}/{total}**\n")
-            summary.write(f"- Full-universe ticker coverage: **{tickers['covered_count']}/{total}**\n")
+            summary.write(
+                f"- Pre-market instruments excluded: **{counts['excluded_pre_market_swaps']}**\n"
+            )
+            summary.write(
+                f"- Metadata-complete instruments: **{total - len(metadata_failures)}/{total}**\n"
+            )
+            summary.write(
+                f"- Full-universe ticker coverage: **{tickers['covered_count']}/{total}**\n"
+            )
             for name, values in endpoint_results.items():
                 summary.write(f"- {name}: **{values['passed_count']}/{values['total']}**\n")
             summary.write(f"\n**Acceptance result: {'PASS' if full_pass else 'FAIL'}**\n")
