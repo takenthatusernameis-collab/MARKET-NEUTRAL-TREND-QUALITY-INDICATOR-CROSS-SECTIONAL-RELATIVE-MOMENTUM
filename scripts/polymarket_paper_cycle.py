@@ -334,13 +334,13 @@ def _open_position(
     nav = _nav(state, {int(instrument["instrument_id"]): ticker})
     max_qty = max_notional / mid
     quantity = target_quantity(
-        nav=nav,
-        allocation_fraction=Decimal("0.5"),
-        price=mid,
-        qty_step=step,
-        min_qty=Decimal("0"),
-        min_notional=min_notional,
-        max_market_qty=max_qty,
+        nav,
+        Decimal("0.5"),
+        mid,
+        step,
+        Decimal("0"),
+        min_notional,
+        max_qty,
     )
     if quantity <= 0:
         raise ValueError("Target leg is below minimum notional or above market-size limits")
