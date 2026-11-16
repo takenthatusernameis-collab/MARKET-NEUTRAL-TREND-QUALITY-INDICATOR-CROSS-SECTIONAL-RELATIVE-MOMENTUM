@@ -1,0 +1,130 @@
+name: Crypto.com Derivatives Candidate Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/crypto-com-derivatives-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crypto-com-derivatives-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: ${{ matrix.probe_id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - probe_id: ubuntu-22.04
+            runner: ubuntu-22.04
+          - probe_id: ubuntu-24.04
+            runner: ubuntu-24.04
+          - probe_id: ubuntu-26.04
+            runner: ubuntu-26.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - name: Probe unauthenticated Crypto.com derivatives market data
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          BASES = {
+              "dcm": "https://api.crypto.com/dcm-margined/v1",
+              "fcm": "https://api.crypto.com/fcm/v1",
+          }
+
+          def get_json(url):
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/json",
+                      "User-Agent": "market-neutral-trend-quality-research/exchange-probe",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  body = response.read(2_000_000)
+                  return response.status, json.loads(body.decode("utf-8"))
+
+          report = {"credentials_used": False, "orders_submitted": 0, "providers": {}}
+          for provider, base in BASES.items():
+              item = {"base_url": base}
+              try:
+                  query = urllib.parse.urlencode({"since": 0, "limit": 1000, "inst_type": "PERPETUAL_SWAP"})
+                  status, payload = get_json(f"{base}/public/get-instruments?{query}")
+                  data = payload.get("result", {}).get("data", []) if isinstance(payload, dict) else []
+                  cursor = payload.get("result", {}).get("next_cursor") if isinstance(payload, dict) else None
+                  perps = [
+                      x for x in data
+                      if isinstance(x, dict)
+                      and x.get("inst_type") == "PERPETUAL_SWAP"
+                      and x.get("product_type") in (None, "DIGITAL_CURRENCIES")
+                  ]
+                  item.update({
+                      "instrument_http_status": status,
+                      "api_code": payload.get("code"),
+                      "instrument_count": len(data),
+                      "perpetual_count": len(perps),
+                      "perpetual_symbols": [x.get("symbol") for x in perps[:80]],
+                      "next_cursor_present": bool(cursor),
+                      "sample_instrument": perps[0] if perps else (data[0] if data else None),
+                  })
+                  if perps:
+                      symbol = perps[0].get("symbol")
+                      product = perps[0]
+                      for endpoint, params in (
+                          ("public/get-book", {"instrument_name": symbol, "depth": 5}),
+                          ("public/get-tickers", {"instrument_name": symbol}),
+                          ("public/get-candlestick", {
+                              "instrument_name": symbol,
+                              "timeframe": "1h",
+                              "count": 3,
+                          }),
+                          ("public/get-valuations", {
+                              "instrument_name": product.get("underlying_symbol") or symbol,
+                              "valuation_type": "funding_hist",
+                              "count": 3,
+                          }),
+                      ):
+                          try:
+                              url = f"{base}/{endpoint}?{urllib.parse.urlencode(params)}"
+                              code, result = get_json(url)
+                              block = result.get("result", {}) if isinstance(result, dict) else {}
+                              rows = block.get("data", []) if isinstance(block, dict) else []
+                              item[endpoint] = {
+                                  "http_status": code,
+                                  "api_code": result.get("code") if isinstance(result, dict) else None,
+                                  "row_count": len(rows) if isinstance(rows, list) else None,
+                                  "sample": rows[:2] if isinstance(rows, list) else str(block)[:500],
+                                  "message": result.get("message") if isinstance(result, dict) else None,
+                              }
+                          except Exception as exc:
+                              item[endpoint] = {"error_type": type(exc).__name__, "error": str(exc)[:300]}
+                      item["test_symbol"] = symbol
+                  else:
+                      item["data_endpoints"] = "SKIPPED_NO_PERPETUALS"
+              except urllib.error.HTTPError as exc:
+                  item.update({"error_type": "HTTPError", "http_status": exc.code,
+                               "body": exc.read(1000).decode("utf-8", errors="replace")})
+              except Exception as exc:
+                  item.update({"error_type": type(exc).__name__, "error": str(exc)[:500]})
+              report["providers"][provider] = item
+          print(json.dumps(report, indent=2, default=str))
+          successes = [
+              p for p in report["providers"].values()
+              if p.get("perpetual_count", 0) > 0 and p.get("instrument_http_status") == 200
+          ]
+          sys.exit(0 if successes else 1)
+          PY
