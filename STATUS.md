@@ -30,11 +30,11 @@
 
 | Component | State |
 |---|---|
-| Specification v2.3 | Documented |
+| Specification v2.4 | Documented |
 | Pure indicator module | Implemented; tests pending CI |
 | Cross-sectional ranking | Implemented; tests pending CI |
 | Decimal accounting primitives | Implemented; tests pending CI |
-| Public Bybit client | Implemented; integration not yet verified |
+| Public Bybit client | Implemented; GitHub-hosted public API calls blocked by CloudFront country restriction (US runners) |
 | Funding history retrieval | Implemented as bounded-window prototype; completeness audit pending |
 | Immutable event batch | Implemented locally; Git state-branch publisher not implemented |
 | Historical replay | Not implemented |
@@ -44,6 +44,14 @@
 
 ## Latest evidence
 
-No historical performance or forward paper performance is claimed. API integration, tests, full historical coverage, event-batch publication and independent accounting reconciliation are still outstanding.
+- Public API smoke run 43897098694: runner region Azure eastus2; Bybit /v5/market/time returned HTTP 403.
+- Public API smoke run 43897936443: free ubuntu-slim runner in Azure eastus; CloudFront body explicitly reported that the distribution blocks access from the runner's country.
+- Public API smoke run 43898832858: free ubuntu-slim runner in Azure westus3; same CloudFront country-block response.
+- The API client is built and can report the bounded denial details. Public market-data integration from the tested standard GitHub-hosted runners is blocked.
+- No proxy, VPN, endpoint rotation, alternative exchange or paid runner has been used.
+- A user-controlled self-hosted runner on a permitted non-US/non-mainland-China network is the remaining plausible no-paid route, but it requires user setup and explicit authorization.
+- CI linting previously reported 15 findings and was reduced to two import-order findings. Those were fixed in the latest source commits; a full green CI result is still pending verification.
+
+No historical performance or forward paper performance is claimed. Full Bybit connectivity, historical coverage, event-batch Git state publication, replay, broker, scheduled paper account, and independent accounting reconciliation remain outstanding.
 
 This file must be regenerated from verified persisted state once the reporting pipeline exists.
