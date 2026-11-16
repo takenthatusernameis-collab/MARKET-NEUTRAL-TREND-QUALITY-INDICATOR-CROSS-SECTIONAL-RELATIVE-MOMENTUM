@@ -6,11 +6,11 @@
 
 This repository implements a research system based on David Sepiashvili's [Trend-Quality Indicator paper](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf). The strategy hypothesis is to rank the complete eligible Bybit USDT linear perpetual universe, select the strongest qualifying positive-Q asset as the long and the strongest qualifying negative-Q asset as the short, then evaluate the pair under realistic simulated costs and risk controls.
 
-## Current scope
+## Current implementation
 
-The repository is being initialized from an empty main branch. The first implementation milestone covers the pure mathematical indicator engine, public API client, deterministic ranking, and accounting/event primitives. The historical replay, durable GitHub state publisher, complete paper broker, and scheduled portfolio workflows remain gated until independently tested.
+The core repository now contains the causal indicator engine, signed-Q ranking and pair-selection primitives, a public Bybit API client, Decimal accounting functions, paper execution models, daily performance analytics, an immutable event journal, a SQLite projection and an append-only Git state-branch publisher. The code and mocked contracts are covered by CI.
 
-**No live orders, authenticated account access, Testnet, exchange credentials, or real capital are used.**
+The current verified CI run reports **62 passing tests**. This is not a live Bybit integration result and not a strategy backtest. Full-universe ingestion, historical replay, an integrated forward paper broker and portfolio automation are not operational.
 
 ## Baseline configuration
 
