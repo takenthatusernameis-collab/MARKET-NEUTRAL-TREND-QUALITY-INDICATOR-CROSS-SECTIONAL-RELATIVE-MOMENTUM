@@ -26,7 +26,7 @@ def test_left_censored_initial_cycle_is_not_ranked() -> None:
     assert all(point.cycle_start_index is None for point in points[:6])
     assert points[6].direction == "bullish"
     assert points[6].cycle_start_index == 6
-    assert points[6].cpc == pytest.approx(2.0)
+    assert points[6].cpc == pytest.approx(1.0)
 
 
 def test_cpc_accumulates_and_resets_only_on_confirmed_crossovers() -> None:
@@ -37,8 +37,8 @@ def test_cpc_accumulates_and_resets_only_on_confirmed_crossovers() -> None:
         trend_period=2,
         noise_period=3,
     )
-    assert points[7].cpc == pytest.approx(3.0)
-    assert points[8].cpc == pytest.approx(4.0)
+    assert points[7].cpc == pytest.approx(2.0)
+    assert points[8].cpc == pytest.approx(3.0)
     bearish_starts = [
         point.index
         for point in points
@@ -121,13 +121,13 @@ def test_constant_price_history_never_manufactures_q() -> None:
 
 
 def test_wilder_atr_seed_and_recursion() -> None:
-    highs = [11, 12, 13, 14]
+    highs = [11, 12, 14, 16]
     lows = [9, 10, 11, 12]
-    closes = [10, 11, 12, 13]
+    closes = [10, 11, 12, 15]
     values = wilder_atr(highs, lows, closes, period=3)
     assert values[:2] == [None, None]
-    assert values[2] == pytest.approx(3.0)
-    assert values[3] == pytest.approx((2 * 3.0 + 2.0) / 3.0)
+    assert values[2] == pytest.approx(7.0 / 3.0)
+    assert values[3] == pytest.approx((2 * (7.0 / 3.0) + 4.0) / 3.0)
 
 
 def test_atr_rejects_mismatched_and_invalid_ohlc() -> None:
