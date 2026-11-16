@@ -104,7 +104,6 @@ def compute_performance_metrics(
         trough_index = 0
         peak_index = 0
         recovery_index = None
-        drawdown_duration_days = 0.0
         recovery_period_days = None
     else:
         trough_index = min(range(len(drawdowns)), key=lambda i: drawdowns[i].drawdown)
@@ -122,33 +121,50 @@ def compute_performance_metrics(
             ),
             None,
         )
-        drawdown_duration_days = (
-            (points[recovery_index].timestamp_ms - points[peak_index].timestamp_ms) / DAY_MS
-            if recovery_index is not None
-            else (points[-1].timestamp_ms - points[peak_index].timestamp_ms) / DAY_MS
-        )
         recovery_period_days = (
             (points[recovery_index].timestamp_ms - points[trough_index].timestamp_ms) / DAY_MS
             if recovery_index is not None
             else None
         )
+
+    # Maximum drawdown duration is the longest complete or still-open
+    # high-watermark-to-recovery episode, not necessarily the episode with
+    # the deepest percentage loss.
+    maximum_drawdown_duration = 0.0
     current_drawdown_duration = 0.0
-    if drawdowns[-1].drawdown < 0:
-        current_high = drawdowns[-1].high_watermark
-        current_peak_index = max(
-            i
-            for i, point in enumerate(points)
-            if point.nav == current_high and i <= len(points) - 1
-        )
+    high_watermark = points[0].nav
+    high_watermark_timestamp = points[0].timestamp_ms
+    active_drawdown = False
+    for point in points[1:]:
+        if not active_drawdown:
+            if point.nav > high_watermark:
+                high_watermark = point.nav
+                high_watermark_timestamp = point.timestamp_ms
+            elif point.nav < high_watermark:
+                active_drawdown = True
+        elif point.nav >= high_watermark:
+            duration = (
+                point.timestamp_ms - high_watermark_timestamp
+            ) / DAY_MS
+            maximum_drawdown_duration = max(maximum_drawdown_duration, duration)
+            active_drawdown = False
+            if point.nav > high_watermark:
+                high_watermark = point.nav
+                high_watermark_timestamp = point.timestamp_ms
+
+    if active_drawdown:
         current_drawdown_duration = (
-            points[-1].timestamp_ms - points[current_peak_index].timestamp_ms
+            points[-1].timestamp_ms - high_watermark_timestamp
         ) / DAY_MS
+        maximum_drawdown_duration = max(
+            maximum_drawdown_duration, current_drawdown_duration
+        )
 
     metrics: dict[str, Metric] = {
         "total_return": Metric(total_return, None, observation_count),
         "maximum_drawdown": Metric(max_drawdown, None, len(drawdowns)),
         "maximum_drawdown_duration_days": Metric(
-            drawdown_duration_days, None, len(drawdowns)
+            maximum_drawdown_duration, None, len(drawdowns)
         ),
         "current_drawdown_duration_days": Metric(
             current_drawdown_duration, None, len(drawdowns)
