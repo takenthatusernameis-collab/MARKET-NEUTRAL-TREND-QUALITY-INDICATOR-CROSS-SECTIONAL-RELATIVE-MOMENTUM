@@ -2,6 +2,7 @@
 """Five-minute Polymarket Perps data/portfolio cycle; paper only."""
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 from datetime import UTC, datetime
@@ -516,12 +517,35 @@ def _market_snapshot_rows(
     return rows
 
 
+def _qualify_polymarket_once() -> dict[str, Any]:
+    probe_path = Path(__file__).resolve().with_name("probe_polymarket_mexc_bitget.py")
+    spec = importlib.util.spec_from_file_location("perps_priority_probe", probe_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load the ordered Perps API qualification")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    result = module.probe_polymarket()
+    if result.get("technical_api_pass") is not True:
+        raise RuntimeError(
+            "Polymarket did not pass its public Perps acceptance gate; "
+            "review the ordered fallback probe before activating another adapter."
+        )
+    return result
+
+
 def _run() -> int:
     data_dir = Path(os.environ.get("MARKET_DATA_DIR", "market-data"))
     state_dir = Path(os.environ.get("PAPER_STATE_DIR", "state"))
     store = MarketDataStore(data_dir)
     client = PolymarketPublicClient()
     now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    if store.manifest.get("selected_provider") is None:
+        qualification = _qualify_polymarket_once()
+        store.manifest["selected_provider"] = "polymarket"
+        store.manifest["qualification_report"] = qualification
+        store.save_manifest(now_ms)
+    elif store.manifest.get("selected_provider") != "polymarket":
+        raise RuntimeError("Market-data branch contains an unsupported selected provider")
 
     instruments = client.instruments()
     cross = [row for row in instruments if is_cross_margin_instrument(row)]
@@ -560,6 +584,8 @@ def _run() -> int:
         row for row in new_entry
         if not store.manifest["instruments"][str(row["instrument_id"])].get("bootstrap_complete")
     ]
+    batch_size = max(1, min(500, int(os.environ.get("BOOTSTRAP_BATCH_SIZE", "150"))))
+    pending_bootstrap = pending_bootstrap[:batch_size]
     candle_updates: list[dict[str, Any]] = []
     bootstrap_completed = 0
     api_failures: list[dict[str, Any]] = []
