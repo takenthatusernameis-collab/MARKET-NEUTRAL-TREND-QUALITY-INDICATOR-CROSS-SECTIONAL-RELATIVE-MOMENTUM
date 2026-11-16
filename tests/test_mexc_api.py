@@ -77,6 +77,9 @@ def test_normalizer_preserves_contract_multipliers_and_unknown_categories() -> N
     assert row["min_quantity_base"] == "0.0001"
     assert row["max_quantity_base"] == "40.0000"
     assert row["quantity_step_contracts"] == "1"
+    assert row["cross_margin_available"] is True
+    assert row["isolated_only"] is False
+    assert row["settlement"] is None
 
 
 def test_instruments_keep_all_categories_and_only_active_usdt_cross_rows() -> None:
