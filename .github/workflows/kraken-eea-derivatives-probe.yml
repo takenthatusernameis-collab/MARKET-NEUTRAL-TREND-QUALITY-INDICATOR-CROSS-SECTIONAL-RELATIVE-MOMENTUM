@@ -36,6 +36,9 @@ jobs:
           python3 - <<'PY'
           import json
           from collections import Counter
+          from decimal import Decimal, InvalidOperation
+          from html.parser import HTMLParser
+          import re
           import urllib.error
           import urllib.parse
           import urllib.request
@@ -79,6 +82,84 @@ jobs:
           def chart(path, params=None):
               query = urllib.parse.urlencode(params or {})
               return get_json(CHARTS + path + ("?" + query if query else ""))
+
+          class EeaPerpetualSpecsParser(HTMLParser):
+              """Extract Kraken's official EEA perpetual contract specification table."""
+
+              def __init__(self):
+                  super().__init__(convert_charrefs=True)
+                  self.rows = []
+                  self.row = None
+                  self.cell = None
+                  self.in_cell = False
+
+              def handle_starttag(self, tag, attrs):
+                  if tag == "tr":
+                      self.row = []
+                  elif tag in ("td", "th") and self.row is not None:
+                      self.cell = []
+                      self.in_cell = True
+
+              def handle_data(self, data):
+                  if self.in_cell and self.cell is not None:
+                      self.cell.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag in ("td", "th") and self.in_cell and self.row is not None:
+                      self.row.append(" ".join("".join(self.cell or []).split()))
+                      self.cell = None
+                      self.in_cell = False
+                  elif tag == "tr" and self.row is not None:
+                      self.rows.append(self.row)
+                      self.row = None
+
+              def contract_specs(self):
+                  result = {}
+                  for cells in self.rows:
+                      if len(cells) < 6:
+                          continue
+                      match = re.search(r"\\bPF_[A-Z0-9]+\\b", cells[0])
+                      if match is None:
+                          continue
+                      symbol = match.group(0)
+                      try:
+                          minimum_lot = Decimal(cells[2].replace(",", ""))
+                          tick_size = Decimal(cells[3].replace(",", ""))
+                          maximum_position = Decimal(cells[4].replace(",", ""))
+                      except (InvalidOperation, ValueError):
+                          continue
+                      if not all(
+                          value.is_finite() and value > 0
+                          for value in (minimum_lot, tick_size, maximum_position)
+                      ):
+                          continue
+                      result[symbol] = {
+                          "minimum_lot": minimum_lot,
+                          "tick_size": tick_size,
+                          "maximum_position": maximum_position,
+                          "margin_class": cells[5],
+                      }
+                  return result
+
+              def request_specs(self):
+                  request = urllib.request.Request(
+                      "https://support.kraken.com/articles/perpetual-contract-specifications-for-clients-in-the-eea",
+                      headers={
+                          "Accept": "text/html",
+                          "User-Agent": "market-neutral-trend-quality-research/kraken-eea-probe",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=20) as response:
+                          status = response.status
+                          raw = response.read(8_000_000).decode("utf-8", errors="replace")
+                      parser = EeaPerpetualSpecsParser()
+                      parser.feed(raw)
+                      return status, parser.contract_specs(), None
+                  except urllib.error.HTTPError as exc:
+                      return exc.code, {}, exc.read(2000).decode("utf-8", errors="replace")
+                  except Exception as exc:
+                      return None, {}, f"{type(exc).__name__}: {str(exc)[:500]}"
 
           def valid_success(result):
               payload = result.get("payload")
@@ -184,6 +265,40 @@ jobs:
               if has_valid_contract_precision(row) and has_europe_retail_margin(row)
           ]
           margin_precision_qualified_count = len(margin_precision_qualified_crypto)
+
+          specs_http_status, official_specs, specs_error = EeaPerpetualSpecsParser().request_specs()
+          official_spec_matched = {}
+          official_spec_mismatches = {}
+          for row in margin_precision_qualified_crypto:
+              instrument_symbol = str(row.get("symbol", ""))
+              spec = official_specs.get(instrument_symbol)
+              if spec is None:
+                  official_spec_mismatches[instrument_symbol] = "MISSING_FROM_OFFICIAL_EEA_SPEC_TABLE"
+                  continue
+              try:
+                  api_tick = Decimal(str(row.get("tickSize")))
+                  api_max_position = Decimal(str(row.get("maxPositionSize")))
+              except (InvalidOperation, ValueError):
+                  official_spec_mismatches[instrument_symbol] = "INVALID_API_PRECISION_METADATA"
+                  continue
+              if (
+                  not api_tick.is_finite()
+                  or not api_max_position.is_finite()
+                  or api_tick != spec["tick_size"]
+                  or api_max_position != spec["maximum_position"]
+              ):
+                  official_spec_mismatches[instrument_symbol] = {
+                      "api_tick_size": str(api_tick),
+                      "official_tick_size": str(spec["tick_size"]),
+                      "api_max_position": str(api_max_position),
+                      "official_max_position": str(spec["maximum_position"]),
+                  }
+                  continue
+              official_spec_matched[instrument_symbol] = spec
+
+          official_spec_coverage_count = len(official_spec_matched)
+          official_spec_consistent = not official_spec_mismatches
+          official_btc_spec = official_spec_matched.get(symbol)
           permission_tagged_crypto = [
               row for row in pf
               if "europa_crypto" in row.get("platformsPermitted", [])
@@ -316,6 +431,11 @@ jobs:
               ),
               "margin_precision_qualified_universe_minimum": margin_precision_qualified_count >= 50,
               "btc_in_margin_precision_qualified_universe": btc_contract_execution_ready,
+              "official_minimum_lot_spec_coverage": (
+                  official_spec_coverage_count >= 50
+                  and official_spec_consistent
+              ),
+              "btc_official_minimum_lot_spec": official_btc_spec is not None,
               "eea_crypto_platform_permissions": (
                   bool(crypto_pf) and not crypto_permission_missing
               ),
@@ -358,6 +478,20 @@ jobs:
               "crypto_category_counts": dict(sorted(crypto_category_counts.items())),
               "crypto_category_and_permission_count": len(crypto_pf),
               "eea_margin_precision_qualified_crypto_perpetual_count": margin_precision_qualified_count,
+              "official_eea_specs_http_status": specs_http_status,
+              "official_eea_minimum_lot_specs_matched_count": official_spec_coverage_count,
+              "official_eea_minimum_lot_spec_mismatch_count": len(official_spec_mismatches),
+              "official_eea_minimum_lot_spec_error": specs_error,
+              "official_eea_minimum_lot_spec_sample": {
+                  key: {
+                      "minimum_lot": str(value["minimum_lot"]),
+                      "tick_size": str(value["tick_size"]),
+                      "maximum_position": str(value["maximum_position"]),
+                      "margin_class": value["margin_class"],
+                  }
+                  for key, value in list(official_spec_matched.items())[:8]
+              },
+              "official_eea_minimum_lot_spec_mismatches": dict(list(official_spec_mismatches.items())[:20]),
               "crypto_category_missing_europa_crypto_permission_count": len(crypto_permission_missing),
               "non_directional_stablecoin_contract_count": len(stablecoin_category_rows),
               "unclassified_pf_count": len(unclassified_pf),
@@ -387,11 +521,10 @@ jobs:
                   (x for x in margin_precision_qualified_crypto if x.get("symbol") == symbol), None
               ),
               "instrument_metadata_gap": (
-                  "Public /instruments includes tickSize, contractSize, maxPositionSize and "
-                  "contractValueTradePrecision, but the sampled payload does not include "
-                  "the EEA specification table's minimum lot size. The adapter must obtain "
-                  "and reconcile that field from the official contract specification before "
-                  "precision-safe order sizing can be certified."
+                  "The public instrument payload omits minimum lot size; the probe separately "
+                  "reconciles minimum lot, tick size and maximum position against Kraken's "
+                  "official EEA specification table. Per-contract sizing remains blocked if "
+                  "any contract is missing or mismatched."
               ),
               "ticker": {
                   "http_status": tickers.get("http_status"),
