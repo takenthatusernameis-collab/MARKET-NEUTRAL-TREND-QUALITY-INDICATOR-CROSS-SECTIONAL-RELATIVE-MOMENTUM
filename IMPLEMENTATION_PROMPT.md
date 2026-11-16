@@ -19,9 +19,10 @@ This section is the current operational authority and supersedes any older Polym
 The exact discovery order was Polymarket Perps → MEXC → Bitget.
 
 - Polymarket was not ready: the public qualification run found missing fee coverage across four categories and failed sampled order-book checks.
-- MEXC passed the public unauthenticated data qualification on GitHub-hosted Ubuntu. It returned 1,152 contract records, 1,143 cross-margin perpetuals across settlements and **1,061 active cross-margin USDT-settled linear perpetuals**.
-- MEXC bulk ticker coverage included all 1,061 selected contracts (1,161 ticker rows were returned).
-- Representative public ticker, order-book, daily Kline and funding-history calls passed across crypto, equity, commodity, FX and unclassified contract groups.
+- MEXC passed the public unauthenticated data qualification on GitHub-hosted Ubuntu. It returned 1,152 contract records, 1,143 active cross-margin perpetuals across settlement types and **1,061 active USDT/USDT quote-and-settlement contracts** for the homogeneous execution account.
+- MEXC bulk ticker coverage included all 1,143 research contracts (1,161 ticker rows were returned; no unmatched ticker symbols).
+- Settlement groups: 1,061 USDT/USDT, 41 USDC/USDC, 31 USD1/USD1 and 10 USD-quoted coin-settled contracts.
+- Representative public ticker, order-book, daily Kline and funding-history calls passed across commodity, crypto, equity, FX and unclassified categories (preflight run 43977889004).
 - Representative MEXC Day1 bars opened at 00:00 UTC.
 - Bitget's independent curiosity check found 886 active cross-margin USDT perpetuals and sampled market-data calls passed. This is a comparative observation only; MEXC remains selected because it was the first provider to pass the ordered screen.
 
@@ -105,7 +106,7 @@ Never weaken the guard, create a fake success path, write mutable account state 
 
 ### 0.8 Current implementation disclosure
 
-The MEXC public adapter, cross-sectional ranker, contract-aware paper-fill functions, USDT portfolio accounting module, funding/stop functions, incremental market-data store and cycle runner are committed to main. Mocked adapter/accounting tests and a real public API preflight have been run. The first data-cycle run completed a 150-instrument bootstrap batch but its data-branch commit failed because Git ignored the data directory. The workflow now force-adds public data, and successful commits are verified in runs 43976810498 and 43977234937. The latest persisted report contains 108,118 daily-candle rows, 300 bootstrapped instruments and 761 pending. Full 1,061-instrument history coverage remains incomplete; current reports show human-readable exchange tickers and separate research/execution rankings.
+The MEXC public adapter, all-settlement cross-sectional ranker, contract-aware paper-fill functions, USDT portfolio accounting module, funding/stop functions, incremental market-data store and cycle runner are committed to main. Mocked adapter/accounting tests and a real public API preflight have been run. The latest successful all-settlement cycle is run 43977854892: it persisted 231,692 daily-candle rows, 1,143/1,143 ticker coverage, zero missing latest daily bars, zero API failures, 750 instruments bootstrapped and 393 pending. Full 1,143-instrument history coverage remains incomplete; reports show human-readable exchange tickers and separate all-settlement research / USDT-only execution rankings.
 
 No forward paper account is initialized. Historical replay is not implemented. No NAV, fills, returns, CAGR, Sharpe, drawdown or profitability is claimed. Romanian user/account eligibility remains unverified. No live orders, Testnet, credentials or private endpoints are permitted.
 
