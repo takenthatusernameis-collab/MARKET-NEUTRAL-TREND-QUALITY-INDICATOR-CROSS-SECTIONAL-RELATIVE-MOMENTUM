@@ -20,7 +20,7 @@ The repository is being initialized from an empty main branch. The first impleme
 | Trend smoothing m | 5 | Provisional experiment |
 | Noise smoothing n | 10 | Provisional experiment; must exceed m |
 | Noise method | Absolute deviation | Baseline |
-| Q threshold | |Q| > 2 | Paper's promising-trend threshold |
+| Q threshold | \\|Q\\| > 2 | Paper's promising-trend threshold |
 | Correction factor | 1.0 | Provisional |
 | ATR | 14, Wilder | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
