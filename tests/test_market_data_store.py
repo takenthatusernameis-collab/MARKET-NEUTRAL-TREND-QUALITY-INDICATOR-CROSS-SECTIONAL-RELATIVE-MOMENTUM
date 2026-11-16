@@ -4,7 +4,9 @@ import gzip
 import json
 from datetime import UTC, datetime
 
-from trend_quality.market_data_store import MarketDataStore
+import pytest
+
+from trend_quality.market_data_store import MarketDataStore, MarketDataStoreError
 
 
 def candle(instrument_id: int, timestamp_ms: int, close: str = "10") -> dict[str, object]:
@@ -128,10 +130,9 @@ def test_candle_append_does_not_claim_bootstrap_complete_until_verified(tmp_path
 
 
 def test_market_data_store_refuses_to_mix_exchange_histories(tmp_path) -> None:
-    MarketDataStore(tmp_path, provider="mexc")
-    import pytest
-
-    with pytest.raises(Exception, match="refusing to mix exchange histories"):
+    mexc_store = MarketDataStore(tmp_path, provider="mexc")
+    mexc_store.save_manifest(1_700_000_000_000)
+    with pytest.raises(MarketDataStoreError, match="refusing to mix exchange histories"):
         MarketDataStore(tmp_path, provider="polymarket")
 
 
