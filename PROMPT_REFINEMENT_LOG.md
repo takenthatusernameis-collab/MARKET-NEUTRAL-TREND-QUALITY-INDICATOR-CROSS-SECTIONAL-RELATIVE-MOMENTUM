@@ -78,3 +78,10 @@
 - The official Bybit daily trade archive is accessible and may unblock selective historical price replay after coverage, integrity, data-volume and survivorship checks.
 - A full universe historical backfill is not yet demonstrated; per-symbol daily archives can be large and historical universe membership cannot be inferred from present-day symbols alone.
 - Forward paper operation, hourly stop monitoring and funding reconciliation remain disabled. Do not present archive-derived price-only results as full strategy validation.
+
+
+### Review pass 9 — inspect the actual compressed CSV schema
+- Extended the archive probe to request bytes 0–8191, decompress the gzip prefix, parse the CSV header and first data row, and require the expected trade columns.
+- Run `43912788709`: 3/3 jobs passed. All read HTTP 206 ranges, decompressed 27,914 bytes from 8,192 compressed bytes, and found the columns `timestamp,symbol,side,size,price,tickDirection,trdMatchID,grossValue,homeNotional,foreignNotional,RPI`.
+- The first sample row parsed as a BTCUSDT sell trade with timestamp, quantity and price values, confirming the archive payload schema on the actual official file rather than relying only on a third-party description.
+- This remains a prefix/schema test; it does not prove full-file CRC validation, complete-day integrity, chronological ordering, or the coverage of other symbols and dates. The downloader must validate the complete gzip stream before trusting a file.
