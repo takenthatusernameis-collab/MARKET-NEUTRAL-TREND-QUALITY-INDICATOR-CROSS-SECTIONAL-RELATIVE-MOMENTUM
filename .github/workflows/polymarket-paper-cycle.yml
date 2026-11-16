@@ -66,6 +66,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           BOOTSTRAP_BATCH_SIZE: "150"
         run: |
+          mkdir -p ../market-data/data/reports
           python scripts/polymarket_paper_cycle.py | tee ../market-data/data/reports/workflow-last-run.log
 
       - name: Commit market data, snapshots and rebuildable projections
