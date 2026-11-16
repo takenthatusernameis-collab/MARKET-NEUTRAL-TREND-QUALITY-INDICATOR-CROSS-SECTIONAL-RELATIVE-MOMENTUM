@@ -167,10 +167,13 @@ def test_daily_candle_arrays_are_normalized_to_milliseconds() -> None:
 def test_funding_history_paginates_and_keeps_negative_rates() -> None:
     client = client_for({
         "/api/v1/contract/funding_rate/history": lambda params: success({
-            "resultList": [
-                {"settleTime": 1_700_000_200_000, "fundingRate": "-0.0002"},
-                {"settleTime": 1_700_000_100_000, "fundingRate": "0.0001"},
-            ]
+            "resultList": (
+                [
+                    {"settleTime": 1_700_000_200_000, "fundingRate": "-0.0002"},
+                    {"settleTime": 1_700_000_100_000, "fundingRate": "0.0001"},
+                ]
+                if params["page_num"] == 1 else []
+            )
         })
     })
     rows = client.funding_history(
