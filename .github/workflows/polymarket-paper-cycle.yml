@@ -1,16 +1,6 @@
-name: Polymarket Cross-Margin Perps — 5-Minute Paper Cycle
+name: Retired Polymarket Paper Cycle — Manual Diagnostic Only
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/trend_quality/polymarket_api.py"
-      - "src/trend_quality/market_data_store.py"
-      - "scripts/probe_polymarket_mexc_bitget.py"
-      - "scripts/polymarket_paper_cycle.py"
-      - ".github/workflows/polymarket-paper-cycle.yml"
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
