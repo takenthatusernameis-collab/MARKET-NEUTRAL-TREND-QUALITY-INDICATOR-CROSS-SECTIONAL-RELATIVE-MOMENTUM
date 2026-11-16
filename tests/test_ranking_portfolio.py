@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 from trend_quality.indicators import QObservation
 from trend_quality.portfolio import (
     Position,
