@@ -1,0 +1,346 @@
+"""MEXC USDT forward-paper portfolio accounting.
+
+All quantities are normalized to base-asset units and all cashflows are USDT.
+This module is deterministic and never submits exchange orders.
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+from typing import Any
+
+from .execution import SimulatedFill
+from .performance import EquityPoint, compute_performance_metrics
+from .portfolio import Position, calculate_nav, funding_cashflow, portfolio_exposure
+
+ZERO = Decimal("0")
+ONE = Decimal("1")
+DEFAULT_INITIAL_CAPITAL = Decimal("100")
+
+
+def _decimal(value: object, field: str) -> Decimal:
+    try:
+        result = Decimal(str(value))
+    except Exception as exc:
+        raise ValueError(f"Invalid {field}") from exc
+    if not result.is_finite():
+        raise ValueError(f"Non-finite {field}")
+    return result
+
+
+def initial_portfolio_state(
+    initial_capital: Decimal = DEFAULT_INITIAL_CAPITAL,
+) -> dict[str, Any]:
+    if not initial_capital.is_finite() or initial_capital <= ZERO:
+        raise ValueError("Initial capital must be finite and positive")
+    return {
+        "schema_version": 1,
+        "account_id": "mexc-usdt-forward",
+        "strategy_id": "trend-quality-daily-cross-sectional-v1",
+        "currency": "USDT",
+        "initial_capital": str(initial_capital),
+        "cash": str(initial_capital),
+        "realized_gross_pnl": "0",
+        "fees_paid": "0",
+        "confirmed_funding": "0",
+        "positions": [],
+        "closed_trade_net_pnls": [],
+        "daily_equity": [],
+        "last_processed_daily_bar_ms": None,
+        "last_snapshot_ms": None,
+        "unresolved_funding_count": 0,
+        "status": "INITIALIZED_PAPER_ONLY",
+    }
+
+
+def portfolio_nav(
+    state: dict[str, Any],
+    ticker_by_instrument_id: dict[int, dict[str, Any]],
+) -> Decimal:
+    unrealized = ZERO
+    for position in state.get("positions", []):
+        iid = int(position["instrument_id"])
+        ticker = ticker_by_instrument_id.get(iid, {})
+        mark = _decimal(
+            ticker.get("mark_price", position.get("last_mark_price", position["entry_price"])),
+            "mark price",
+        )
+        if mark <= ZERO:
+            mark = _decimal(position["last_mark_price"], "last mark price")
+        model = Position(
+            symbol=str(position["symbol"]),
+            side=str(position["side"]),
+            quantity=_decimal(position["quantity"], "position quantity"),
+            entry_price=_decimal(position["entry_price"], "entry price"),
+        )
+        unrealized += model.unrealized_pnl(mark)
+        position["last_mark_price"] = str(mark)
+    nav = (
+        _decimal(state["cash"], "cash")
+        + unrealized
+    )
+    if not nav.is_finite():
+        raise ValueError("Portfolio NAV is non-finite")
+    return nav
+
+
+def open_paper_position(
+    state: dict[str, Any],
+    instrument: dict[str, Any],
+    ticker: dict[str, Any],
+    side: str,
+    atr: Decimal,
+    fill: SimulatedFill,
+    timestamp_ms: int,
+    *,
+    stop_atr_multiple: Decimal = Decimal("3"),
+) -> dict[str, Any]:
+    if side not in {"long", "short"}:
+        raise ValueError("Position side must be long or short")
+    if fill.side != ("buy" if side == "long" else "sell") or not fill.complete:
+        raise ValueError("Entry fill side or completeness is invalid")
+    iid = int(instrument["instrument_id"])
+    if any(int(row["instrument_id"]) == iid for row in state.get("positions", [])):
+        raise ValueError("Instrument already has an open paper position")
+    if atr <= ZERO or stop_atr_multiple <= ZERO:
+        raise ValueError("ATR and stop multiple must be positive")
+    entry = fill.average_price
+    stop = (
+        entry - atr * stop_atr_multiple
+        if side == "long"
+        else entry + atr * stop_atr_multiple
+    )
+    if stop <= ZERO:
+        raise ValueError("Initial stop price is non-positive")
+    fee = fill.fee
+    state["cash"] = str(_decimal(state["cash"], "cash") - fee)
+    state["fees_paid"] = str(_decimal(state["fees_paid"], "fees") + fee)
+    position = {
+        "instrument_id": iid,
+        "symbol": str(instrument["symbol"]),
+        "category": str(instrument.get("category", "unclassified")),
+        "side": side,
+        "quantity": str(fill.filled_quantity),
+        "entry_price": str(entry),
+        "entry_timestamp_ms": int(timestamp_ms),
+        "entry_fee": str(fee),
+        "last_mark_price": str(ticker.get("mark_price", entry)),
+        "stop_price": str(stop),
+        "highest_since_entry": str(entry),
+        "lowest_since_entry": str(entry),
+        "last_funding_timestamp_ms": int(timestamp_ms),
+        "unresolved_funding_count": 0,
+    }
+    state.setdefault("positions", []).append(position)
+    return position
+
+
+def close_paper_position(
+    state: dict[str, Any],
+    position: dict[str, Any],
+    fill: SimulatedFill,
+    timestamp_ms: int,
+) -> dict[str, Any]:
+    expected_side = "sell" if position["side"] == "long" else "buy"
+    if fill.side != expected_side or not fill.complete:
+        raise ValueError("Exit fill side or completeness is invalid")
+    if fill.filled_quantity != _decimal(position["quantity"], "position quantity"):
+        raise ValueError("Exit fill quantity does not close the full paper position")
+    model = Position(
+        symbol=str(position["symbol"]),
+        side=str(position["side"]),
+        quantity=_decimal(position["quantity"], "position quantity"),
+        entry_price=_decimal(position["entry_price"], "entry price"),
+    )
+    realized = model.unrealized_pnl(fill.average_price)
+    exit_fee = fill.fee
+    entry_fee = _decimal(position.get("entry_fee", "0"), "entry fee")
+    state["cash"] = str(_decimal(state["cash"], "cash") + realized - exit_fee)
+    state["realized_gross_pnl"] = str(
+        _decimal(state["realized_gross_pnl"], "realized gross PnL") + realized
+    )
+    state["fees_paid"] = str(_decimal(state["fees_paid"], "fees") + exit_fee)
+    net_trade = realized - entry_fee - exit_fee
+    state.setdefault("closed_trade_net_pnls", []).append(str(net_trade))
+    state["positions"] = [
+        row for row in state.get("positions", [])
+        if int(row["instrument_id"]) != int(position["instrument_id"])
+    ]
+    return {
+        "instrument_id": int(position["instrument_id"]),
+        "symbol": str(position["symbol"]),
+        "side": str(position["side"]),
+        "quantity": str(fill.filled_quantity),
+        "entry_price": str(position["entry_price"]),
+        "exit_price": str(fill.average_price),
+        "realized_gross_pnl": str(realized),
+        "entry_fee": str(entry_fee),
+        "exit_fee": str(exit_fee),
+        "net_trade_pnl": str(net_trade),
+        "exit_timestamp_ms": int(timestamp_ms),
+        "shortfall_bps": str(fill.shortfall_bps),
+    }
+
+
+def apply_confirmed_funding(
+    state: dict[str, Any],
+    position: dict[str, Any],
+    funding_rate: Decimal,
+    settlement_mark: Decimal,
+    funding_timestamp_ms: int,
+) -> dict[str, Any]:
+    cashflow = funding_cashflow(
+        str(position["side"]),
+        _decimal(position["quantity"], "position quantity"),
+        settlement_mark,
+        funding_rate,
+    )
+    state["cash"] = str(_decimal(state["cash"], "cash") + cashflow)
+    state["confirmed_funding"] = str(
+        _decimal(state["confirmed_funding"], "confirmed funding") + cashflow
+    )
+    position["last_funding_timestamp_ms"] = int(funding_timestamp_ms)
+    return {
+        "instrument_id": int(position["instrument_id"]),
+        "funding_timestamp_ms": int(funding_timestamp_ms),
+        "funding_rate": str(funding_rate),
+        "settlement_mark_price": str(settlement_mark),
+        "cashflow_usdt": str(cashflow),
+    }
+
+
+def update_trailing_stop(
+    position: dict[str, Any],
+    high: Decimal,
+    low: Decimal,
+    atr: Decimal,
+    *,
+    multiple: Decimal = Decimal("3"),
+) -> Decimal:
+    if min(high, low, atr, multiple) <= ZERO:
+        raise ValueError("Trailing stop inputs must be positive")
+    if high < low:
+        raise ValueError("Daily high cannot be below daily low")
+    if position["side"] == "long":
+        extreme = max(_decimal(position["highest_since_entry"], "highest"), high)
+        proposed = extreme - atr * multiple
+        stop = max(_decimal(position["stop_price"], "stop"), proposed)
+        position["highest_since_entry"] = str(extreme)
+    elif position["side"] == "short":
+        extreme = min(_decimal(position["lowest_since_entry"], "lowest"), low)
+        proposed = extreme + atr * multiple
+        stop = min(_decimal(position["stop_price"], "stop"), proposed)
+        position["lowest_since_entry"] = str(extreme)
+    else:
+        raise ValueError("Position side must be long or short")
+    if stop <= ZERO:
+        raise ValueError("Trailing stop became non-positive")
+    position["stop_price"] = str(stop)
+    return stop
+
+
+def stop_is_triggered(position: dict[str, Any], last_price: Decimal) -> bool:
+    stop = _decimal(position["stop_price"], "stop price")
+    if position["side"] == "long":
+        return last_price <= stop
+    if position["side"] == "short":
+        return last_price >= stop
+    raise ValueError("Position side must be long or short")
+
+
+def append_daily_equity(
+    state: dict[str, Any],
+    timestamp_ms: int,
+    nav: Decimal,
+) -> None:
+    if timestamp_ms <= 0 or nav <= ZERO or not nav.is_finite():
+        raise ValueError("Invalid daily equity observation")
+    curve = state.setdefault("daily_equity", [])
+    if curve and int(curve[-1]["timestamp_ms"]) == int(timestamp_ms):
+        curve[-1]["nav"] = str(nav)
+        return
+    if curve and int(curve[-1]["timestamp_ms"]) > int(timestamp_ms):
+        raise ValueError("Daily equity timestamps cannot move backwards")
+    curve.append({"timestamp_ms": int(timestamp_ms), "nav": str(nav)})
+
+
+def performance_summary(state: dict[str, Any]) -> dict[str, Any]:
+    curve = state.get("daily_equity", [])
+    points = [
+        EquityPoint(
+            timestamp_ms=int(row["timestamp_ms"]),
+            nav=_decimal(row["nav"], "daily NAV"),
+        )
+        for row in curve
+    ]
+    if len(points) < 2:
+        return {
+            "status": "INSUFFICIENT_DAILY_EQUITY_HISTORY",
+            "observations": len(points),
+            "metrics": {},
+        }
+    try:
+        metrics = compute_performance_metrics(
+            points,
+            [_decimal(value, "closed trade net PnL")
+             for value in state.get("closed_trade_net_pnls", [])],
+        )
+    except ValueError as exc:
+        return {
+            "status": "METRICS_UNAVAILABLE",
+            "observations": len(points),
+            "reason": str(exc),
+            "metrics": {},
+        }
+    return {
+        "status": "AVAILABLE_WITH_SAMPLE_GATES",
+        "observations": len(points),
+        "metrics": {
+            name: {
+                "value": metric.value,
+                "reason": metric.reason,
+                "observations": metric.observations,
+            }
+            for name, metric in metrics.items()
+        },
+    }
+
+
+def account_report(
+    state: dict[str, Any],
+    ticker_by_instrument_id: dict[int, dict[str, Any]],
+) -> dict[str, Any]:
+    nav = portfolio_nav(state, ticker_by_instrument_id)
+    long_notional = ZERO
+    short_notional = ZERO
+    for position in state.get("positions", []):
+        mark = _decimal(
+            ticker_by_instrument_id.get(int(position["instrument_id"]), {}).get(
+                "mark_price", position["last_mark_price"]
+            ),
+            "position mark",
+        )
+        notional = _decimal(position["quantity"], "quantity") * mark
+        if position["side"] == "long":
+            long_notional += notional
+        else:
+            short_notional += notional
+    exposure = portfolio_exposure(nav, long_notional, short_notional)
+    return {
+        "currency": "USDT",
+        "initial_capital": state["initial_capital"],
+        "cash": state["cash"],
+        "nav": str(nav),
+        "realized_gross_pnl": state["realized_gross_pnl"],
+        "unrealized_pnl": str(nav - _decimal(state["cash"], "cash")),
+        "fees_paid": state["fees_paid"],
+        "confirmed_funding": state["confirmed_funding"],
+        "gross_exposure": str(exposure["gross_exposure"]),
+        "net_exposure": str(exposure["net_exposure"]),
+        "dollar_neutrality_imbalance": str(
+            exposure["dollar_neutrality_imbalance"]
+        ),
+        "position_count": len(state.get("positions", [])),
+        "positions": state.get("positions", []),
+        "closed_trade_count": len(state.get("closed_trade_net_pnls", [])),
+        "performance": performance_summary(state),
+    }
