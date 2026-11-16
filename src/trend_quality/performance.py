@@ -100,31 +100,38 @@ def compute_performance_metrics(
     elapsed_days = (points[-1].timestamp_ms - points[0].timestamp_ms) / DAY_MS
     total_return = float(points[-1].nav / points[0].nav - Decimal("1"))
     max_drawdown = max(0.0, -min(item.drawdown for item in drawdowns))
-    trough_index = min(range(len(drawdowns)), key=lambda i: drawdowns[i].drawdown)
-    peak_value = drawdowns[trough_index].high_watermark
-    peak_index = max(
-        i
-        for i in range(trough_index + 1)
-        if points[i].nav == peak_value
-    )
-    recovery_index = next(
-        (
+    if max_drawdown == 0:
+        trough_index = 0
+        peak_index = 0
+        recovery_index = None
+        drawdown_duration_days = 0.0
+        recovery_period_days = None
+    else:
+        trough_index = min(range(len(drawdowns)), key=lambda i: drawdowns[i].drawdown)
+        peak_value = drawdowns[trough_index].high_watermark
+        peak_index = max(
             i
-            for i in range(trough_index + 1, len(points))
-            if points[i].nav >= peak_value
-        ),
-        None,
-    )
-    drawdown_duration_days = (
-        (points[recovery_index].timestamp_ms - points[peak_index].timestamp_ms) / DAY_MS
-        if recovery_index is not None
-        else (points[-1].timestamp_ms - points[peak_index].timestamp_ms) / DAY_MS
-    )
-    recovery_period_days = (
-        (points[recovery_index].timestamp_ms - points[trough_index].timestamp_ms) / DAY_MS
-        if recovery_index is not None
-        else None
-    )
+            for i in range(trough_index + 1)
+            if points[i].nav == peak_value
+        )
+        recovery_index = next(
+            (
+                i
+                for i in range(trough_index + 1, len(points))
+                if points[i].nav >= peak_value
+            ),
+            None,
+        )
+        drawdown_duration_days = (
+            (points[recovery_index].timestamp_ms - points[peak_index].timestamp_ms) / DAY_MS
+            if recovery_index is not None
+            else (points[-1].timestamp_ms - points[peak_index].timestamp_ms) / DAY_MS
+        )
+        recovery_period_days = (
+            (points[recovery_index].timestamp_ms - points[trough_index].timestamp_ms) / DAY_MS
+            if recovery_index is not None
+            else None
+        )
     current_drawdown_duration = 0.0
     if drawdowns[-1].drawdown < 0:
         current_high = drawdowns[-1].high_watermark
