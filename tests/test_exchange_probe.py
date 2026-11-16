@@ -41,7 +41,10 @@ def test_mexc_requires_perpetual_and_cross_support() -> None:
 
 
 def test_binance_only_accepts_trading_quote_perpetuals() -> None:
-    base = {"status": "TRADING", "contractType": "PERPETUAL", "quoteAsset": "USDT", "symbol": "BTCUSDT"}
+    base = {
+        "status": "TRADING", "contractType": "PERPETUAL",
+        "quoteAsset": "USDT", "symbol": "BTCUSDT",
+    }
     assert binance_perpetual(base)
     assert binance_perpetual({**base, "quoteAsset": "USDC"})
     assert not binance_perpetual({**base, "contractType": "CURRENT_QUARTER"})
