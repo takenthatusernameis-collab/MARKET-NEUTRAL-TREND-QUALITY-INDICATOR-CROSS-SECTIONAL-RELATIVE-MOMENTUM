@@ -5,7 +5,7 @@ import argparse
 import json
 import sys
 
-from .bybit_api import BybitPublicClient, BybitAPIError
+from .bybit_api import BybitAPIError, BybitPublicClient
 
 
 def public_api_smoke() -> int:
