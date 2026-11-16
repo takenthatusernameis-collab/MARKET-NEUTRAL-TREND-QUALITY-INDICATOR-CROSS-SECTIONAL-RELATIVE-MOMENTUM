@@ -2,11 +2,6 @@ name: Public API Smoke
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'src/trend_quality/bybit_api.py'
-      - '.github/workflows/public-api-smoke.yml'
 
 permissions:
   contents: read
