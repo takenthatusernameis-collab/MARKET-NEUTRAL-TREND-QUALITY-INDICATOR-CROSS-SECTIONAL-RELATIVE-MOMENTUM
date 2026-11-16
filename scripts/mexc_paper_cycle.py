@@ -65,18 +65,24 @@ def _last_completed_daily_bar(server_ms: int) -> int:
 def _history_row(instrument: dict[str, Any], candle: dict[str, Any]) -> dict[str, Any]:
     contract_size = dec(instrument["contract_size"])
     volume_contracts = dec(candle["volume_contracts"])
+    usdt_eligible = bool(instrument.get("usdt_account_eligible"))
+    quote_turnover = candle.get("turnover_quote", candle.get("turnover_usdt"))
     return {
         "instrument_id": int(instrument["instrument_id"]),
         "symbol": str(instrument["symbol"]),
         "category": str(instrument.get("category", "unclassified")),
+        "quote_asset": str(instrument.get("quote_asset", "")),
+        "settlement_asset": str(instrument.get("settlement_asset", "")),
         "timestamp_ms": int(candle["timestamp_ms"]),
         "open": str(candle["open"]),
         "high": str(candle["high"]),
         "low": str(candle["low"]),
         "close": str(candle["close"]),
-        "volume": str(volume_contracts * contract_size),
+        "volume": str(volume_contracts * contract_size) if usdt_eligible else None,
         "volume_contracts": str(volume_contracts),
-        "turnover_usdt": str(candle["turnover_usdt"]),
+        "turnover_quote": str(quote_turnover),
+        "turnover_quote_asset": str(instrument.get("quote_asset", "")),
+        "turnover_usdt": str(quote_turnover) if usdt_eligible else None,
     }
 
 
@@ -163,6 +169,9 @@ def _snapshot_rows(
             "instrument_id": iid,
             "symbol": str(instrument["symbol"]),
             "category": str(instrument.get("category", "unclassified")),
+            "quote_asset": str(instrument.get("quote_asset", "")),
+            "settlement_asset": str(instrument.get("settlement_asset", "")),
+            "usdt_account_eligible": bool(instrument.get("usdt_account_eligible")),
             "last_price": str(ticker["last_price"]),
             "mark_price": str(ticker["mark_price"]),
             "index_price": str(ticker["index_price"]),
@@ -170,7 +179,11 @@ def _snapshot_rows(
             "bid_price": str(ticker["bid_price"]),
             "ask_price": str(ticker["ask_price"]),
             "funding_rate": str(ticker["funding_rate"]),
-            "turnover_24h_usdt": str(ticker["turnover_24h_usdt"]),
+            "turnover_24h_quote": str(ticker["turnover_24h_quote"]),
+            "turnover_24h_usdt": (
+                str(ticker["turnover_24h_quote"])
+                if instrument.get("usdt_account_eligible") else None
+            ),
             "open_interest_contracts": str(ticker["open_interest_contracts"]),
             "timestamp_ms": int(ticker["timestamp_ms"]),
             "snapshot_timestamp_ms": int(now_ms),
@@ -894,7 +907,10 @@ def _run() -> int:
         "provider": "mexc",
         "mode": "PUBLIC_DATA_AND_Q_RANKING_PAPER_ONLY",
         "instrument_count_all": len(client.contract_details()),
-        "active_cross_usdt_perpetual_count": len(instruments),
+        "active_cross_margin_perpetual_count": len(instruments),
+        "active_cross_usdt_perpetual_count": sum(
+            bool(row.get("usdt_account_eligible")) for row in instruments
+        ),
         "asset_class_counts": {
             category: sum(1 for row in instruments if row["category"] == category)
             for category in sorted({str(row["category"]) for row in instruments})
