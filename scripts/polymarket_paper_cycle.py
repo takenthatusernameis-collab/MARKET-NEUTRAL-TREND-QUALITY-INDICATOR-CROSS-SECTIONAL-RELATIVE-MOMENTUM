@@ -15,7 +15,6 @@ from trend_quality.github_state import GitHubStatePublisher
 from trend_quality.indicators import compute_q_series, wilder_atr
 from trend_quality.market_data_store import MarketDataStore
 from trend_quality.polymarket_api import (
-    PolymarketAPIError,
     PolymarketPublicClient,
     is_cross_margin_instrument,
     is_new_position_eligible,
@@ -23,7 +22,6 @@ from trend_quality.polymarket_api import (
 )
 from trend_quality.portfolio import (
     Position,
-    calculate_nav,
     funding_cashflow,
     portfolio_exposure,
     target_quantity,
@@ -144,7 +142,9 @@ def _publish_state_event(
     token = os.environ.get("GITHUB_TOKEN", "")
     repository = os.environ.get("GITHUB_REPOSITORY", "")
     if not token or not repository:
-        raise RuntimeError("GITHUB_TOKEN and GITHUB_REPOSITORY are required to persist paper events")
+        raise RuntimeError(
+            "GITHUB_TOKEN and GITHUB_REPOSITORY are required to persist paper events"
+        )
     publisher = GitHubStatePublisher(repository, token, branch="state")
     result = publisher.publish_batch(batch)
     return {"path": result.path, "batch_hash": result.batch_hash, "created": result.created}
@@ -195,7 +195,9 @@ def _complete_candles(
     return output
 
 
-def _load_history(store: MarketDataStore, lookback_start_ms: int) -> dict[int, list[dict[str, Any]]]:
+def _load_history(
+    store: MarketDataStore, lookback_start_ms: int
+) -> dict[int, list[dict[str, Any]]]:
     return store.load_all_candles(start_timestamp_ms=lookback_start_ms)
 
 
@@ -437,7 +439,10 @@ def _daily_candidates(
     executable_long, executable_short = rank_candidates(
         observations, threshold=2.0, execution_eligible=execution_eligible
     )
-    return research_long, research_short, instruments_by_key, exclusions, executable_long, executable_short
+    return (
+        research_long, research_short, instruments_by_key, exclusions,
+        executable_long, executable_short,
+    )
 
 
 def _select_executable_pair(
@@ -451,7 +456,6 @@ def _select_executable_pair(
     state: dict[str, Any],
     now_ms: int,
 ) -> tuple[Any, list[dict[str, Any]], list[dict[str, Any]]] | None:
-    nav = _nav(state, tickers)
     for long_candidate in longs[:10]:
         for short_candidate in shorts[:10]:
             if long_candidate.symbol == short_candidate.symbol:
@@ -464,7 +468,7 @@ def _select_executable_pair(
             new_positions: list[dict[str, Any]] = []
             fills: list[dict[str, Any]] = []
             try:
-                for candidate, instrument, side in legs:
+                for _, instrument, side in legs:
                     iid = int(instrument["instrument_id"])
                     rows = history.get(iid, [])
                     atr = _atr_for_history(rows)
@@ -527,7 +531,10 @@ def _run() -> int:
         for row in cross if validate_instrument(row)
     }
     if invalid:
-        raise RuntimeError(f"Active cross-margin instrument metadata invalid: {list(invalid.items())[:10]}")
+        raise RuntimeError(
+            f"Active cross-margin instrument metadata invalid: "
+            f"{list(invalid.items())[:10]}"
+        )
 
     ticker_rows, _statistics = client.tickers()
     ticker_map = _rows_by_id(ticker_rows)
@@ -634,8 +641,11 @@ def _run() -> int:
         if (
             store.manifest["instruments"][str(row["instrument_id"])].get("last_candle_timestamp_ms")
             is not None
-            and int(store.manifest["instruments"][str(row["instrument_id"])].get("last_candle_timestamp_ms"))
-            < latest_completed_bar_ms
+            and int(
+                store.manifest["instruments"][str(row["instrument_id"])].get(
+                    "last_candle_timestamp_ms"
+                )
+            ) < latest_completed_bar_ms
             and store.manifest["instruments"][str(row["instrument_id"])].get("history_status")
             != "INSUFFICIENT_HISTORY"
         )
@@ -799,7 +809,6 @@ def _run() -> int:
     exec_shorts: list[Any] = []
     instrument_by_key: dict[str, dict[str, Any]] = {}
     exclusions: list[str] = []
-    chosen_pair: Any = None
     fills: list[dict[str, Any]] = []
     daily_event_published: dict[str, Any] | None = None
     decision_status = "NO_NEW_COMPLETED_DAILY_BAR"
@@ -1051,4 +1060,4 @@ if __name__ == "__main__":
             "orders_submitted": 0,
             "credentials_used": False,
         }, indent=2))
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
