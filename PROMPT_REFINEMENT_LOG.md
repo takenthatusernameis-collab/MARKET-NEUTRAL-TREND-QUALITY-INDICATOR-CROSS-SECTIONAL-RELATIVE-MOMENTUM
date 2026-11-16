@@ -1,6 +1,6 @@
 # Prompt Refinement Log
 
-## 2026-11-16 — v2.1 to v2.3
+## 2026-11-16 — v2.1 to v2.4
 
 ### Review pass 1 — mathematical source fidelity
 - Re-opened the original Sepiashvili paper and inspected rendered pages containing the equations and figures.
@@ -39,10 +39,20 @@
 - No VPN, proxy, API-domain change or exchange fallback will be introduced.
 - If no free standard runner is outside the restricted geography, only a user-controlled self-hosted runner on permitted hardware/network remains a possible no-paid path; it requires user setup and explicit authorization.
 
+### Review pass 6 — repeated free runner-region tests
+- Public API smoke run 43897098694 was provisioned in Azure eastus2 and received HTTP 403 from Bybit.
+- Public API smoke run 43897936443 used ubuntu-slim in Azure eastus; CloudFront explicitly returned: "The Amazon CloudFront distribution is configured to block access from your country".
+- Public API smoke run 43898832858 used ubuntu-slim in Azure westus3 and returned the same country-block response.
+- These runs establish that the tested standard free GitHub runner allocations are US-based and cannot reach the required Bybit Global endpoint. They do not establish a general Bybit outage.
+- Removed automatic push-triggered public API smoke runs to avoid repeatedly generating known regional failures; the smoke test remains manually dispatchable.
+- The only plausible no-paid deployment route is a user-installed self-hosted runner using a permitted user-controlled network. No such runner was created or configured.
+
 ### Evidence status
 - Documentation/API review: completed.
 - Repository initialization: completed.
-- Code implementation and tests: in progress.
-- Public API integration: not yet run.
+- Mathematical/data/API client modules: implemented; CI validation pending.
+- First CI lint run: failed with 15 findings; fixes reduced the remaining lint issues to two; those two import-order findings were corrected.
+- Full green CI: pending confirmation.
+- Public API integration: attempted on three GitHub-hosted runner allocations; all blocked by CloudFront regional restriction.
 - Historical replay: not implemented.
 - Forward paper verification: not started.
