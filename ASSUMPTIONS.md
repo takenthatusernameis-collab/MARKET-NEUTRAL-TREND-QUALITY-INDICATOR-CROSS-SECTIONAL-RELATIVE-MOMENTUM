@@ -15,6 +15,13 @@
 - Maximum linear order-book REST depth: 1,000 levels; initial request depth is configurable and must be benchmarked.
 - Public order-book snapshots exclude RPI liquidity.
 
+## Network and runner limitation
+- Bybit V5 guidance states that US and mainland-China source IPs return HTTP 403.
+- One GitHub Actions run was provisioned in Azure eastus2 and received HTTP 403 on the first public server-time call.
+- A free ubuntu-slim connectivity probe is being used to test whether another standard runner pool is assigned outside the restricted geography; until verified, Bybit data integration remains blocked from GitHub-hosted execution.
+- No proxy, VPN, geo-spoofing, alternative exchange, or unapproved API host is permitted.
+- If standard free runners remain US-based, the no-paid option may require a user-installed self-hosted runner on permitted user-controlled hardware; this is not available until the user explicitly configures it.
+
 ## Model limitations
 - Equal-dollar long/short exposure is not beta neutrality.
 - Hourly scheduled monitoring is not continuous stop protection.
