@@ -2,7 +2,7 @@
 
 ## Current state
 
-The repository is in a validated core-code phase, not a trading-ready phase. No paper account, historical backtest or forward performance is claimed. The current `main` CI run is green: Ruff passed and pytest reported 62 passed.
+The repository is in a validated core-code phase, not a trading-ready phase. No paper account, historical backtest or forward performance is claimed. Latest main CI run 43912962281 is green: Ruff passed and pytest reported 62 passed in 0.13 seconds.
 
 ## Phase 0 — Specification and safety
 
@@ -10,7 +10,7 @@ The repository is in a validated core-code phase, not a trading-ready phase. No 
 - [x] Establish v2.4 implementation specification and decision log.
 - [x] Keep all execution paper-only; do not add private API calls or exchange order submission.
 - [x] Add CI on Python 3.12 with Ruff and pytest.
-- [x] Verify core CI: 62 tests pass on commit `d7680c009904c4d0daa85a48fb61bc93ddb2dc15`.
+- [x] Verify core CI on the current documentation/probe branch: run 43912962281 passed Ruff and 62 tests on commit `73b449593ed32b5dc1d94e4d1c5bc0658533fa54`.
 - [x] Keep automatic portfolio workflows disabled.
 - [ ] Complete the data-access gate using a permitted runner/network.
 
