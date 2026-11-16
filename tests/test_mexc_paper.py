@@ -22,6 +22,9 @@ def instrument(instrument_id: int, symbol: str) -> dict[str, Any]:
         "min_contracts": "1",
         "max_contracts": "10000",
         "taker_fee_rate": "0.0002",
+        "quote_asset": "USDT",
+        "settlement_asset": "USDT",
+        "usdt_account_eligible": True,
     }
 
 
@@ -58,20 +61,32 @@ def test_ranker_keeps_research_universe_separate_from_execution_gate(monkeypatch
         )]
 
     monkeypatch.setattr(paper, "compute_q_series", fake_q)
-    instruments = [instrument(1, "UP_USDT"), instrument(2, "DOWN_USDT")]
+    instruments = [
+        instrument(1, "UP_USDT"),
+        instrument(2, "DOWN_USDT"),
+        {
+            **instrument(3, "ALT_USDC"),
+            "quote_asset": "USDC",
+            "settlement_asset": "USDC",
+            "usdt_account_eligible": False,
+        },
+    ]
     histories = {
         1: history(1, "100", "100000"),
         2: history(2, "90", "1000"),
+        3: history(3, "110", "100000"),
     }
     tickers = {
         1: {"last_price": "100"},
         2: {"last_price": "90"},
+        3: {"last_price": "110"},
     }
     ranked = rank_mexc_universe(instruments, histories, tickers, Decimal("100"))
     assert [row.symbol for row in ranked.research_longs] == ["mexc:1"]
-    assert [row.symbol for row in ranked.research_shorts] == ["mexc:2"]
+    assert [row.symbol for row in ranked.research_shorts] == ["mexc:3", "mexc:2"]
     assert [row.symbol for row in ranked.executable_longs] == ["mexc:1"]
     assert ranked.executable_shorts == []
+    assert any("NON_USDT_SETTLEMENT_RESEARCH_ONLY" in reason for reason in ranked.excluded)
     assert any("TURNOVER_CAP" in reason for reason in ranked.excluded)
 
 
