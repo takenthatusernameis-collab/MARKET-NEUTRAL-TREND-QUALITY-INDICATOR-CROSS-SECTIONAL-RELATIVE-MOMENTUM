@@ -180,58 +180,57 @@ def test_existing_forked_event_tree_is_rejected() -> None:
 
 
 
-def test_remote_chain_rejects_run_id_reuse_across_months() -> None:
+def _seed_remote(fake: FakeGitHub, batches: list[dict[str, object]]) -> None:
+    for batch in batches:
+        fake.files[_expected_path(batch)] = canonical_json(batch) + "\n"
+
+
+def _assert_remote_chain_rejects(
+    batches: list[dict[str, object]],
+    expected_message: str,
+) -> None:
     fake = FakeGitHub()
+    _seed_remote(fake, batches)
     publisher = GitHubStatePublisher("owner/repo", "dummy-token", transport=fake)
+    try:
+        publisher._latest_batch_hash("/repos/owner/repo", "tree-parent")
+    except GitHubStateError as exc:
+        assert expected_message in str(exc)
+    else:
+        raise AssertionError(f"remote chain must reject {expected_message}")
+
+
+def test_remote_chain_rejects_run_id_reuse_across_months() -> None:
     first = _batch("same-run")
-    publisher.publish_batch(first)
     second = _batch(
         "same-run",
         str(first["batch_hash"]),
         created_at_ms=1794787201000 + 35 * 86_400_000,
+        event_id="event-second",
+        idempotency_key="idem-second",
     )
-    try:
-        publisher.publish_batch(second)
-    except GitHubStateError as exc:
-        assert "Duplicate run_id" in str(exc)
-    else:
-        raise AssertionError("run_id reuse on a different monthly path must be rejected")
+    assert _expected_path(first) != _expected_path(second)
+    _assert_remote_chain_rejects([first, second], "Duplicate run_id")
 
 
 def test_remote_chain_rejects_event_id_reuse_across_batches() -> None:
-    fake = FakeGitHub()
-    publisher = GitHubStatePublisher("owner/repo", "dummy-token", transport=fake)
     first = _batch("run-1")
-    publisher.publish_batch(first)
     second = _batch(
         "run-2",
         str(first["batch_hash"]),
         event_id="event-run-1",
     )
-    try:
-        publisher.publish_batch(second)
-    except GitHubStateError as exc:
-        assert "Duplicate event_id" in str(exc)
-    else:
-        raise AssertionError("event_id reuse across batches must be rejected")
+    _assert_remote_chain_rejects([first, second], "Duplicate event_id")
 
 
 def test_remote_chain_rejects_idempotency_key_reuse_across_batches() -> None:
-    fake = FakeGitHub()
-    publisher = GitHubStatePublisher("owner/repo", "dummy-token", transport=fake)
     first = _batch("run-1")
-    publisher.publish_batch(first)
     second = _batch(
         "run-2",
         str(first["batch_hash"]),
         idempotency_key="idem-run-1",
     )
-    try:
-        publisher.publish_batch(second)
-    except GitHubStateError as exc:
-        assert "Duplicate idempotency_key" in str(exc)
-    else:
-        raise AssertionError("idempotency_key reuse across batches must be rejected")
+    _assert_remote_chain_rejects([first, second], "Duplicate idempotency_key")
 
 
 def test_identical_existing_batch_is_an_idempotent_noop() -> None:
