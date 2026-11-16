@@ -1,43 +1,69 @@
-# Market-Neutral Trend-Quality Research System
+# Market-Neutral Trend-Quality Indicator — Cross-Sectional Relative Momentum
 
-**Status: POLYMARKET-FIRST QUALIFICATION — public-data adapter and cross-margin universe work in progress.**  
-**Execution: paper-only; no live orders, wallet or private API.**  
-**Provider order: Polymarket Perps → MEXC → Bitget.**  
-**Persistent market data: separate `market-data` branch; immutable portfolio events remain on `state`.**
+A paper-only research system for the Sepiashvili Trend-Quality Indicator (Q), ranking active cross-margin perpetual contracts and eventually maintaining one long and one short. The indicator engine is exchange-neutral; the selected market-data adapter is **MEXC Futures, USDT-settled cross-margin perpetuals**.
 
-This repository implements a research system based on David Sepiashvili's [Trend-Quality Indicator paper](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf). The strategy hypothesis is exchange-neutral: rank every active instrument on the selected provider that offers cross margin, irrespective of asset category; select the strongest qualifying positive-Q asset as the long and strongest qualifying negative-Q asset as the short. Asset category is metadata, not an exchange-wide requirement. Liquidity, minimum notional and book depth are separate execution gates.
+## Current provider selection
 
-## Current implementation
+**Selected provider: MEXC Futures**
 
-The repository contains the causal indicator engine, signed-Q ranking, Decimal accounting and paper execution primitives, immutable event journal, SQLite projection, public Polymarket Perps adapter, and incremental market-data store. The ordered public API qualification is running; full scheduler/portfolio integration remains gated on a verified provider result and complete initial candle coverage.
+The ordered technical search was Polymarket Perps → MEXC → Bitget. MEXC was the first provider to pass the public-data qualification.
 
-The latest verified core CI run reports **67 passing tests**. See [RED_TEAM_REPORT.md](RED_TEAM_REPORT.md) for the emergency review, corrected performance and state-chain defects, and outstanding no-go controls. This is not a live Bybit integration result and not a strategy backtest. Full-universe ingestion, historical replay, an integrated forward paper broker and portfolio automation are not operational.
+| Provider | Result |
+|---|---|
+| MEXC Futures | **Selected — technical public-data pass** |
+| Polymarket Perps | Not ready — fee coverage was missing for four reported categories and sampled public order books failed |
+| Bitget | Curiosity-only diagnostic passed; it did not replace MEXC |
 
-## Baseline configuration
+### MEXC verification
 
-| Setting | Initial value | Status |
-|---|---:|---|
-| Fast / slow EMA | 7 / 15 | Illustrated in the paper |
-| Trend smoothing m | 5 | Provisional experiment |
-| Noise smoothing n | 10 | Provisional experiment; must exceed m |
-| Noise method | Absolute deviation | Baseline |
-| Q threshold | \\|Q\\| > 2 | Paper's promising-trend threshold |
-| Correction factor | 1.0 | Provisional |
-| ATR | 14, Wilder | Risk experiment |
-| ATR multiplier | 3.0 | Provisional |
-| Initial paper equity | 100 pUSD (Polymarket paper denomination) | Account setting |
-| Long / short target | 50% / 50% NAV | Dollar neutral, not beta neutral |
+The hosted-runner public API preflight established:
 
-The paper's equations and qualitative interpretations are not a guarantee of profitability. See [IMPLEMENTATION_PROMPT.md](IMPLEMENTATION_PROMPT.md) and [MATHEMATICAL_REFERENCE.md](MATHEMATICAL_REFERENCE.md).
+- 1,152 instruments discovered; 1,143 cross-margin perpetuals across all settlement types.
+- **1,061 active cross-margin USDT-settled perpetuals** selected for the homogeneous USDT research account.
+- 1,161 bulk ticker rows returned, with no missing ticker for the 1,061 selected instruments.
+- Instrument precision, sampled order books, daily candles and funding-history reads passed across crypto, equities, commodities, FX and unclassified instruments.
+- Sampled daily candles opened at 00:00 UTC.
+- No credentials or private endpoints were used; no orders were submitted.
 
-## Safety and research gates
+[Successful MEXC API and daily-candle boundary preflight](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976183941)
 
-- An unfinished UTC daily candle is never used.
-- An incomplete universe or material data-quality failure blocks new ranking-dependent portfolio transitions.
-- Historical replay and forward paper accounting are separate accounts.
-- An hourly monitor is not continuous protection. A stop crossed between checks is executed at the later detection-time paper price, not automatically at the trigger price.
-- Financial events are immutable and idempotent. A paper transition is not considered durable until its run-event batch has been persisted.
-- A successful unit test is not evidence of successful public API integration or forward paper performance.
+Bitget's independent curiosity run found 886 active cross-margin USDT perpetuals and passed its sampled public-data checks. This did not change the ordered selection: MEXC remains selected.
+
+Technical API reachability does **not** establish individual account or Romanian derivatives-product eligibility. That remains unconfirmed.
+
+## Research universe and currency
+
+Use every active MEXC linear perpetual with cross-margin support and both quote and settlement currency USDT. MEXC's positionOpenType values 2 or 3 indicate cross-margin capability; isolated-only contracts are excluded. Do not require any particular asset category. Unknown category labels remain eligible as unclassified.
+
+Other settlement currencies are retained as provider metadata but excluded from the USDT paper account. Do not mix USDC, USD1, coin-margined or other collateral into USDT NAV.
+
+MEXC contract volume is denominated in contracts. Convert it using each instrument's contractSize; use volUnit, minVol, maxVol, priceUnit and its fee rates for sizing and paper execution. Public order-book quantities and Kline volume are also in contract units. amount24 and daily amount supply USDT turnover; do not confuse turnover with contract volume. See the [official MEXC Futures API documentation](https://mexcdevelop.github.io/apidocs/contract_v1_en/).
+
+## Implemented components
+
+- Exchange-neutral EMA/semi-cycle/CPC, Trend, Noise, Q, B and Wilder ATR calculations.
+- Cross-sectional positive-Q long and negative-Q short rankings, with research membership separated from execution eligibility.
+- Public MEXC adapter for contract metadata, bulk ticker, order book, daily Klines and funding history.
+- Contract-multiplier-aware quantity conversion, book VWAP fills, taker fees and impact caps.
+- Incremental, provider-isolated market-data persistence: up to 365 days of initial daily history, in resumable batches of 150 instruments, then only missing daily candles. Five-minute ticker snapshots are stored separately.
+- USDT paper-account accounting primitives for cash, realized/unrealized P&L, fees, funding, ATR stops, daily NAV and sample-gated performance metrics.
+- Immutable event journal and GitHub state publisher with remote hash-chain validation.
+
+Key files: src/trend_quality/mexc_api.py, mexc_paper.py, mexc_portfolio.py, market_data_store.py and scripts/mexc_paper_cycle.py.
+
+## Operating state and account safety gate
+
+The five-minute workflow is configured in [.github/workflows/mexc-paper-cycle.yml](.github/workflows/mexc-paper-cycle.yml). It collects public market data, incrementally updates history and publishes Q rankings to the separate market-data branch.
+
+**The forward paper account has not been initialized.** The state branch is currently unprotected and the repository has no rulesets. Therefore the workflow explicitly sets PAPER_STATE_WRITE_ENABLED=false. It will not open, close or carry simulated positions, publish financial state events or claim portfolio NAV. The runtime protection check also fails closed.
+
+Account initialization requires server-side state-branch protection, force-push/deletion restrictions, restricted writers, and a real publisher/recovery test. The portfolio accounting code is implemented and unit-tested, but the durable persistence/forward-operation gate remains closed.
+
+Historical replay is not implemented. No equity curve, trade count, return, CAGR, Sharpe, drawdown or profitability claim is available until actual persisted paper-account observations exist.
+
+## Safety boundary
+
+Paper research only. No live orders, Testnet, private account endpoints, exchange credentials, wallet, proxy/VPN or paid infrastructure. All fills from the simulator are hypothetical. Five-minute monitoring is sampled, not continuous; missed runs and delayed stop detection must be reported.
 
 ## Development
 
@@ -45,30 +71,11 @@ Python 3.12+.
 
 ```bash
 python -m pip install -e '.[dev]'
+ruff check .
 pytest
-python -m trend_quality.cli public-api-smoke
+python scripts/mexc_public_preflight.py
 ```
 
-The public API smoke command uses only unauthenticated public Perps market-data endpoints only. It does not place or simulate orders.
+The preflight is a live, read-only public-data check. It never accesses an account or submits an order.
 
-
-## Replacement exchange status
-
-Crypto.com is **NOT_READY**, not a replacement: its diagnostic probe found only six USD-quoted perpetuals, funding-history returned API error 40004 for the tested instrument names, and local derivatives access/collateral eligibility is not verified. Candidate readiness now requires geographic eligibility, at least 20 qualifying contracts (research threshold to be raised/validated), compatible USDT settlement, functioning market-data and funding endpoints, and execution metadata. No exchange migration has been performed. See [the red-team report](RED_TEAM_REPORT.md) and [master directive](IMPLEMENTATION_PROMPT.md).
-
-## Network access constraint
-
-A six-job GitHub-hosted multi-cloud test (Ubuntu 22.04/24.04/26.04) received HTTP 403 from Bybit Global V5 in all cases, including the one job scheduled on AWS `us-west-2`. GitHub selects the cloud and region automatically; no region selector is available in the workflow. No proxy, VPN, domain rotation, alternate exchange, paid runner or manual self-hosted runner is used. Live API ingestion and forward portfolio automation remain gated.
-
-The separate official Bybit historical trade archive is reachable: three standard runner jobs successfully read a valid gzip range from a BTCUSDT daily file (HTTP 206). This may support selective historical OHLCV reconstruction after a resumable importer, coverage checks and data-quality audit are implemented. It does not supply verified funding, mark/index prices, current instrument metadata, or executable L2 order-book data, and is not a live-data substitute.
-
-## Repository status
-
-The current state is bootstrap-only. No historical performance, forward paper return, trade count, or risk statistic is claimed. The status report must say so until the relevant evidence exists.
-
-See:
-- [Implementation prompt](IMPLEMENTATION_PROMPT.md)
-- [Implementation plan](IMPLEMENTATION_PLAN.md)
-- [Implementation decisions](IMPLEMENTATION_DECISIONS.md)
-- [Prompt refinement log](PROMPT_REFINEMENT_LOG.md)
-- [Runbook](RUNBOOK.md)
+See [STATUS](STATUS.md), [master implementation directive](IMPLEMENTATION_PROMPT.md), [implementation plan](IMPLEMENTATION_PLAN.md), [decisions](IMPLEMENTATION_DECISIONS.md), [prompt refinement log](PROMPT_REFINEMENT_LOG.md) and [runbook](RUNBOOK.md).
