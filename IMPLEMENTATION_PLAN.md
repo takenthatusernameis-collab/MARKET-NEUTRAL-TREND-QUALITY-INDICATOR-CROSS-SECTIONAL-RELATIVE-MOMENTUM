@@ -163,7 +163,7 @@ The public-data API probe does not use a wallet, API key, private account endpoi
 - [x] Verify sampled Day1 boundaries at 00:00 UTC across crypto, equity, commodity, FX and unclassified instrument groups.
 - [x] Add read-only hosted-runner MEXC preflight; success evidence is linked in STATUS.md.
 - [x] Add a five-minute MEXC public-data/ranking workflow with PAPER_STATE_WRITE_ENABLED=false.
-- [ ] Verify a successful market-data branch commit after correcting the branch's ignored data directory; initial cycle completed 150 bootstraps but the first commit failed, so durable ingestion is not yet declared operational.
+- [x] Verify successful market-data branch commits after correcting the branch's ignored data directory. Runs 43976810498 and 43977234937 both completed, committed public candles/snapshots/reports and uploaded artifacts; progress advanced from 150 to 300 bootstrapped instruments.
 - [ ] Complete full-universe data-quality/freshness verification and independent Q ranking reconstruction.
 - [ ] Configure server-side protection and restricted writers for state branch; current branch is unprotected and no rulesets exist.
 - [ ] Test real event publisher, idempotency/conflict behavior and full restore from immutable state events.
