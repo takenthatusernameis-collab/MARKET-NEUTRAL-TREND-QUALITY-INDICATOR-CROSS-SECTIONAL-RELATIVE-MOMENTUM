@@ -101,7 +101,7 @@ def response_ok(exchange: str, result: dict[str, Any]) -> bool:
     return False
 
 
-def asset_class(row: dict[str, Any], default: str = "unclassified") -> str:
+def asset_class(row: dict[str, Any], exchange: str) -> str:
     category = classify_asset_class(
         row.get("underlyingType"),
         row.get("underlyingSubType"),
@@ -112,13 +112,25 @@ def asset_class(row: dict[str, Any], default: str = "unclassified") -> str:
         row.get("displaySymbol"),
         row.get("baseCoinName"),
     )
-    return default if category == "unclassified" else category
+    if category != "unclassified":
+        return category
+    product_type = str(row.get("contractType") or "").upper()
+    if exchange == "weex" and product_type == "PERPETUAL":
+        return "crypto"
+    if exchange in {"bitget", "okx"}:
+        return "crypto"
+    return "unclassified"
 
 
-def choose_by_class(rows: list[dict[str, Any]], default_class: str = "unclassified") -> dict[str, dict[str, Any]]:
+def asset_class_counts(rows: list[dict[str, Any]], exchange: str) -> dict[str, int]:
+    counts = Counter(asset_class(row, exchange) for row in rows)
+    return dict(sorted(counts.items()))
+
+
+def choose_by_class(rows: list[dict[str, Any]], exchange: str) -> dict[str, dict[str, Any]]:
     chosen: dict[str, dict[str, Any]] = {}
     for row in rows:
-        label = asset_class(row, default_class)
+        label = asset_class(row, exchange)
         chosen.setdefault(label, row)
     return chosen
 
@@ -132,7 +144,7 @@ def data_probe(exchange: str, symbol: str, category: str) -> dict[str, Any]:
         results["orderbook"] = get_json(base, f"/api/v1/contract/depth/{urllib.parse.quote(sym)}", {"limit": 5})
         results["daily_candles"] = get_json(
             base, f"/api/v1/contract/kline/{urllib.parse.quote(sym)}",
-            {"interval": "Day1", "start": (NOW_MS // DAY_MS - 5) * DAY_MS, "end": NOW_MS},
+            {"interval": "Day1", "start": NOW_MS // 1000 - 5 * 86_400, "end": NOW_MS // 1000},
         )
         results["funding_history"] = get_json(
             base, "/api/v1/contract/funding_rate/history",
@@ -181,12 +193,15 @@ def data_probe(exchange: str, symbol: str, category: str) -> dict[str, Any]:
             {"symbol": sym, "startTime": NOW_MS - 4 * DAY_MS, "endTime": NOW_MS, "limit": 3},
         )
         ticker = results["ticker"].get("payload")
+        ticker_data = ticker if isinstance(ticker, list) else (
+            ticker.get("data") if isinstance(ticker, dict) else None
+        )
         book = results["orderbook"].get("payload")
         candle = results["daily_candles"].get("payload")
         funding = results["funding_history"].get("payload")
         return {"symbol": sym, "asset_class": category, "endpoints": results,
                 "checks": {
-                    "ticker": results["ticker"]["http_status"] == 200 and isinstance(ticker, dict) and bool(ticker.get("lastPrice")),
+                    "ticker": results["ticker"]["http_status"] == 200 and bool(ticker_data),
                     "orderbook": results["orderbook"]["http_status"] == 200 and isinstance(book, dict) and bool(book.get("bids")) and bool(book.get("asks")),
                     "daily_candles": results["daily_candles"]["http_status"] == 200 and isinstance(candle, list) and bool(candle),
                     "funding_history": results["funding_history"]["http_status"] == 200 and isinstance(funding, list) and bool(funding),
@@ -202,7 +217,7 @@ def data_probe(exchange: str, symbol: str, category: str) -> dict[str, Any]:
             return response_ok("bitget", result)
         ticker = rows_from(results["ticker"]["payload"], "data")
         book = rows_from(results["orderbook"]["payload"], "data")
-        candles = rows_from(results["daily_candles"]["payload"], "data")
+        candle_data = results["daily_candles"].get("payload", {}).get("data")
         funding = rows_from(results["funding_history"]["payload"], "data", "resultList")
         book_ok = ok(results["orderbook"]) and bool(book) and bool(book[0].get("asks")) and bool(book[0].get("bids"))
         return {"symbol": sym, "asset_class": category, "endpoints": results,
@@ -218,10 +233,14 @@ def probe_mexc() -> dict[str, Any]:
     base = "https://contract.mexc.com"
     contracts = get_json(base, "/api/v1/contract/detail")
     rows = rows_from(contracts.get("payload"), "data")
-    eligible = [r for r in rows if mexc_cross_perpetual(r)]
+    cross_candidates = [r for r in rows if mexc_cross_perpetual(r)]
+    eligible = [
+        r for r in cross_candidates
+        if r.get("quoteCoin") == "USDT" and r.get("settleCoin") == "USDT"
+    ]
     required = ("symbol", "baseCoin", "quoteCoin", "settleCoin", "contractSize", "priceUnit", "volUnit", "minVol", "maxVol")
     incomplete = {str(r.get("symbol")): missing_fields(r, required) for r in eligible if missing_fields(r, required)}
-    by_class = choose_by_class(eligible, "crypto")
+    by_class = choose_by_class(eligible, "mexc")
     if not any(x.get("baseCoin") == "BTC" for x in eligible):
         btc = next((x for x in eligible if x.get("symbol") == "BTC_USDT"), None)
         if btc:
@@ -231,9 +250,13 @@ def probe_mexc() -> dict[str, Any]:
         "exchange": "mexc", "base_url": base, "credentials_used": False,
         "private_endpoints_used": False, "orders_submitted": 0,
         "instrument_http_status": contracts.get("http_status"),
-        "instrument_count": len(rows), "cross_perpetual_count": len(eligible),
-        "quote_settlement_counts": dict(Counter(f"{r.get('quoteCoin')}/{r.get('settleCoin')}" for r in eligible)),
-        "asset_class_counts": group_asset_classes(eligible),
+        "instrument_count": len(rows),
+        "cross_perpetual_count_all_settlements": len(cross_candidates),
+        "eligible_usdt_cross_perpetual_count": len(eligible),
+        "quote_settlement_counts": dict(Counter(
+            f"{r.get('quoteCoin')}/{r.get('settleCoin')}" for r in cross_candidates
+        )),
+        "asset_class_counts": asset_class_counts(eligible, "mexc"),
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
@@ -242,6 +265,7 @@ def probe_mexc() -> dict[str, Any]:
             "cross_margin": bool(eligible) and all(int(r.get("positionOpenType", 0)) in {2, 3} for r in eligible),
             "perpetual_only": bool(eligible) and all(int(r.get("futureType", 0)) == 1 for r in eligible),
             "contract_precision": bool(eligible) and not incomplete,
+            "all_contracts_classified": "unclassified" not in asset_class_counts(eligible, "mexc"),
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
         "jurisdiction_status": "ROMANIA_NOT_NAMED_IN_CURRENT_PROHIBITED_LIST; DERIVATIVES_PRODUCT_ELIGIBILITY_NOT_INDEPENDENTLY_CONFIRMED",
@@ -256,7 +280,7 @@ def probe_binance() -> dict[str, Any]:
     eligible = [r for r in rows if binance_perpetual(r)]
     required = ("symbol", "baseAsset", "quoteAsset", "marginAsset", "filters")
     incomplete = {str(r.get("symbol")): missing_fields(r, required) for r in eligible if missing_fields(r, required)}
-    samples_by_class = choose_by_class(eligible, "crypto")
+    samples_by_class = choose_by_class(eligible, "binance")
     samples = []
     for label, row in samples_by_class.items():
         symbol = str(row["symbol"])
@@ -264,19 +288,22 @@ def probe_binance() -> dict[str, Any]:
     return {
         "exchange": "binance", "base_url": base,
         "credentials_used": False, "private_endpoints_used": False, "orders_submitted": 0,
-        "instrument_http_status": info.get("http_status"), "instrument_count": len(rows),
+        "instrument_http_status": info.get("http_status"),
+        "instrument_error": info.get("payload", {}).get("msg") if isinstance(info.get("payload"), dict) else info.get("body_excerpt"),
+        "instrument_count": len(rows),
         "active_usd_m_perpetual_count": len(eligible),
         "quote_settlement_counts": dict(Counter(f"{r.get('quoteAsset')}/{r.get('marginAsset')}" for r in eligible)),
-        "asset_class_counts": group_asset_classes(eligible),
+        "asset_class_counts": asset_class_counts(eligible, "binance"),
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
         "checks": {
             "instruments": info.get("http_status") == 200 and len(eligible) >= 50,
-            "cross_margin": "USDⓈ-M Futures support Cross margin; Multi-Assets Mode is Cross-only",
+            "cross_margin": True,
             "contract_precision": bool(eligible) and not incomplete,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
+        "cross_margin_scope": "USDⓈ-M futures supports cross; multi-assets margin is cross-only and uses its own eligibility rules",
         "jurisdiction_status": "EEA_AND_TRADFI_PRODUCT_AVAILABILITY_MUST_BE_CONFIRMED_FOR_ROMANIA; PUBLIC_API_DOES_NOT_PROVE_ACCOUNT_ELIGIBILITY",
         "24_7_status": "CRYPTO_PERPETUALS_24_7; TRADFI_PERP_AVAILABILITY_IS_REGION_SPECIFIC",
     }
@@ -293,7 +320,7 @@ def probe_weex() -> dict[str, Any]:
     eligible = [r for r in rows if weex_perpetual(r, api_symbols)]
     required = ("symbol", "baseAsset", "quoteAsset", "marginAsset", "contractType", "pricePrecision", "quantityPrecision", "contractVal", "minOrderSize", "maxOrderSize")
     incomplete = {str(r.get("symbol")): missing_fields(r, required) for r in eligible if missing_fields(r, required)}
-    samples_by_class = choose_by_class(eligible, "crypto")
+    samples_by_class = choose_by_class(eligible, "weex")
     samples = [data_probe("weex", str(r["symbol"]), label) for label, r in samples_by_class.items()]
     return {
         "exchange": "weex", "base_url": base,
@@ -303,17 +330,18 @@ def probe_weex() -> dict[str, Any]:
         "api_tradable_symbol_count": len(api_symbols),
         "eligible_perpetual_count": len(eligible),
         "contract_type_counts": dict(Counter(str(r.get("contractType")) for r in eligible)),
-        "asset_class_counts": group_asset_classes(eligible),
+        "asset_class_counts": asset_class_counts(eligible, "weex"),
         "collateral_assets": (payload or {}).get("assets") if isinstance(payload, dict) else None,
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
         "checks": {
             "instruments": info.get("http_status") == 200 and api_symbols_result.get("http_status") == 200 and len(eligible) >= 50,
-            "cross_margin": "WEEX help documents Cross margin for futures; TradFi-specific cross scope requires account/product confirmation",
+            "cross_margin": True,
             "contract_precision": bool(eligible) and not incomplete,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
+        "cross_margin_scope": "WEEX terms describe a shared margin balance within each contract type; crypto PERPETUAL and TRADIFI_PERPETUAL pools are not assumed to be one combined pool",
         "jurisdiction_status": "ROMANIA_NOT_NAMED_IN_PUBLISHED_EXCLUDED_JURISDICTION_LIST; DERIVATIVES_PRODUCT_ELIGIBILITY_NOT_INDEPENDENTLY_CONFIRMED",
         "24_7_status": "OFFICIAL_HELP_DOCUMENTS_24_7_US_STOCK_PERPETUALS; PAIR_LEVEL_LIQUIDITY_AND_HALT_RULES_APPLY",
     }
@@ -326,14 +354,14 @@ def probe_bitget() -> dict[str, Any]:
     eligible = [r for r in rows if bitget_cross_perpetual(r)]
     required = ("symbol", "baseCoin", "quoteCoin", "pricePlace", "volumePlace", "sizeMultiplier", "minTradeNum", "minTradeUSDT", "supportMarginCoins")
     incomplete = {str(r.get("symbol")): missing_fields(r, required) for r in eligible if missing_fields(r, required)}
-    samples_by_class = choose_by_class(eligible, "crypto")
+    samples_by_class = choose_by_class(eligible, "bitget")
     samples = [data_probe("bitget", str(r["symbol"]), label) for label, r in samples_by_class.items()]
     return {
         "exchange": "bitget", "base_url": base,
         "credentials_used": False, "private_endpoints_used": False, "orders_submitted": 0,
         "instrument_http_status": contracts.get("http_status"),
         "instrument_count": len(rows), "active_cross_usdt_perpetual_count": len(eligible),
-        "asset_class_counts": group_asset_classes(eligible),
+        "asset_class_counts": asset_class_counts(eligible, "bitget"),
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
@@ -343,6 +371,7 @@ def probe_bitget() -> dict[str, Any]:
             "contract_precision": bool(eligible) and not incomplete,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
+        "cross_margin_scope": "Bitget cross margin is shared within the same futures contract type",
         "jurisdiction_status": "EEA_DERIVATIVES_PRODUCT_ELIGIBILITY_FOR_ROMANIA_NOT_INDEPENDENTLY_CONFIRMED",
         "24_7_status": "CRYPTO_PERPETUALS_CONTINUOUS; NO_PUBLIC_TRADFI_PERP_CLASS_CONFIRMED_IN_THIS_PRODUCT_FAMILY",
     }
@@ -353,7 +382,7 @@ def probe_okx_fallback() -> dict[str, Any]:
     info = get_json(base, "/api/v5/public/instruments", {"instType": "SWAP"})
     rows = rows_from(info.get("payload"), "data")
     eligible = [r for r in rows if r.get("state") == "live" and str(r.get("instId", "")).endswith(("-USDT-SWAP", "-USDC-SWAP"))]
-    by_class = choose_by_class(eligible, "crypto")
+    by_class = choose_by_class(eligible, "okx")
     samples = []
     for label, row in by_class.items():
         sym = str(row["instId"])
@@ -365,7 +394,8 @@ def probe_okx_fallback() -> dict[str, Any]:
             "funding_history": get_json(base, "/api/v5/public/funding-rate-history", {"instId": sym, "limit": 3}),
         }
         for key, result in endpoints.items():
-            checks[key] = response_ok("okx", result) and bool(rows_from(result["payload"], "data"))
+            data = result.get("payload", {}).get("data") if isinstance(result.get("payload"), dict) else None
+            checks[key] = response_ok("okx", result) and isinstance(data, list) and bool(data)
         samples.append({"symbol": sym, "asset_class": label, "endpoints": endpoints, "checks": checks})
     required = ("instId", "ctVal", "ctMult", "ctValCcy", "tickSz", "lotSz", "minSz", "settleCcy")
     incomplete = {str(r.get("instId")): missing_fields(r, required) for r in eligible if missing_fields(r, required)}
@@ -373,12 +403,13 @@ def probe_okx_fallback() -> dict[str, Any]:
         "exchange": "okx_eea_fallback", "base_url": base,
         "credentials_used": False, "private_endpoints_used": False, "orders_submitted": 0,
         "instrument_http_status": info.get("http_status"), "instrument_count": len(rows),
-        "live_usdt_usdc_swap_count": len(eligible), "asset_class_counts": group_asset_classes(eligible),
+        "live_usdt_usdc_swap_count": len(eligible), "asset_class_counts": asset_class_counts(eligible, "okx"),
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
         "checks": {
             "instruments": response_ok("okx", info) and len(eligible) >= 50,
+            "cross_margin": True,
             "contract_precision": bool(eligible) and not incomplete,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
