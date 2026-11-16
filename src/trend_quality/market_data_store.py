@@ -205,6 +205,70 @@ class MarketDataStore:
             start_timestamp_ms=start_timestamp_ms
         ).get(int(instrument_id), [])
 
+    def find_snapshot_mark(
+        self,
+        instrument_id: int,
+        target_timestamp_ms: int,
+        *,
+        max_age_ms: int = 300_000,
+    ) -> tuple[int, str] | None:
+        """Return the nearest stored mark at/before a funding settlement timestamp."""
+        start_ms = max(0, target_timestamp_ms - max_age_ms)
+        start_dt = datetime.fromtimestamp(start_ms / 1000, tz=UTC)
+        end_dt = datetime.fromtimestamp(target_timestamp_ms / 1000, tz=UTC)
+        current = start_dt.replace(minute=0, second=0, microsecond=0)
+        best: tuple[int, str] | None = None
+        while current <= end_dt:
+            path = (
+                self.snapshots_dir
+                / current.strftime("%Y-%m-%d")
+                / f"{current:%H}.jsonl.gz"
+            )
+            if path.exists():
+                try:
+                    with gzip.open(path, "rt", encoding="utf-8") as source:
+                        for line in source:
+                            if not line.strip():
+                                continue
+                            row = json.loads(line)
+                            if int(row.get("instrument_id", -1)) != int(instrument_id):
+                                continue
+                            timestamp = int(row.get("snapshot_timestamp_ms", 0))
+                            mark = row.get("mark_price")
+                            if (
+                                start_ms <= timestamp <= target_timestamp_ms
+                                and isinstance(mark, str)
+                                and timestamp > (0 if best is None else best[0])
+                            ):
+                                best = (timestamp, mark)
+                except (OSError, EOFError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+                    raise MarketDataStoreError(
+                        f"Invalid snapshot partition {path}: {exc}"
+                    ) from exc
+            current += timedelta(hours=1)
+        return best
+
+    def load_projection(self) -> dict[str, Any] | None:
+        path = self.data_dir / "paper_projection.json"
+        if not path.exists():
+            return None
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise MarketDataStoreError(f"Invalid paper projection: {exc}") from exc
+        if not isinstance(value, dict) or value.get("schema_version") != 1:
+            raise MarketDataStoreError("Unsupported or malformed paper projection")
+        return value
+
+    def save_projection(self, projection: dict[str, Any]) -> None:
+        path = self.data_dir / "paper_projection.json"
+        temp = path.with_suffix(".json.tmp")
+        temp.write_text(
+            json.dumps(projection, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temp, path)
+
     def prune_snapshots(self, now_ms: int, retain_days: int = SNAPSHOT_RETENTION_DAYS) -> int:
         if retain_days < 1:
             raise ValueError("retain_days must be positive")
