@@ -204,7 +204,7 @@
 - Added provider-specific manifest isolation, daily candle/funding partitions, five-minute snapshots, bootstrap progress and incremental cursors.
 - Added MEXC contract-aware Q rankings, simulated fills, USDT account accounting primitives, funding and ATR stop functions, and sample-gated performance metrics.
 - Added the five-minute MEXC market-data/ranking workflow with account writing explicitly disabled.
-- Initial workflow run completed a 150-contract bootstrap batch (911 remained) but the data-branch commit failed because data/ was ignored. Workflow now force-adds the data directory; a subsequent successful commit remains an acceptance gate.
+- Initial workflow run completed a 150-contract bootstrap batch (911 remained) but the data-branch commit failed because data/ was ignored. After force-add was applied, runs 43976810498 and 43977234937 both completed and committed data successfully. The second report advanced to 300 bootstrapped contracts (761 remained) and 108,118 stored candle rows. An additional report regression ensures human-readable MEXC tickers are shown instead of internal instrument keys.
 
 ### Result and disclosure
 - MEXC remains selected. Bitget's 886-instrument curiosity screen is recorded but does not replace it.
