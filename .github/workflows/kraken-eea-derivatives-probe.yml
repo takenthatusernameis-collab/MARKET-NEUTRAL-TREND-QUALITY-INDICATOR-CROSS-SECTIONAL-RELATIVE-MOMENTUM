@@ -104,12 +104,15 @@ jobs:
               and str(x.get("symbol", "")).startswith("PF_")
               and str(x.get("symbol", "")).endswith("USD")
               and x.get("tradeable") is True
+              and x.get("suspended") is False
+              and isinstance(x.get("countriesBanned"), list)
+              and "RO" not in x.get("countriesBanned", [])
+              and isinstance(x.get("platformsPermitted"), list)
               and (
                   "europa_crypto" in x.get("platformsPermitted", [])
                   or "europa" in x.get("platformsPermitted", [])
                   or "payward_digital_solutions" in x.get("platformsPermitted", [])
               )
-              and "RO" not in x.get("countriesBanned", [])
           ]
           # Kraken's native category field is the authoritative classification
           # field. Permission tags alone do not distinguish crypto from xStocks,
@@ -176,10 +179,11 @@ jobs:
           eeea_retail_margin_count = sum(
               has_europe_retail_margin(row) for row in crypto_pf
           )
-          full_contract_ready_count = sum(
-              has_valid_contract_precision(row) and has_europe_retail_margin(row)
-              for row in crypto_pf
-          )
+          fully_ready_crypto_pf = [
+              row for row in crypto_pf
+              if has_valid_contract_precision(row) and has_europe_retail_margin(row)
+          ]
+          full_contract_ready_count = len(fully_ready_crypto_pf)
           permission_tagged_crypto = [
               row for row in pf
               if "europa_crypto" in row.get("platformsPermitted", [])
@@ -206,6 +210,9 @@ jobs:
               and row.get("symbol") in known_classification_symbols
           }
           symbol = "PF_XBTUSD"
+          btc_contract_execution_ready = any(
+              row.get("symbol") == symbol for row in fully_ready_crypto_pf
+          )
 
           tickers = rest("/tickers")
           ticker_payload = tickers.get("payload")
@@ -307,6 +314,8 @@ jobs:
                   and len(crypto_pf) >= 50
                   and not unclassified_pf
               ),
+              "execution_ready_universe_minimum": full_contract_ready_count >= 50,
+              "btc_in_execution_ready_universe": btc_contract_execution_ready,
               "eea_crypto_platform_permissions": (
                   bool(crypto_pf) and not crypto_permission_missing
               ),
@@ -347,7 +356,8 @@ jobs:
               "eea_platform_permitted_pf_usd_count": len(pf),
               "category_counts": dict(sorted(category_counts.items())),
               "crypto_category_counts": dict(sorted(crypto_category_counts.items())),
-              "crypto_strategy_perpetual_count": len(crypto_pf),
+              "crypto_category_and_permission_count": len(crypto_pf),
+              "execution_ready_crypto_perpetual_count": full_contract_ready_count,
               "crypto_category_missing_europa_crypto_permission_count": len(crypto_permission_missing),
               "non_directional_stablecoin_contract_count": len(stablecoin_category_rows),
               "unclassified_pf_count": len(unclassified_pf),
@@ -372,9 +382,16 @@ jobs:
                   1 for row in all_instruments
                   if isinstance(row, dict) and "RO" in row.get("countriesBanned", [])
               ),
-              "sample_crypto_perpetuals": crypto_pf[:8],
+              "sample_crypto_perpetuals": fully_ready_crypto_pf[:8],
               "sample_btc_contract": next(
-                  (x for x in crypto_pf if x.get("symbol") == symbol), None
+                  (x for x in fully_ready_crypto_pf if x.get("symbol") == symbol), None
+              ),
+              "instrument_metadata_gap": (
+                  "Public /instruments includes tickSize, contractSize, maxPositionSize and "
+                  "contractValueTradePrecision, but the sampled payload does not include "
+                  "the EEA specification table's minimum lot size. The adapter must obtain "
+                  "and reconcile that field from the official contract specification before "
+                  "precision-safe order sizing can be certified."
               ),
               "ticker": {
                   "http_status": tickers.get("http_status"),
