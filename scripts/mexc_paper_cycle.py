@@ -402,7 +402,7 @@ def _try_pair(
             proposed: list[dict[str, Any]] = []
             fills: list[dict[str, Any]] = []
             valid = True
-            for candidate, instrument, side in (
+            for _candidate, instrument, side in (
                 (long_candidate, long_instrument, "long"),
                 (short_candidate, short_instrument, "short"),
             ):
