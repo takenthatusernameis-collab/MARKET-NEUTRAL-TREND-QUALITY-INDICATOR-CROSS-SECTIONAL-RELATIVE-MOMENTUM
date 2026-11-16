@@ -56,3 +56,7 @@
 | D-048 | Keep PAPER_STATE_WRITE_ENABLED=false until state branch protection, restricted writers, real publisher and restore tests pass | State branch currently reports unprotected and rulesets endpoint is empty | Blocking |
 | D-049 | Bootstrap up to 365 days in bounded 150-instrument batches; afterward fetch only missing completed daily candles | Reduce API load and make new listings/cursor recovery explicit | Accepted |
 | D-050 | Public five-minute market-data/ranking workflow is separate from forward portfolio-state writes | Data and rankings can be collected without financial-state mutation; market-data branch is public | Accepted |
+
+
+| D-051 | Include every active cross-margin perpetual across settlement types in the Q research universe; restrict the current 100 USDT paper execution account to USDT quote + USDT settlement | The requested all-cross-margin research universe is broader than a homogeneous USDT portfolio. Public MEXC discovery found 1,143 all-settlement cross perps and 1,061 USDT account contracts. | Accepted |
+| D-052 | Never label non-USDT ticker/Kline turnover as USDT or convert inverse/alternate collateral contract counts to base volume without a validated contract model | Avoid false turnover comparisons and incorrect fills/P&L across quote/settlement units. Non-USDT contracts remain research-only for now. | Accepted |
