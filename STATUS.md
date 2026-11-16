@@ -1,7 +1,7 @@
 # Market-Neutral Trend-Quality System — Status
 
 **Report date:** 2026-11-16  
-**Overall status:** RED-TEAM NO-GO — Bybit live API blocked; ordered 24/7 cross-margin replacement search in progress  
+**Overall status:** POLYMARKET-FIRST QUALIFICATION — public adapter, priority probe and incremental data store committed; exchange API acceptance pending  
 **Trading mode:** Paper-only; no exchange orders or authenticated account access  
 **Forward paper account:** Not initialized  
 **Historical replay:** Not implemented  
@@ -28,14 +28,14 @@
 | Correction factor | 1.0 | Provisional |
 | ATR | Wilder 14 | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial forward paper capital | 100 USDT | Not yet initialized |
+| Initial forward paper capital | 100 pUSD (if Polymarket selected) | Not yet initialized |
 | Target long / short gross allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
 
 ## Implemented on main
 
 | Component | Current evidence / limitation |
 |---|---|
-| Specification and research safeguards | Master directive v2.7; exchange-neutral research core and explicit candidate qualification gates |
+| Specification and research safeguards | Master directive v2.8; exchange-neutral research core and explicit candidate qualification gates |
 | Indicator engine | EMA, causal semi-cycle/CPC, Trend, absolute and RMS Noise, Q, B and Wilder ATR; tested |
 | Cross-sectional ranking | Signed-Q candidate ranking and distinct-symbol pair-selection primitives; not yet applied to a complete live universe |
 | Bybit public client | Server time, paginated USDT linear perpetual instruments, backward Kline retrieval, funding history subdivision and public order-book parsing; mocked API tests pass |
@@ -119,3 +119,15 @@ This report is evidence-based and must be regenerated from persisted account sta
 The first qualification screen samples market-data endpoints by available asset class. It is not the full-universe acceptance test. Before a paper account can be initialized, the selected provider must pass ticker, book, candle, funding, mark/index and contract-precision validation across every retained eligible instrument. For Kraken, retain only the 69 previously reconciled contracts and exclude the 26 mismatches; the 69-symbol full-universe coverage test has not yet run.
 
 **No replacement adapter, paper account, equity curve or performance result is claimed.** The system remains paper-only and all scheduled portfolio workflows remain disabled.
+
+
+## Updated provider and scheduling scope — 16 November 2026
+
+- User clarified that an exchange does **not** need to offer every asset class. The research universe must include every active perpetual on the selected provider for which cross margin is available, across every category the provider offers.
+- Provider order is exactly **Polymarket Perps → MEXC → Bitget**. Stop at the first technical API pass. Romania not appearing on Polymarket's published geoblock table is not individual legal/account clearance.
+- Added `src/trend_quality/polymarket_api.py`: unauthenticated read-only instrument, bulk ticker/statistics, fees, order book, daily candle and funding-history reads.
+- Added `scripts/probe_polymarket_mexc_bitget.py` and its GitHub Actions qualification workflow. The first run stopped at the lint/test gate; the corrected run is pending. No Polymarket API result is claimed yet.
+- Created `market-data` branch for public instrument manifest, daily candle partitions and five-minute compressed ticker snapshots. The `state` branch remains reserved for immutable paper-account events.
+- Added `src/trend_quality/market_data_store.py` for incremental history and lifecycle tracking. A new listing is backfilled once; daily updates start after each instrument's last stored candle; permanently settled markets remain archived and stop routine updates.
+- Planned cadence: five-minute snapshots; daily Q/ranking/portfolio transition only on the first successful workflow run after a new completed UTC daily candle. The daily bar timestamp is the idempotency key.
+- Forward portfolio remains uninitialized. The first position transition is gated on a qualifying provider, full active cross-margin ticker coverage, sufficient daily history, accounting/fee validation and the stop/exit simulation checks.
