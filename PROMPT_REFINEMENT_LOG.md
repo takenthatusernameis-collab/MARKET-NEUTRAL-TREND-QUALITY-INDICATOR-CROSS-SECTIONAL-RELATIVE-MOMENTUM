@@ -56,3 +56,25 @@
 - Public API integration: attempted on three GitHub-hosted runner allocations; all blocked by CloudFront regional restriction (documented runs and response body).
 - Historical replay: not implemented.
 - Forward paper verification: not started.
+
+
+## 2026-11-16 — v2.4 to v2.5: no-manual-input network recovery investigation
+
+### Review pass 7 — test GitHub's new multi-cloud runner pool
+- Rechecked GitHub's 2026-10-28 multi-cloud compute change: eligible standard 2-core and 4-core Linux jobs can be scheduled automatically on AWS as well as Azure, but users cannot choose cloud provider or geographic region.
+- Added a bounded, no-credential probe matrix for Ubuntu 22.04, 24.04 and 26.04. Each job made exactly one request to the required `https://api.bybit.com/v5/market/time` endpoint.
+- Run `43911753549`: all 6/6 jobs failed. Five jobs were assigned to Azure US regions; one was assigned to AWS `us-west-2`. Every request received HTTP 403 and the CloudFront response stated access was blocked based on country.
+- Conclusion: the automatic multi-cloud pool is not a live API solution for the current repository. Do not repeat the same runner-label experiment indefinitely or switch to an unapproved endpoint.
+
+### Review pass 8 — verify Bybit's official historical archive separately
+- Inspected the official `public.bybit.com/trading/` directory and a BTCUSDT symbol directory. It contains dated compressed per-symbol trade files; the BTCUSDT index currently reaches 2026-11-15 and includes data beginning 2020-03-25.
+- Bybit's public recent-trade documentation confirms archived historical trades can be downloaded from its website. The archive schema is timestamp, symbol, taker side, size, price, tick direction, trade-match ID, gross value, home notional and foreign notional; recent files may append RPI.
+- Added a no-credential GitHub-hosted archive probe using a 2,048-byte HTTP Range request against the 2026-11-15 BTCUSDT file.
+- Run `43912009008`: all 3/3 jobs passed, across Azure `centralus`, Azure `westus3` and AWS `us-west-2`. Each returned HTTP 206 and a valid gzip header. The server advertised a total file size of 126,793,002 bytes.
+- This is a real, official historical price-data path from the current hosted runners. It can support selective historical OHLCV aggregation from trades, but it is not an alternative live feed and does not supply funding, mark/index history, L2 order-book depth or current instrument metadata.
+
+### Revised release interpretation
+- No fully automatic, free, no-manual-input route to Bybit's live V5 API was found. US geography is explicit in all 6 probes, including the AWS allocation.
+- The official Bybit daily trade archive is accessible and may unblock selective historical price replay after coverage, integrity, data-volume and survivorship checks.
+- A full universe historical backfill is not yet demonstrated; per-symbol daily archives can be large and historical universe membership cannot be inferred from present-day symbols alone.
+- Forward paper operation, hourly stop monitoring and funding reconciliation remain disabled. Do not present archive-derived price-only results as full strategy validation.
