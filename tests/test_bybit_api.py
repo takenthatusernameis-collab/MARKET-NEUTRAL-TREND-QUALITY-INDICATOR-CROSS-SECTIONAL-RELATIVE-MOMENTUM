@@ -32,6 +32,16 @@ def _instrument(symbol: str, **changes: str) -> dict[str, str]:
     return item
 
 
+
+def test_bybit_client_rejects_noncanonical_api_hosts() -> None:
+    with pytest.raises(ValueError, match="exact official Global host"):
+        BybitPublicClient(base_url="https://api.bybit.eu")
+    with pytest.raises(ValueError, match="exact official Global host"):
+        BybitPublicClient(base_url="https://api.bybit.com.attacker.example")
+    with pytest.raises(ValueError, match="exact official Global host"):
+        BybitPublicClient(base_url="https://attacker.example/api.bybit.com")
+
+
 def test_instrument_cursor_pagination_and_local_filters() -> None:
     fake = FakeTransport(
         [
