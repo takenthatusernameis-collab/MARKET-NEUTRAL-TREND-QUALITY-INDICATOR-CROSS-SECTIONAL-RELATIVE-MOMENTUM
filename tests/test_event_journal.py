@@ -39,6 +39,37 @@ def test_binary_float_rejected_for_financial_ledger() -> None:
         build_event_batch("run-2", 1794787201000, [event])
 
 
+
+def test_nested_tuple_cannot_bypass_binary_float_rejection() -> None:
+    event = _event()
+    event["payload"] = {"items": ({"amount": 1.25},)}
+    with pytest.raises(EventJournalError, match="Binary float"):
+        build_event_batch("run-tuple-float", 1794787201000, [event])
+
+
+def test_event_schema_rejects_unprojected_extra_fields() -> None:
+    event = _event()
+    event["extra_metadata"] = {"source": "untracked"}
+    with pytest.raises(EventJournalError, match="unsupported keys"):
+        build_event_batch("run-extra-event", 1794787201000, [event])
+
+
+def test_canonical_json_rejects_non_string_object_keys() -> None:
+    from trend_quality.event_journal import canonical_json
+
+    with pytest.raises(EventJournalError, match="keys must be strings"):
+        canonical_json({"payload": {1: "not-a-string-key"}})
+
+
+def test_verifier_rejects_extra_batch_or_event_fields() -> None:
+    batch = build_event_batch("run-exact-schema", 1794787201000, [_event()])
+    batch["unexpected"] = "extra field"
+    assert not verify_event_batch(batch)
+    batch = build_event_batch("run-exact-event-schema", 1794787201000, [_event()])
+    batch["events"][0]["unexpected"] = "extra field"
+    assert not verify_event_batch(batch)
+
+
 def test_duplicate_event_ids_and_idempotency_keys_rejected() -> None:
     with pytest.raises(EventJournalError, match="Duplicate"):
         build_event_batch("run-3", 1794787201000, [_event(), _event("evt-1")])
