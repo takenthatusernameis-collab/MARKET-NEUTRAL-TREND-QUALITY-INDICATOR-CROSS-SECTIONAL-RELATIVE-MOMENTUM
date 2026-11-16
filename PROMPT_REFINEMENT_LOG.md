@@ -32,6 +32,13 @@
 - Gated scheduled portfolio workflows until data, execution, accounting and recovery tests pass.
 - Preserved paper-only boundaries and separation of historical replay from forward account.
 
+### Review pass 5 — runner-region and external API access
+- Ran the public Bybit API smoke test from GitHub Actions; the runner log identified Azure region eastus2 and the first request to /v5/market/time returned HTTP 403.
+- Bybit V5 Integration Guidance states that US and mainland-China IPs are restricted and return 403; the error-code page independently lists US IP usage and IP rate protection as 403 causes.
+- Standard GitHub-hosted runners do not expose a documented region selector. Free ubuntu-slim is being probed before concluding that all standard runner pools are blocked.
+- No VPN, proxy, API-domain change or exchange fallback will be introduced.
+- If no free standard runner is outside the restricted geography, only a user-controlled self-hosted runner on permitted hardware/network remains a possible no-paid path; it requires user setup and explicit authorization.
+
 ### Evidence status
 - Documentation/API review: completed.
 - Repository initialization: completed.
