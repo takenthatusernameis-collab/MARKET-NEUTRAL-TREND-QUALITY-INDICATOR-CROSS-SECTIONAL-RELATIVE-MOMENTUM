@@ -11,7 +11,7 @@
 | D-007 | Reject left-censored initial semi-cycle | Avoid arbitrary CPC initialization | Accepted |
 | D-008 | Use absolute Trend in B formula | Source formula is abs(Trend)/(abs(Trend)+Noise)*100 | Accepted |
 | D-009 | No trigger-price fill when sampled monitor detects a stop later | Avoid unrealistic execution and backdated fills | Accepted |
-| D-010 | Linear REST order-book depth limit <=200 | Current Bybit order-book endpoint documents linear/inverse limit 1–200 | Accepted |
+| D-010 | Linear REST order-book depth limit up to 1,000 | Current Bybit order-book endpoint documents linear/inverse limit 1–1,000; choose bounded depth after benchmarking | Accepted |
 | D-011 | Funding history has no cursor; bounded time windows and subdivision required | Maximum 200 records; startTime-only errors | Accepted |
 | D-012 | Immutable per-run event batches are durable source; SQLite is rebuildable projection | Recover from runner loss and prevent mutable ledger edits | Accepted |
 | D-013 | No paper automation until core acceptance tests pass | Prevent partial data and incomplete accounting from affecting paper state | Accepted |
