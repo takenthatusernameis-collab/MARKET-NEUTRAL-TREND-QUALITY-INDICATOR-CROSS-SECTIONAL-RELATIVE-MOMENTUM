@@ -50,6 +50,10 @@ python -m trend_quality.cli public-api-smoke
 
 The public API smoke command uses only unauthenticated Bybit Global public market-data endpoints. It does not place or simulate orders.
 
+## Network access constraint
+
+The public Bybit preflight has returned HTTP 403 from three standard GitHub-hosted runner allocations (Azure eastus2, eastus and westus3). The CloudFront response states that the distribution blocks access from the runner's country. This is a runner-region restriction, not proof of a general Bybit outage. No proxy, VPN, endpoint rotation, alternate exchange or paid runner is used. Public API preflight remains manually dispatchable; portfolio automation stays disabled until a supported runner network passes the integration gate.
+
 ## Repository status
 
 The current state is bootstrap-only. No historical performance, forward paper return, trade count, or risk statistic is claimed. The status report must say so until the relevant evidence exists.
