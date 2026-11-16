@@ -296,6 +296,7 @@ jobs:
                   continue
               official_spec_matched[instrument_symbol] = spec
 
+          symbol = "PF_XBTUSD"
           official_spec_coverage_count = len(official_spec_matched)
           official_spec_consistent = not official_spec_mismatches
           official_btc_spec = official_spec_matched.get(symbol)
@@ -324,7 +325,6 @@ jobs:
               if isinstance(row, dict)
               and row.get("symbol") in known_classification_symbols
           }
-          symbol = "PF_XBTUSD"
           btc_contract_execution_ready = any(
               row.get("symbol") == symbol for row in margin_precision_qualified_crypto
           )
