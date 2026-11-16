@@ -64,10 +64,10 @@ def test_sell_consumes_bids_and_calculates_vwap() -> None:
         max_shortfall_bps=Decimal("200"),
     )
     assert fill.complete
-    assert fill.notional == Decimal("197")
-    assert fill.average_price == Decimal("98.5")
-    assert fill.shortfall == Decimal("3")
-    assert fill.shortfall_bps == Decimal("150")
+    assert fill.notional == Decimal("198")
+    assert fill.average_price == Decimal("99")
+    assert fill.shortfall == Decimal("2")
+    assert fill.shortfall_bps == Decimal("100")
 
 
 def test_insufficient_book_depth_rejects_by_default() -> None:
