@@ -153,6 +153,31 @@ jobs:
               has_valid_contract_precision(row) and has_europe_retail_margin(row)
               for row in crypto_pf
           )
+          permission_tagged_crypto = [
+              row for row in pf
+              if "europa_crypto" in row.get("platformsPermitted", [])
+          ]
+          known_classification_symbols = (
+              "PF_XBTUSD", "PF_ETHUSD", "PF_SOLUSD",
+              "PF_AAPLXUSD", "PF_SNDKUSD", "PF_XAGUSD", "PF_XAUTUSD",
+              "PF_XAUUSD", "PF_XCUUSD", "PF_US100USD", "PF_WTIOILUSD",
+              "PF_EWYUSD", "PF_EWZUSD", "PF_SAMSUNGUSD", "PF_SKHYUSD",
+          )
+          classification_samples = {
+              str(row.get("symbol")): {
+                  key: row.get(key)
+                  for key in (
+                      "symbol", "type", "base", "quote", "pair",
+                      "platformsPermitted", "countriesBanned", "underlying",
+                      "contractType", "category", "isin", "contractSize",
+                      "contractValueTradePrecision",
+                  )
+                  if key in row
+              }
+              for row in all_instruments
+              if isinstance(row, dict)
+              and row.get("symbol") in known_classification_symbols
+          }
           symbol = "PF_XBTUSD"
 
           tickers = rest("/tickers")
@@ -293,6 +318,13 @@ jobs:
               "tradeable_pf_usd_count": len(pf),
               "eea_platform_permitted_pf_usd_count": len(pf),
               "approx_crypto_pf_usd_count": len(crypto_pf),
+              "europa_crypto_permission_count": len(permission_tagged_crypto),
+              "europa_general_only_pf_count": sum(
+                  "europa" in row.get("platformsPermitted", [])
+                  and "europa_crypto" not in row.get("platformsPermitted", [])
+                  for row in pf
+              ),
+              "classification_samples_by_known_symbol": classification_samples,
               "eea_retail_margin_metadata_count": eeea_retail_margin_count,
               "valid_contract_precision_metadata_count": precision_ready_count,
               "eea_margin_and_precision_intersection_count": full_contract_ready_count,
