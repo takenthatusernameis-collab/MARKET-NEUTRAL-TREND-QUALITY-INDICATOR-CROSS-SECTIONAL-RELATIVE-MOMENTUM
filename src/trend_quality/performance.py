@@ -157,7 +157,9 @@ def compute_performance_metrics(
             Metric(recovery_period_days, None, len(drawdowns))
             if recovery_period_days is not None
             else _unavailable(
-                "Maximum drawdown has not recovered by the latest observation",
+                "No drawdown occurred"
+                if max_drawdown == 0
+                else "Maximum drawdown has not recovered by the latest observation",
                 len(drawdowns),
             )
         ),
