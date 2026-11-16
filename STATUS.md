@@ -1,7 +1,7 @@
 # Market-Neutral Trend-Quality System — Status
 
 **Report date:** 2026-11-16  
-**Overall status:** BOOTSTRAPPING — live V5 API blocked; official historical archive reachable  
+**Overall status:** RED-TEAM NO-GO — Bybit live API blocked; no replacement exchange approved  
 **Trading mode:** Paper-only; no exchange orders or authenticated account access  
 **Forward paper account:** Not initialized  
 **Historical replay:** Not implemented  
@@ -35,7 +35,7 @@
 
 | Component | Current evidence / limitation |
 |---|---|
-| Specification and research safeguards | v2.4 documented; historical and forward accounts kept separate |
+| Specification and research safeguards | Master directive v2.6; exchange-neutral research core and explicit candidate qualification gates |
 | Indicator engine | EMA, causal semi-cycle/CPC, Trend, absolute and RMS Noise, Q, B and Wilder ATR; tested |
 | Cross-sectional ranking | Signed-Q candidate ranking and distinct-symbol pair-selection primitives; not yet applied to a complete live universe |
 | Bybit public client | Server time, paginated USDT linear perpetual instruments, backward Kline retrieval, funding history subdivision and public order-book parsing; mocked API tests pass |
@@ -43,17 +43,17 @@
 | Paper execution models | Order-book VWAP, partial-fill handling, fee and shortfall calculations, impact rejection, and historical next-minute slippage model; pure simulator only |
 | Performance analytics | Daily net returns, total return, sample-gated CAGR/volatility/Sharpe/Sortino, drawdown/duration/recovery, Calmar and closed-trade statistics; tested but not yet connected to a portfolio equity history |
 | Immutable event journal | Canonical JSON, SHA-256 event/batch chains, validation and local atomic batch writing; tested |
-| Git state publisher | Append-only file publisher using normal fast-forward ref updates, idempotent duplicate handling and concurrency rejection; mocked GitHub API tests pass |
+| Git state publisher | Remote event-chain tip, fork, orphan and duplicate-genesis validation implemented; mocked tests pass. Server-side branch protection remains absent, so state writes are blocked |
 | SQLite projection | Transactional, idempotent event projection, chain ordering and integrity checks; tested locally |
 | CI | Ruff and pytest run on Python 3.12 |
 
 ## Verified CI evidence
 
-- Latest successful run: [GitHub Actions run 43912962281](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912962281).
-- Commit tested: `73b449593ed32b5dc1d94e4d1c5bc0658533fa54`.
-- Runner: Azure `eastus2`; this is CI only, not the Bybit API probe.
+- Latest successful core-code run: [GitHub Actions run 43931058486](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43931058486).
+- Commit tested: `a1c0e083893e5566fb2173b22c7afe81b196b4b9`.
 - Ruff: all checks passed.
-- Pytest: **62 passed in 0.13 seconds**.
+- Pytest: **67 passed in 0.25 seconds**.
+- Coverage includes the drawdown-duration regressions and mocked remote state-chain continuity/fork tests; it does not establish a real GitHub state write or a live exchange integration.
 - These tests cover deterministic calculations, mocked API response/pagination behavior, accounting, simulated execution, performance metrics, local event persistence, SQLite projection and mocked Git state publication. They do not establish successful live Bybit access or strategy profitability.
 
 ## External Bybit API and archive access
@@ -77,6 +77,19 @@ A separate read-only probe tested the official Bybit archive host from the same 
 The archive gives a credible path for selective historical trade ingestion and OHLCV reconstruction. It is not integrated yet, and it is not a replacement for live V5 data: funding history, mark/index prices, fresh order books, current instrument rules, and intraday execution are not established by this archive. Historical symbol coverage and survivorship bias also require audit before universe-level claims.
 
 **Release decision:** Live ranking-dependent portfolio workflows remain disabled. The historical archive path may be implemented for selective price research only after schema, integrity, coverage, storage and cost validation. No NAV, trade count, return, CAGR, Sharpe, drawdown or profitability statistic is claimed until historical or forward account data actually exists.
+
+## Emergency red-team findings
+
+- Report: [RED_TEAM_REPORT.md](RED_TEAM_REPORT.md).
+- Crypto.com candidate: **NOT_READY**. The former probe incorrectly passed on instrument discovery alone; the repaired gate requires universe breadth, USDT compatibility, successful funding history, all required public data and verified jurisdiction/collateral.
+- Follow-up Crypto.com readiness run [43930116624](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43930116624): all three Ubuntu jobs reported NOT_READY. Six USD-quoted contracts were found; funding-history API code 40004 was returned for both tested instrument-name formats.
+- Performance analytics: longest underwater drawdown duration now tracks all drawdown episodes and restarts its clock after exact high-water recovery; regression tests pass.
+- State publisher: new batches must extend the verified remote event-chain tip; forked, orphaned and second-genesis chains are rejected in code and mocked tests.
+- Critical unresolved integrity gate: GitHub reports `state` as unprotected and repository rulesets are empty. No account/event writes are permitted until server-side branch protection and writer restrictions are configured.
+- This is a public repository. Future state-branch files would be public and persistent; no confidential or personal account data may be stored there.
+- No replacement exchange is approved. The Bybit adapter remains the only implemented provider client, and its live V5 API remains blocked on tested GitHub-hosted runner routes.
+
+**Release decision:** no historical or forward performance claims, no paper-account initialization, no event-ledger writes and no exchange migration approval.
 
 ## Not yet implemented or operational
 
