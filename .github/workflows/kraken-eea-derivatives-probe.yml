@@ -179,11 +179,11 @@ jobs:
           eeea_retail_margin_count = sum(
               has_europe_retail_margin(row) for row in crypto_pf
           )
-          fully_ready_crypto_pf = [
+          margin_precision_qualified_crypto = [
               row for row in crypto_pf
               if has_valid_contract_precision(row) and has_europe_retail_margin(row)
           ]
-          full_contract_ready_count = len(fully_ready_crypto_pf)
+          margin_precision_qualified_count = len(margin_precision_qualified_crypto)
           permission_tagged_crypto = [
               row for row in pf
               if "europa_crypto" in row.get("platformsPermitted", [])
@@ -211,7 +211,7 @@ jobs:
           }
           symbol = "PF_XBTUSD"
           btc_contract_execution_ready = any(
-              row.get("symbol") == symbol for row in fully_ready_crypto_pf
+              row.get("symbol") == symbol for row in margin_precision_qualified_crypto
           )
 
           tickers = rest("/tickers")
@@ -314,14 +314,14 @@ jobs:
                   and len(crypto_pf) >= 50
                   and not unclassified_pf
               ),
-              "execution_ready_universe_minimum": full_contract_ready_count >= 50,
-              "btc_in_execution_ready_universe": btc_contract_execution_ready,
+              "margin_precision_qualified_universe_minimum": margin_precision_qualified_count >= 50,
+              "btc_in_margin_precision_qualified_universe": btc_contract_execution_ready,
               "eea_crypto_platform_permissions": (
                   bool(crypto_pf) and not crypto_permission_missing
               ),
               "eea_retail_margin_metadata": eeea_retail_margin_count >= 50,
               "contract_precision_metadata": precision_ready_count >= 50,
-              "intersection_of_eea_margin_and_precision": full_contract_ready_count >= 50,
+              "intersection_of_eea_margin_and_precision": margin_precision_qualified_count >= 50,
               "ticker": valid_success(tickers) and ticker is not None,
               "orderbook": (
                   valid_success(book)
@@ -357,7 +357,7 @@ jobs:
               "category_counts": dict(sorted(category_counts.items())),
               "crypto_category_counts": dict(sorted(crypto_category_counts.items())),
               "crypto_category_and_permission_count": len(crypto_pf),
-              "execution_ready_crypto_perpetual_count": full_contract_ready_count,
+              "eea_margin_precision_qualified_crypto_perpetual_count": margin_precision_qualified_count,
               "crypto_category_missing_europa_crypto_permission_count": len(crypto_permission_missing),
               "non_directional_stablecoin_contract_count": len(stablecoin_category_rows),
               "unclassified_pf_count": len(unclassified_pf),
@@ -377,14 +377,14 @@ jobs:
               "classification_samples_by_known_symbol": classification_samples,
               "eea_retail_margin_metadata_count": eeea_retail_margin_count,
               "valid_contract_precision_metadata_count": precision_ready_count,
-              "eea_margin_and_precision_intersection_count": full_contract_ready_count,
+              "eea_margin_and_precision_intersection_count": margin_precision_qualified_count,
               "excluded_ro_banned_count": sum(
                   1 for row in all_instruments
                   if isinstance(row, dict) and "RO" in row.get("countriesBanned", [])
               ),
-              "sample_crypto_perpetuals": fully_ready_crypto_pf[:8],
+              "sample_crypto_perpetuals": margin_precision_qualified_crypto[:8],
               "sample_btc_contract": next(
-                  (x for x in fully_ready_crypto_pf if x.get("symbol") == symbol), None
+                  (x for x in margin_precision_qualified_crypto if x.get("symbol") == symbol), None
               ),
               "instrument_metadata_gap": (
                   "Public /instruments includes tickSize, contractSize, maxPositionSize and "
