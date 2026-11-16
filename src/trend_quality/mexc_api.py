@@ -101,20 +101,27 @@ def classify_mexc_instrument(row: Mapping[str, Any]) -> str:
     return category if category != "unclassified" else "unclassified"
 
 
-def is_active_cross_usdt_perpetual(row: Mapping[str, Any]) -> bool:
-    """MEXC positionOpenType 2/3 supports cross; state 0 is enabled."""
+def is_active_cross_perpetual(row: Mapping[str, Any]) -> bool:
+    """Check cross-margin capability and live linear-perpetual state per instrument."""
     try:
         return (
             _integer(row.get("futureType"), "futureType") == 1
             and _integer(row.get("positionOpenType"), "positionOpenType") in {2, 3}
             and _integer(row.get("state"), "state") == 0
             and row.get("apiAllowed") is not False
-            and str(row.get("quoteCoin", "")).upper() == "USDT"
-            and str(row.get("settleCoin", "")).upper() == "USDT"
             and bool(str(row.get("symbol", "")).strip())
         )
     except MEXCAPIError:
         return False
+
+
+def is_active_cross_usdt_perpetual(row: Mapping[str, Any]) -> bool:
+    """Return True when the active cross-margin perpetual settles and quotes in USDT."""
+    return (
+        is_active_cross_perpetual(row)
+        and str(row.get("quoteCoin", "")).upper() == "USDT"
+        and str(row.get("settleCoin", "")).upper() == "USDT"
+    )
 
 
 def normalize_instrument(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -153,8 +160,22 @@ def normalize_instrument(row: Mapping[str, Any]) -> dict[str, Any]:
         "quantity_step_contracts": str(quantity_step),
         "min_contracts": str(min_contracts),
         "max_contracts": str(max_contracts),
-        "min_quantity_base": str(min_contracts * contract_size),
-        "max_quantity_base": str(max_contracts * contract_size),
+        "min_quantity_base": (
+            str(min_contracts * contract_size)
+            if str(row.get("quoteCoin", "")).upper() == "USDT"
+            and str(row.get("settleCoin", "")).upper() == "USDT"
+            else None
+        ),
+        "max_quantity_base": (
+            str(max_contracts * contract_size)
+            if str(row.get("quoteCoin", "")).upper() == "USDT"
+            and str(row.get("settleCoin", "")).upper() == "USDT"
+            else None
+        ),
+        "usdt_account_eligible": (
+            str(row.get("quoteCoin", "")).upper() == "USDT"
+            and str(row.get("settleCoin", "")).upper() == "USDT"
+        ),
         "taker_fee_rate": str(taker_fee),
         "maker_fee_rate": str(maker_fee),
         "max_leverage": _integer(row.get("maxLeverage"), "maxLeverage", minimum=1),
@@ -262,15 +283,25 @@ class MEXCPublicClient:
             raise MEXCAPIError("MEXC contract detail returned no instruments")
         return rows
 
-    def instruments(self) -> list[dict[str, Any]]:
-        """Return every active cross-margin USDT-settled linear perpetual."""
+    def instruments(self, *, usdt_only: bool = False) -> list[dict[str, Any]]:
+        """Return every active cross-margin linear perpetual, optionally USDT-only.
+
+        The research universe uses all settlements. The single-currency USDT paper
+        account uses the narrower USDT-only execution subset.
+        """
         output: list[dict[str, Any]] = []
         for row in self.contract_details():
-            if not is_active_cross_usdt_perpetual(row):
+            if not is_active_cross_perpetual(row):
                 continue
-            output.append(normalize_instrument(row))
+            normalized = normalize_instrument(row)
+            if usdt_only and not normalized["usdt_account_eligible"]:
+                continue
+            output.append(normalized)
         if not output:
-            raise MEXCAPIError("No active cross-margin USDT perpetuals were discovered")
+            scope = "USDT-settled " if usdt_only else ""
+            raise MEXCAPIError(
+                f"No active cross-margin {scope}perpetuals were discovered"
+            )
         return sorted(output, key=lambda row: int(row["instrument_id"]))
 
     def tickers(self) -> list[dict[str, Any]]:
