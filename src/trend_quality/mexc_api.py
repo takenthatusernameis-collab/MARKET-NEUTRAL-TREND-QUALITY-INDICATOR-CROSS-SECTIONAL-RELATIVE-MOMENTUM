@@ -51,6 +51,19 @@ def _signed_decimal(value: object, field: str) -> Decimal:
     return result
 
 
+def _optional_decimal(value: object, field: str) -> Decimal:
+    """Represent absent non-negative market fields as zero, not a whole-call failure."""
+    if value is None or value == "":
+        return Decimal("0")
+    return _decimal(value, field, allow_zero=True)
+
+
+def _optional_signed_decimal(value: object, field: str) -> Decimal:
+    if value is None or value == "":
+        return Decimal("0")
+    return _signed_decimal(value, field)
+
+
 def _integer(value: object, field: str, *, minimum: int = 0) -> int:
     if isinstance(value, bool):
         raise MEXCAPIError(f"Invalid integer field {field}")
@@ -265,12 +278,13 @@ class MEXCPublicClient:
             symbol = str(row.get("symbol", "")).strip()
             if not symbol:
                 continue
-            bid = _decimal(row.get("bid1"), f"{symbol}.bid1", allow_zero=True)
-            ask = _decimal(row.get("ask1"), f"{symbol}.ask1", allow_zero=True)
-            last = _decimal(row.get("lastPrice"), f"{symbol}.lastPrice")
-            fair = _decimal(row.get("fairPrice"), f"{symbol}.fairPrice")
-            index = _decimal(row.get("indexPrice"), f"{symbol}.indexPrice")
-            mid = (bid + ask) / Decimal("2") if bid > 0 and ask > bid else fair
+            bid = _optional_decimal(row.get("bid1"), f"{symbol}.bid1")
+            ask = _optional_decimal(row.get("ask1"), f"{symbol}.ask1")
+            last = _optional_decimal(row.get("lastPrice"), f"{symbol}.lastPrice")
+            fair = _optional_decimal(row.get("fairPrice"), f"{symbol}.fairPrice")
+            index = _optional_decimal(row.get("indexPrice"), f"{symbol}.indexPrice")
+            usable_mark = fair if fair > 0 else last
+            mid = (bid + ask) / Decimal("2") if bid > 0 and ask > bid else usable_mark
             output.append({
                 "symbol": symbol,
                 "last_price": str(last),
@@ -279,24 +293,24 @@ class MEXCPublicClient:
                 "bid_price": str(bid),
                 "ask_price": str(ask),
                 "mid_price": str(mid),
-                "funding_rate": str(_signed_decimal(
-                    row.get("fundingRate", 0), f"{symbol}.fundingRate"
+                "funding_rate": str(_optional_signed_decimal(
+                    row.get("fundingRate"), f"{symbol}.fundingRate"
                 )),
-                "volume_24h_contracts": str(_decimal(
-                    row.get("volume24", 0), f"{symbol}.volume24", allow_zero=True
+                "volume_24h_contracts": str(_optional_decimal(
+                    row.get("volume24"), f"{symbol}.volume24"
                 )),
-                "turnover_24h_usdt": str(_decimal(
-                    row.get("amount24", 0), f"{symbol}.amount24", allow_zero=True
+                "turnover_24h_usdt": str(_optional_decimal(
+                    row.get("amount24"), f"{symbol}.amount24"
                 )),
-                "open_interest_contracts": str(_decimal(
-                    row.get("holdVol", 0), f"{symbol}.holdVol", allow_zero=True
+                "open_interest_contracts": str(_optional_decimal(
+                    row.get("holdVol"), f"{symbol}.holdVol"
                 )),
-                "change_24h": str(_signed_decimal(
-                    row.get("riseFallRate", 0), f"{symbol}.riseFallRate"
+                "change_24h": str(_optional_signed_decimal(
+                    row.get("riseFallRate"), f"{symbol}.riseFallRate"
                 )),
                 "timestamp_ms": _integer(row.get("timestamp"), f"{symbol}.timestamp", minimum=1),
                 "next_funding_timestamp_ms": (
-                    None if row.get("nextSettleTime") is None
+                    None if row.get("nextSettleTime") in (None, "", 0, "0")
                     else _integer(row.get("nextSettleTime"), f"{symbol}.nextSettleTime")
                 ),
             })
