@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
-from math import sqrt
+from math import isfinite, sqrt
 from statistics import mean, stdev
 
 DAY_MS = 86_400_000
@@ -37,8 +37,18 @@ def _validate_equity(points: list[EquityPoint]) -> None:
         raise ValueError("At least two equity observations are required")
     previous_timestamp: int | None = None
     for point in points:
-        if point.timestamp_ms <= 0 or point.nav <= 0:
-            raise ValueError("Equity timestamps and NAV values must be positive")
+        if (
+            not isinstance(point.timestamp_ms, int)
+            or isinstance(point.timestamp_ms, bool)
+            or point.timestamp_ms <= 0
+        ):
+            raise ValueError("Equity timestamps must be positive integer UTC milliseconds")
+        if (
+            not isinstance(point.nav, Decimal)
+            or not point.nav.is_finite()
+            or point.nav <= 0
+        ):
+            raise ValueError("Equity NAV values must be finite and positive Decimals")
         if previous_timestamp is not None:
             gap = point.timestamp_ms - previous_timestamp
             if gap != DAY_MS:
@@ -53,10 +63,13 @@ def daily_returns(points: Iterable[EquityPoint]) -> list[float]:
     """Return simple net NAV returns between consecutive UTC daily marks."""
     ordered = list(points)
     _validate_equity(ordered)
-    return [
-        float(current.nav / previous.nav - Decimal("1"))
-        for previous, current in zip(ordered, ordered[1:], strict=False)
-    ]
+    returns: list[float] = []
+    for previous, current in zip(ordered, ordered[1:], strict=False):
+        value = float(current.nav / previous.nav - Decimal("1"))
+        if not isfinite(value):
+            raise ValueError("Daily return calculation produced a non-finite value")
+        returns.append(value)
+    return returns
 
 
 def drawdown_series(points: Iterable[EquityPoint]) -> list[DrawdownPoint]:
@@ -239,6 +252,11 @@ def compute_performance_metrics(
         metrics["calmar"] = _unavailable(reason, observation_count)
 
     trades = list(closed_trade_net_pnls)
+    if any(
+        not isinstance(value, Decimal) or not value.is_finite()
+        for value in trades
+    ):
+        raise ValueError("Closed-trade net P&L values must be finite Decimals")
     winners = [value for value in trades if value > 0]
     losers = [value for value in trades if value < 0]
     metrics["closed_trade_count"] = Metric(float(len(trades)), None, len(trades))
@@ -271,5 +289,14 @@ def compute_performance_metrics(
         metrics["profit_factor"] = _unavailable(
             "No losing closed trades; profit factor is undefined or uninformative",
             len(trades),
+        )
+    non_finite_metrics = [
+        name for name, metric in metrics.items()
+        if metric.value is not None and not isfinite(metric.value)
+    ]
+    if non_finite_metrics:
+        raise ValueError(
+            "Performance calculation produced non-finite metrics: "
+            + ", ".join(sorted(non_finite_metrics))
         )
     return metrics
