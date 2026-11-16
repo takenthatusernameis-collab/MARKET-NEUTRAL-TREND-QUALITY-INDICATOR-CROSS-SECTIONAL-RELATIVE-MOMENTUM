@@ -47,6 +47,16 @@ def test_rankings_sort_bullish_descending_and_bearish_ascending() -> None:
     assert [c.symbol for c in bearish] == ["DUSDT", "CUSDT"]
 
 
+def test_signed_q_defines_direction_not_ema_cycle_label() -> None:
+    bullish, bearish = rank_candidates(
+        [_point("BULL", 3.5, "bearish"), _point("BEAR", -3.5, "bullish")]
+    )
+    assert [c.symbol for c in bullish] == ["BULL"]
+    assert [c.symbol for c in bearish] == ["BEAR"]
+    assert bullish[0].semi_cycle_direction == "bearish"
+    assert bearish[0].semi_cycle_direction == "bullish"
+
+
 def test_execution_eligibility_filters_candidates() -> None:
     bullish, bearish = rank_candidates(
         [_point("AUSDT", 5.0, "bullish"), _point("BUSDT", -5.0, "bearish")],
