@@ -133,9 +133,9 @@ SL_S=\min(SL_{S,prev},LL_{post-entry}+k\times ATR)
 
 Initialize post-entry high/low at actual fill price. Never include pre-entry extremes. Calculate daily stop changes from completed daily candles only; new stops are effective only after their decision timestamp.
 
-Monitor completed hourly candles, with one-minute data for partial-hour ownership/stop activation checks and finer stop verification. Use last traded prices to trigger stops and mark prices for NAV. Record all price sources.
+Monitor the portfolio on every five-minute snapshot using last traded prices for stop triggers and mark prices for NAV. The workflow is sampled, not continuous; disclose the maximum observed gap between snapshots and never claim real-time protection.
 
-**Never assume a trigger-price fill when monitoring is hourly.** The trigger may be observed only after candle completion and scheduled workflow delay. Forward paper exit is based on a fresh public order-book snapshot at actual detection time; record detection timestamp, book timestamp, fill time and VWAP. If quote is stale/unavailable, do not fabricate a fill.
+**Never assume a trigger-price fill when monitoring every five minutes.** A trigger may be crossed between observations or during scheduled workflow delays. Paper exit uses a fresh public Perps order-book snapshot at detection time; record detection timestamp, book timestamp, fill time and VWAP. If the quote is stale/unavailable, do not fabricate a fill.
 
 For historical replay, model the configured schedule delay (initially 17 minutes after the hour close) plus a configurable operational lag. Use the first eligible one-minute reference at or after modeled detection and adverse spread/slippage assumptions. Report delay sensitivity. Do not claim continuous protection.
 
@@ -143,7 +143,7 @@ On a stop-out close only that leg; keep survivor, record single-leg exposure and
 
 ## 9. Public order-book execution and costs
 
-Use only public `GET /v5/market/orderbook` and `GET /v5/market/tickers`. For linear REST order books, the documented depth parameter supports up to 1,000 levels. Request a bounded depth (initially 200 or 1,000 after payload/latency benchmarking), validate the response and disclose that RPI orders are not included. Do not confuse REST limits with the separate WebSocket depth update tiers. Validate `ts` and matching-engine `cts` freshness. RPI orders are not exposed in the standard order-book snapshot; disclose this limitation.
+Use only the selected provider's documented public Perps book/ticker endpoints. For Polymarket use `GET /v1/info/book` at depth 10/100/500/1000 and `GET /v1/info/tickers`. Validate instrument ID, bid/ask levels, book timestamp, sequence, positive prices/quantities and spread. Use the largest bounded depth that is safely available within the five-minute job budget. Record that a public snapshot is not a full matching-engine queue and cannot model hidden liquidity or queue priority.
 
 For buys consume asks; for sells consume bids; calculate depth-weighted VWAP; support partial fill/reject if visible depth is insufficient. Apply configurable maximum impact. Historical order-book depth is unavailable from ordinary Klines, so historical execution must use next eligible one-minute open plus explicitly adverse spread/slippage assumptions. Never use signal-candle close retrospectively.
 
@@ -153,7 +153,7 @@ No broker or exchange order endpoints may exist in the project.
 
 ## 10. Funding
 
-Use `GET /v5/market/funding/history` with category, symbol, start/end time and limit <=200. The endpoint has no pagination cursor; startTime alone returns an error, while bounded time windows are supported. Partition windows so no request can truncate more than 200 expected settlements; recursively subdivide full pages and verify expected count using each instrument's fundingInterval.
+Use the selected provider's public funding-history endpoint. For Polymarket use `GET /v1/info/funding` with instrument ID and bounded start/end epoch-millisecond timestamps. Use each instrument's actual funding interval, funding rate and funding timestamp. Paginate/reconcile the exact returned records; never substitute a zero rate or infer a settlement timestamp.
 
 Use actual `fundingInterval` metadata. Funding cash flow:
 [
@@ -165,7 +165,7 @@ Determine position state immediately before settlement. If a fill and settlement
 
 ## 11. Accounting, event journal and state
 
-Use Decimal/fixed-point for money, quantities, fees, funding and cash. NAV is:
+Use Decimal/fixed-point for money, quantities, fees, funding and cash. The Polymarket paper ledger is denominated in pUSD, the provider's Perps collateral unit; do not silently equate it with USDT or fiat USD. NAV is:
 [
 NAV=Cash+UnrealizedPnL
 ]
