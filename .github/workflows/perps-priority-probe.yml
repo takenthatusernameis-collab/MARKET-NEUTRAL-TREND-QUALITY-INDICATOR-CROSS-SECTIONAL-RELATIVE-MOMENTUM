@@ -1,15 +1,6 @@
 name: Perpetual Exchange Priority — Polymarket, MEXC, Bitget
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/trend_quality/polymarket_api.py"
-      - "scripts/probe_polymarket_mexc_bitget.py"
-      - "scripts/probe_perp_priority.py"
-      - "src/trend_quality/exchange_probe.py"
-      - "tests/test_polymarket_api.py"
-      - ".github/workflows/perps-priority-probe.yml"
   workflow_dispatch:
 
 permissions:
