@@ -162,6 +162,7 @@ def _bootstrap_or_increment(
 ) -> tuple[int, int, list[dict[str, Any]]]:
     """Backfill new assets in bounded, fair batches; fetch only unchecked bars."""
     manifest_rows = store.manifest["instruments"]
+    existing_history = store.load_all_candles()
     pending = [
         row for row in instruments
         if not manifest_rows[str(row["instrument_id"])].get("bootstrap_complete")
@@ -218,7 +219,7 @@ def _bootstrap_or_increment(
                 interval="Day1",
             )
             rows = _completed_candles(instrument, raw, server_ms)
-            existing = store.load_candles(iid)
+            existing = existing_history.get(iid, [])
             existing_stamps = {int(row["timestamp_ms"]) for row in existing}
             all_candle_updates.extend(
                 row for row in rows
