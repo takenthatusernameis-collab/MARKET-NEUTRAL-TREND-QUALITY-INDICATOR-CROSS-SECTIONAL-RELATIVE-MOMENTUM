@@ -126,7 +126,10 @@ def test_kline_pagination_adds_only_missing_interval() -> None:
 def test_funding_history_and_fee_schedule_public_parsing() -> None:
     def transport(path: str, params: Any) -> tuple[int, dict[str, str], Any]:
         if path == "/v1/info/funding":
-            return 200, {}, {"data": [{"funding_rate": "0.0001", "timestamp": 1_700_000_000_000}], "more": False}
+            return 200, {}, {
+                "data": [{"funding_rate": "0.0001", "timestamp": 1_700_000_000_000}],
+                "more": False,
+            }
         if path == "/v1/info/fees":
             return 200, {}, {
                 "fee_schedule": [{
