@@ -57,8 +57,8 @@ class GitHubStatePublisher:
             raise ValueError("GitHub token is required")
         if not re.fullmatch(r"[A-Za-z0-9._/-]+", branch) or ".." in branch:
             raise ValueError("Invalid branch name")
-        if not api_base_url.startswith("https://"):
-            raise ValueError("GitHub API base URL must use HTTPS")
+        if api_base_url.rstrip("/") != "https://api.github.com":
+            raise ValueError("Only the official https://api.github.com host is permitted")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         self.repository_full_name = repository_full_name
