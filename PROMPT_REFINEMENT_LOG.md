@@ -1,6 +1,6 @@
 # Prompt Refinement Log
 
-## 2026-11-16 — v2.1 to v2.2
+## 2026-11-16 — v2.1 to v2.3
 
 ### Review pass 1 — mathematical source fidelity
 - Re-opened the original Sepiashvili paper and inspected rendered pages containing the equations and figures.
@@ -13,7 +13,7 @@
 
 ### Review pass 2 — API contract and market-data correctness
 - Rechecked Bybit instrument, Kline, funding, mark-price Kline, server time and order-book docs.
-- Corrected linear order-book REST depth to a maximum of 200 levels.
+- Corrected linear order-book REST depth to a maximum of 1,000 levels; REST depth is distinct from WebSocket push-depth tiers.
 - Kept instrument filtering on returned objects; only documented request filters are sent.
 - Distinguished cursor pagination for instruments from timestamp pagination for Klines.
 - Replaced any implication of funding cursor pagination with bounded time windows and subdivision when a 200-record page is full.
