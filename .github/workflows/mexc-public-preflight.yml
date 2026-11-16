@@ -1,0 +1,44 @@
+name: MEXC Public API Integration Preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/trend_quality/mexc_api.py"
+      - "scripts/mexc_public_preflight.py"
+      - ".github/workflows/mexc-public-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mexc-public-api-preflight
+  cancel-in-progress: true
+
+jobs:
+  public-data:
+    name: Verify public MEXC market-data contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install strategy package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Run unauthenticated MEXC API preflight
+        run: python scripts/mexc_public_preflight.py | tee mexc-public-preflight-report.json
+      - name: Upload MEXC public-data report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mexc-public-preflight-report
+          path: mexc-public-preflight-report.json
+          if-no-files-found: warn
+          retention-days: 30
