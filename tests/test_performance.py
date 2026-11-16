@@ -68,6 +68,22 @@ def test_maximum_drawdown_duration_uses_longest_episode_not_deepest_episode() ->
     )
 
 
+
+def test_recovered_high_resets_clock_for_next_drawdown_episode() -> None:
+    # The second drawdown starts only after the account has fully recovered
+    # to the previous peak. Its duration must not be measured from the first
+    # episode's original peak date.
+    metrics = compute_performance_metrics(
+        _equity(["100", "90", "100", "95", "100"])
+    )
+    CHECKS.assertAlmostEqual(
+        metrics["maximum_drawdown_duration_days"].value or 0.0, 2.0, places=10
+    )
+    CHECKS.assertAlmostEqual(
+        metrics["recovery_period_days"].value or 0.0, 1.0, places=10
+    )
+
+
 def test_monotonic_equity_has_no_drawdown_or_recovery_duration() -> None:
     metrics = compute_performance_metrics(_equity(["100", "101", "102"]))
     assert metrics["maximum_drawdown"].value == 0.0
