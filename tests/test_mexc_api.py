@@ -8,6 +8,7 @@ import pytest
 from trend_quality.mexc_api import (
     MEXCAPIError,
     MEXCPublicClient,
+    is_active_cross_perpetual,
     is_active_cross_usdt_perpetual,
     normalize_instrument,
 )
@@ -55,14 +56,20 @@ def client_for(responses: Mapping[str, Any]) -> MEXCPublicClient:
     return MEXCPublicClient(minimum_interval_seconds=0, retries=0, transport=transport)
 
 
-def test_cross_margin_usdt_perpetual_filter_is_per_instrument() -> None:
+def test_cross_margin_perpetual_filter_is_per_instrument() -> None:
+    assert is_active_cross_perpetual(contract(positionOpenType=2))
+    assert is_active_cross_perpetual(contract(positionOpenType=3))
+    assert is_active_cross_perpetual(
+        contract(quoteCoin="USDC", settleCoin="USDC")
+    )
+    assert not is_active_cross_perpetual(contract(positionOpenType=1))
+    assert not is_active_cross_perpetual(contract(futureType=2))
+    assert not is_active_cross_perpetual(contract(state=4))
+    assert not is_active_cross_perpetual(contract(apiAllowed=False))
     assert is_active_cross_usdt_perpetual(contract(positionOpenType=2))
-    assert is_active_cross_usdt_perpetual(contract(positionOpenType=3))
-    assert not is_active_cross_usdt_perpetual(contract(positionOpenType=1))
-    assert not is_active_cross_usdt_perpetual(contract(futureType=2))
-    assert not is_active_cross_usdt_perpetual(contract(state=4))
-    assert not is_active_cross_usdt_perpetual(contract(quoteCoin="USDC", settleCoin="USDC"))
-    assert not is_active_cross_usdt_perpetual(contract(apiAllowed=False))
+    assert not is_active_cross_usdt_perpetual(
+        contract(quoteCoin="USDC", settleCoin="USDC")
+    )
 
 
 def test_normalizer_preserves_contract_multipliers_and_unknown_categories() -> None:
@@ -80,21 +87,34 @@ def test_normalizer_preserves_contract_multipliers_and_unknown_categories() -> N
     assert row["cross_margin_available"] is True
     assert row["isolated_only"] is False
     assert row["settlement"] is None
+    assert row["usdt_account_eligible"] is True
+    alt = normalize_instrument(contract(
+        quoteCoin="USDC",
+        settleCoin="USDC",
+        symbol="BTC_USDC",
+    ))
+    assert alt["usdt_account_eligible"] is False
+    assert alt["min_quantity_base"] is None
 
 
-def test_instruments_keep_all_categories_and_only_active_usdt_cross_rows() -> None:
+def test_instruments_research_all_cross_settlements_and_usdt_execution_subset() -> None:
     client = client_for({
         "/api/v1/contract/detail": success([
             contract(),
             contract(id=18, symbol="ETH_USDT", positionOpenType=2, conceptPlate=["stock"]),
             contract(id=19, symbol="ISO_USDT", positionOpenType=1),
-            contract(id=20, symbol="USDC_USDC", quoteCoin="USDC", settleCoin="USDC"),
+            contract(id=20, symbol="BTC_USDC", quoteCoin="USDC", settleCoin="USDC"),
         ])
     })
-    rows = client.instruments()
-    assert [row["symbol"] for row in rows] == ["BTC_USDT", "ETH_USDT"]
-    assert rows[0]["category"] == "crypto"
-    assert rows[1]["category"] == "equity"
+    all_rows = client.instruments()
+    usdt_rows = client.instruments(usdt_only=True)
+    assert [row["symbol"] for row in all_rows] == [
+        "BTC_USDT", "ETH_USDT", "BTC_USDC"
+    ]
+    assert [row["symbol"] for row in usdt_rows] == ["BTC_USDT", "ETH_USDT"]
+    assert all_rows[0]["category"] == "crypto"
+    assert all_rows[1]["category"] == "equity"
+    assert all_rows[2]["usdt_account_eligible"] is False
 
 
 def test_bulk_tickers_accept_signed_funding_and_returns() -> None:
