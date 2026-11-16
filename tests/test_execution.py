@@ -124,6 +124,13 @@ def test_historical_minute_fill_applies_adverse_slippage_once() -> None:
     assert sell.fee == Decimal("0.19980")
 
 
+def test_book_level_rejects_nonpositive_or_nonfinite_values() -> None:
+    with pytest.raises(ValueError, match="finite and positive"):
+        BookLevel(Decimal("0"), Decimal("1"))
+    with pytest.raises(ValueError, match="finite and positive"):
+        BookLevel(Decimal("1"), Decimal("-1"))
+
+
 def test_crossed_book_and_invalid_inputs_are_rejected() -> None:
     with pytest.raises(ExecutionModelError, match="crossed"):
         simulate_orderbook_fill(
