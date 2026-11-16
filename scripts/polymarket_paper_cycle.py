@@ -846,7 +846,10 @@ def _run() -> int:
             close_ok = True
             for position in old_positions:
                 instrument = next(
-                    (row for row in cross if int(row["instrument_id"]) == int(position["instrument_id"])),
+                    (
+                        row for row in cross
+                        if int(row["instrument_id"]) == int(position["instrument_id"])
+                    ),
                     None,
                 )
                 if instrument is None:
@@ -893,10 +896,11 @@ def _run() -> int:
 
     nav = _nav(portfolio, ticker_map)
     positions = portfolio.get("positions", [])
-    notionals = [
-        dec(position["quantity"]) * dec(ticker_map.get(int(position["instrument_id"]), {}).get("mark_price", position["entry_price"]))
-        for position in positions
-    ]
+    notionals = []
+    for position in positions:
+        ticker = ticker_map.get(int(position["instrument_id"]), {})
+        mark = ticker.get("mark_price", position["entry_price"])
+        notionals.append(dec(position["quantity"]) * dec(mark))
     long_notional = sum(
         (
             notional for position, notional in zip(positions, notionals, strict=True)
