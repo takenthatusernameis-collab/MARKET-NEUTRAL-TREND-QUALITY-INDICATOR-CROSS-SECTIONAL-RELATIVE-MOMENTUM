@@ -80,9 +80,14 @@ class MarketDataStore:
             instrument_id = str(row["instrument_id"])
             current_ids.add(instrument_id)
             previous = stored.get(instrument_id, {})
-            status = "settled" if row.get("settlement") is not None else (
-                "close_only" if row.get("close_only") is True else "active"
-            )
+            if row.get("settlement") is not None:
+                status = "settled"
+            elif row.get("isolated_only") is True:
+                status = "isolated_only"
+            elif row.get("close_only") is True:
+                status = "close_only"
+            else:
+                status = "active"
             first_seen = previous.get("first_seen_at_ms", int(now_ms))
             stored[instrument_id] = {
                 **row,
