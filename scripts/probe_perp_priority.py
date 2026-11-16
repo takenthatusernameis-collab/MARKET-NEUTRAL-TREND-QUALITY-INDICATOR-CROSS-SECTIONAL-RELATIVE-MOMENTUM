@@ -14,7 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from trend_quality.exchange_probe import (
@@ -23,7 +23,6 @@ from trend_quality.exchange_probe import (
     bitget_cross_perpetual,
     classify_asset_class,
     group_asset_classes,
-    htx_cross_perpetual,
     mexc_cross_perpetual,
     missing_fields,
     weex_perpetual,
@@ -402,7 +401,7 @@ def public_docs_status() -> dict[str, Any]:
 
 
 def main() -> int:
-    started = datetime.now(timezone.utc).isoformat()
+    started = datetime.now(UTC).isoformat()
     # HTX is first in the requested priority order, but its current EU restriction
     # is dispositive for a Romania-based user. Do not probe its endpoints to suggest
     # the service could be accessed by changing location.
