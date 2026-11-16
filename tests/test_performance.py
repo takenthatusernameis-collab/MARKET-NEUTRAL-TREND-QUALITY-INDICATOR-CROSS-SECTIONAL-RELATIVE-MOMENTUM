@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from decimal import Decimal
-
 import pytest
+
+from decimal import Decimal
 
 from trend_quality.performance import (
     DAY_MS,
