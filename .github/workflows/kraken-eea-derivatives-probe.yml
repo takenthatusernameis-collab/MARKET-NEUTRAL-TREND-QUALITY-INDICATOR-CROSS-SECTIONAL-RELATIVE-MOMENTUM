@@ -201,6 +201,13 @@ jobs:
               (int(row.get("time", 0)) for row in candle_rows if isinstance(row, dict)),
               default=0,
           )
+          completed_candle_times = [
+              int(row.get("time", 0))
+              for row in candle_rows
+              if isinstance(row, dict)
+              and 0 < int(row.get("time", 0)) < utc_today_start * 1000
+          ]
+          latest_completed_candle_time = max(completed_candle_times, default=0)
           funding_timestamps = []
           funding_rates_valid = True
           for row in funding_rows:
@@ -234,9 +241,7 @@ jobs:
               "latest_completed_daily_candle": (
                   candles.get("http_status") == 200
                   and isinstance(candles_payload, dict)
-                  and bool(candle_rows)
-                  and latest_candle_time >= latest_completed_daily_start
-                  and latest_candle_time < utc_today_start * 1000
+                  and latest_completed_candle_time >= latest_completed_daily_start
               ),
               "recent_settled_funding_history": (
                   valid_success(funding)
@@ -287,6 +292,7 @@ jobs:
               "daily_candles": {
                   "http_status": candles.get("http_status"),
                   "latest_candle_time_ms": latest_candle_time,
+                  "latest_completed_candle_time_ms": latest_completed_candle_time,
                   "latest_completed_daily_start_ms": latest_completed_daily_start,
                   "sample_first": candle_rows[:1],
                   "sample_last": candle_rows[-2:],
