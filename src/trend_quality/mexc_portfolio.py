@@ -341,5 +341,6 @@ def account_report(
         "position_count": len(state.get("positions", [])),
         "positions": state.get("positions", []),
         "closed_trade_count": len(state.get("closed_trade_net_pnls", [])),
+        "daily_equity_curve": list(state.get("daily_equity", [])),
         "performance": performance_summary(state),
     }
