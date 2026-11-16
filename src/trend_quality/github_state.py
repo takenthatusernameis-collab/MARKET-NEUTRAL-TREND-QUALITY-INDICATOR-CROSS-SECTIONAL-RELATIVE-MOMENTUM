@@ -151,6 +151,9 @@ class GitHubStatePublisher:
             and str(node["path"]).endswith(".json")
         ]
         batches: dict[str, dict[str, Any]] = {}
+        seen_run_ids: set[str] = set()
+        seen_event_ids: set[str] = set()
+        seen_idempotency_keys: set[str] = set()
         for node in event_nodes:
             path = str(node["path"])
             blob_sha = node.get("sha")
@@ -177,6 +180,24 @@ class GitHubStatePublisher:
             batch_hash = str(batch["batch_hash"])
             if batch_hash in batches:
                 raise GitHubStateError(f"Duplicate event batch hash in state tree: {batch_hash}")
+            run_id = str(batch["run_id"])
+            if run_id in seen_run_ids:
+                raise GitHubStateError(f"Duplicate run_id across remote event batches: {run_id}")
+            seen_run_ids.add(run_id)
+            for event in batch["events"]:
+                event_id = str(event["event_id"])
+                idempotency_key = str(event["idempotency_key"])
+                if event_id in seen_event_ids:
+                    raise GitHubStateError(
+                        f"Duplicate event_id across remote event batches: {event_id}"
+                    )
+                if idempotency_key in seen_idempotency_keys:
+                    raise GitHubStateError(
+                        "Duplicate idempotency_key across remote event batches: "
+                        f"{idempotency_key}"
+                    )
+                seen_event_ids.add(event_id)
+                seen_idempotency_keys.add(idempotency_key)
             batches[batch_hash] = batch
 
         if not batches:
