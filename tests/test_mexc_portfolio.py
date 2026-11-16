@@ -6,9 +6,11 @@ from trend_quality.execution import SimulatedFill
 from trend_quality.mexc_portfolio import (
     account_report,
     append_daily_equity,
+    append_equity_snapshot,
     apply_confirmed_funding,
     close_paper_position,
     initial_portfolio_state,
+    lifetime_max_drawdown,
     open_paper_position,
     performance_summary,
     portfolio_nav,
@@ -161,3 +163,105 @@ def test_account_report_discloses_exposure_and_ledgers() -> None:
     assert report["gross_exposure"] == "0.5000500050005000500050005001"
     assert report["fees_paid"] == "0.01"
     assert report["positions"][0]["instrument_id"] == position["instrument_id"]
+
+
+
+def test_two_x_default_leverage_and_balanced_margin_report() -> None:
+    state = initial_portfolio_state()
+    position = open_paper_position(
+        state,
+        btc_instrument(),
+        {"mark_price": "100"},
+        "long",
+        Decimal("5"),
+        fill("buy", "1", "100", "0"),
+        1_700_000_000_000,
+    )
+    assert position["leverage"] == "2"
+    assert position["initial_margin_usdt"] == "50"
+    report = account_report(state, {1: {"mark_price": "100"}})
+    assert Decimal(report["long_notional_usdt"]) == Decimal("100")
+    assert Decimal(report["long_margin_used_usdt"]) == Decimal("50")
+
+
+def test_combined_portfolio_daily_drawdown_triggers_even_when_legs_are_each_below_25pct() -> None:
+    state = initial_portfolio_state()
+    first = append_equity_snapshot(
+        state, 1_700_000_000_000, Decimal("100"),
+        Decimal("100"), Decimal("100"),
+    )
+    assert not first["emergency_stop_triggered"]
+
+    # At 2x on 50% margin each, a 12.5% adverse move on both 1x-NAV legs
+    # produces a 25% combined NAV loss. The risk rule sees the combined NAV.
+    snapshot = append_equity_snapshot(
+        state, 1_700_000_300_000, Decimal("75"),
+        Decimal("100"), Decimal("100"),
+    )
+    assert snapshot["daily_return_pct"] == "-25.00"
+    assert snapshot["daily_drawdown_pct"] == "-25.00"
+    assert snapshot["emergency_stop_newly_triggered"]
+    assert state["daily_risk"]["stop_reason"] == "COMBINED_PORTFOLIO_DAILY_DRAWDOWN_LIMIT"
+
+
+def test_daily_stop_uses_intraday_peak_not_lifetime_high_water_mark() -> None:
+    state = initial_portfolio_state()
+    append_equity_snapshot(
+        state, 1_700_000_000_000, Decimal("100"),
+        Decimal("100"), Decimal("100"),
+    )
+    append_equity_snapshot(
+        state, 1_700_000_300_000, Decimal("120"),
+        Decimal("100"), Decimal("100"),
+    )
+    intraday = append_equity_snapshot(
+        state, 1_700_000_600_000, Decimal("90"),
+        Decimal("100"), Decimal("100"),
+    )
+    assert intraday["daily_return_pct"] == "-10.0"
+    assert intraday["daily_drawdown_pct"] == "-25.00"
+    assert intraday["emergency_stop_triggered"]
+
+
+def test_daily_risk_resets_at_utc_rollover_but_lifetime_mdd_can_exceed_25pct() -> None:
+    state = initial_portfolio_state()
+    append_equity_snapshot(
+        state, 1_700_000_000_000, Decimal("100"),
+        Decimal("100"), Decimal("100"),
+    )
+    append_equity_snapshot(
+        state, 1_700_000_300_000, Decimal("70"),
+        Decimal("100"), Decimal("100"),
+    )
+    next_day_ms = 1_700_086_400_000
+    next_day = append_equity_snapshot(
+        state, next_day_ms, Decimal("70"),
+        Decimal("100"), Decimal("100"),
+    )
+    assert next_day["daily_drawdown_pct"] == "0"
+    assert not next_day["emergency_stop_triggered"]
+    assert lifetime_max_drawdown(state) == Decimal("-0.3")
+
+
+def test_equity_snapshot_is_idempotent_and_rejects_time_reversal() -> None:
+    state = initial_portfolio_state()
+    timestamp = 1_700_000_000_000
+    append_equity_snapshot(
+        state, timestamp, Decimal("100"),
+        Decimal("100"), Decimal("100"),
+    )
+    append_equity_snapshot(
+        state, timestamp, Decimal("101"),
+        Decimal("100"), Decimal("100"),
+    )
+    assert len(state["equity_curve"]) == 1
+    assert state["equity_curve"][0]["nav"] == "101"
+    try:
+        append_equity_snapshot(
+            state, timestamp - 1, Decimal("100"),
+            Decimal("100"), Decimal("100"),
+        )
+    except ValueError as exc:
+        assert "cannot move backwards" in str(exc)
+    else:
+        raise AssertionError("out-of-order equity observations must fail")
