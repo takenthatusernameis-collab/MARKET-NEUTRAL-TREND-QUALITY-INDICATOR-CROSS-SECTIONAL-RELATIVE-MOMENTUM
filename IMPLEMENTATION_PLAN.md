@@ -21,14 +21,16 @@ The repository is in a validated core-code phase, not a trading-ready phase. No 
 - [x] Wilder ATR.
 - [x] Public Bybit server-time, instrument pagination, backward Kline retrieval, funding-history windows and order-book parsing.
 - [x] Mocked API contract and pagination tests.
-- [ ] Pass live public API integration; standard free GitHub-hosted runners are blocked by CloudFront country restriction (eastus2, eastus and westus3).
+- [ ] Pass live public API integration; a 6-job multi-cloud test still returned HTTP 403 from five Azure US allocations and one AWS `us-west-2` allocation (run 43911753549).
+- [x] Verify official Bybit static trade archive access from standard GitHub-hosted runners (3/3 HTTP 206 + valid gzip samples; run 43912009008).
+- [ ] Implement and test a resumable, integrity-checked Bybit trade-archive importer and daily OHLCV aggregator for selective historical research only.
 
 ## Phase 2 — Ranking and data gates
 
 - [x] Signed-Q ranking primitives for bullish and bearish candidates.
 - [x] Execution eligibility filtering at the candidate-ranking function boundary.
 - [x] Deterministic distinct-symbol long/short pair selection with bounded fallback.
-- [ ] Complete full-universe ranking on real Bybit market data.
+- [ ] Complete full-universe ranking on a verified point-in-time universe and real Bybit market data.
 - [ ] Separate research-universe membership from execution eligibility for all instruments.
 - [ ] End-to-end data coverage, freshness, gap, duplicate and completeness gates.
 - [ ] Persist daily universe snapshots and candle history.
@@ -73,11 +75,23 @@ The repository is in a validated core-code phase, not a trading-ready phase. No 
 - [ ] Generate STATUS, equity curve, drawdown chart, human-readable risk report and export files from persisted events.
 - [ ] Monitor data freshness, scheduled-run delay, missing coverage, persistence conflicts and accounting invariants.
 
-## External blocker
+## External data access
 
-Bybit public endpoints returned HTTP 403 from three standard free GitHub-hosted runner allocations in Azure eastus2, eastus and westus3. The latter two responses explicitly stated that CloudFront blocked access based on country. No proxy, VPN, endpoint rotation, alternate exchange or paid runner has been used.
+### Live API blocker
+The automatic GitHub multi-cloud standard Linux pool was tested across Ubuntu 22.04, 24.04 and 26.04. All 6/6 calls to the required Global V5 server-time endpoint returned HTTP 403; one runner was AWS `us-west-2`, and it was blocked too. GitHub controls the region and cloud selection; no geographic selector is documented. No VPN, proxy, relay, host rotation, paid service or exchange change is permitted.
 
-A user-controlled self-hosted runner on a Bybit-permitted network is the remaining plausible no-paid route. It has not been provisioned; live Bybit integration and all data-dependent phases remain blocked until it is.
+### Historical archive route
+The official Bybit `public.bybit.com/trading` archive is reachable from the same runners. Three separate jobs fetched a valid gzip range from a dated BTCUSDT trade file (HTTP 206). This can be used to build an optional historical-only lane:
+- Enumerate archive symbols and dates, then download only the requested symbol/date files.
+- Validate CSV headers, UTC timestamp range, symbol, finite prices, sizes, gzip CRC, checksum and non-empty row count.
+- Aggregate daily trades into UTC OHLCV with trade count, turnover and taker-side volume.
+- Store coverage manifests and missing-date reasons; support atomic resumable downloads.
+- Estimate storage/runtime and audit symbol coverage, launch/delist dates and survivorship bias before broad universe replay.
+
+This archive does not establish funding, mark/index data, historical L2 depth, or fresh quotes. Do not use it for forward operation or fabricate intraday executable prices. Selective price-only replay must explicitly disclose omitted funding and execution-depth effects.
+
+### Release implications
+Historical price research may proceed after the importer and coverage gates are implemented. The live Bybit API gate remains blocked and all forward paper automation remains disabled until a compliant, repeatable public-data route and all accounting/recovery gates pass.
 
 ## Release gate
 
