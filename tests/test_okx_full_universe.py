@@ -1,4 +1,19 @@
-from scripts.validate_okx_eea_universe import metadata_check, positive_decimal
+import importlib.util
+from pathlib import Path
+from types import ModuleType
+
+_SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "validate_okx_eea_universe.py"
+)
+_SPEC = importlib.util.spec_from_file_location("okx_eea_full_universe", _SCRIPT)
+assert _SPEC is not None and _SPEC.loader is not None
+_MODULE = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_MODULE)
+assert isinstance(_MODULE, ModuleType)
+metadata_check = _MODULE.metadata_check
+positive_decimal = _MODULE.positive_decimal
 
 
 def test_positive_decimal_rejects_zero_negative_and_invalid_values() -> None:
