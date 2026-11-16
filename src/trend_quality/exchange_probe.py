@@ -20,7 +20,12 @@ def classify_asset_class(*values: Any) -> str:
     """Return an explicit provider category; do not guess from ticker suffixes."""
     text = " ".join(_text(value) for value in values if value is not None)
     explicit = (
-        ("crypto", ("crypto", "digital asset", "digital_asset")),
+        ("crypto", (
+            "crypto", "digital asset", "digital_asset", "trade-zone-mainly",
+            "layer1", "layer 1", "layer2", "layer 2", "pow", "proof of work",
+            "defi", "meme", "nft", "web3", "gaming", "depin", "infrastructure",
+            "0fees",
+        )),
         ("equity", ("equity", "stock", "share", "etf")),
         ("index", ("index", "indices")),
         ("commodity", ("commodity", "commodities", "energy", "oil", "gas")),
