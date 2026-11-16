@@ -25,6 +25,15 @@ class BookLevel:
     price: Decimal
     quantity: Decimal
 
+    def __post_init__(self) -> None:
+        if (
+            not self.price.is_finite()
+            or not self.quantity.is_finite()
+            or self.price <= ZERO
+            or self.quantity <= ZERO
+        ):
+            raise ExecutionModelError("book price and quantity must be finite and positive")
+
 
 @dataclass(frozen=True)
 class SimulatedFill:
