@@ -137,6 +137,9 @@ def normalize_instrument(row: Mapping[str, Any]) -> dict[str, Any]:
         create_time, "createTime", minimum=1
     )
     category = classify_mexc_instrument(row)
+    position_open_type = _integer(
+        row.get("positionOpenType"), "positionOpenType"
+    )
     return {
         "instrument_id": instrument_id,
         "symbol": symbol,
@@ -155,7 +158,10 @@ def normalize_instrument(row: Mapping[str, Any]) -> dict[str, Any]:
         "taker_fee_rate": str(taker_fee),
         "maker_fee_rate": str(maker_fee),
         "max_leverage": _integer(row.get("maxLeverage"), "maxLeverage", minimum=1),
-        "position_open_type": _integer(row.get("positionOpenType"), "positionOpenType"),
+        "position_open_type": position_open_type,
+        "isolated_only": position_open_type == 1,
+        "cross_margin_available": position_open_type in {2, 3},
+        "settlement": None,
         "state": _integer(row.get("state"), "state"),
         "api_allowed": row.get("apiAllowed") is not False,
         "create_time_ms": create_time_ms,
