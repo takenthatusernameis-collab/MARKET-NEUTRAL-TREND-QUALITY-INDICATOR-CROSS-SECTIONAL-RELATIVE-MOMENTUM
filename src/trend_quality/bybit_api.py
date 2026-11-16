@@ -54,11 +54,15 @@ class BybitPublicClient:
         transport: Transport | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        if not base_url.startswith("https://"):
-            raise ValueError("Only HTTPS is permitted")
+        normalized_base_url = base_url.rstrip("/")
+        if normalized_base_url != "https://api.bybit.com":
+            raise ValueError(
+                "Bybit data provenance requires the exact official Global host "
+                "https://api.bybit.com"
+            )
         if timeout_seconds <= 0 or max_retries < 0:
             raise ValueError("Invalid timeout or retry count")
-        self.base_url = base_url.rstrip("/")
+        self.base_url = normalized_base_url
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self.transport = transport
