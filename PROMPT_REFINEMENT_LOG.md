@@ -120,3 +120,27 @@
 - Successful core CI after code repairs: run `43931058486`, commit `a1c0e083893e5566fb2173b22c7afe81b196b4b9`, Ruff passed, 67 passed.
 - Latest performance/persistence fixes are covered by mocked/unit tests; no real exchange integration, real state-branch publishing, portfolio restore, historical replay or forward paper operation is verified.
 - Overall release state remains RED-TEAM NO-GO. No replacement exchange is approved.
+
+
+## 2026-11-16 — v2.6 to v2.7: ordered 24/7 cross-margin multi-asset provider search
+
+### Prompt refinement pass 14 — clarify the product target
+- Reframed the replacement target from crypto-only USDT perpetuals to all explicitly documented, active 24/7 perpetual asset classes offered by each candidate.
+- Added separate checks for contract type, continuous trading/settlement interruptions, underlying-market closures, class metadata, funding intervals and full contract lifecycle.
+- Cross margin must be available for every retained symbol. Document whether risk is shared account-wide, by settlement currency or only within a product/contract type. Do not confuse ordinary cross margin with multi-asset collateral.
+- Required all pages and a minimum of 50 active eligible perpetuals overall, with each offered class enumerated and all unclassified symbols disclosed.
+- Strengthened per-contract requirements: tick, step, min quantity/notional, max quantity/position, contract multiplier, quote/settlement/margin/P&L currency, precision, risk tiers, status and funding.
+
+### Prompt refinement pass 15 — enforce provider order and fallback
+- Primary order is exactly HTX → MEXC → Binance → WEEX → Bitget.
+- HTX is rejected at the Romanian jurisdiction gate while the current EU-wide exclusion remains in its terms; do not bypass it.
+- If the primary five do not yield a technically and legally suitable product, evaluate OKX EEA as primary and preserve Kraken EEA as backup.
+- OKX cross-margin route must account for its margin mode and account-level restrictions; do not assume multi-currency mode eligibility for a 100 USDT paper account.
+- Kraken backup retains only contracts matching official EEA specifications. Current evidence is 69 exact matches and 26 exclusions out of 95 candidates; full data coverage of the 69 is outstanding.
+
+### Prompt refinement pass 16 — evidence separation and safety
+- Added a pure parser module and mocked unit tests for exchange-specific cross/perpetual criteria.
+- Added a read-only ordered GitHub Actions probe. It uses no credentials, private endpoints, account creation, orders, proxy, VPN or endpoint rotation.
+- Reports separate technical endpoint checks from legal/account eligibility. Romania not appearing in a provider's prohibited list is not treated as proof of permission.
+- The first CI attempts found lint issues in the new probe/test code; repairs were committed, and the newer CI/probe results are being rechecked. No exchange is approved until the results are green and independently inspected.
+- Defined the full-universe acceptance test as the next major gate: complete instrument coverage plus ticker, L2 book, completed candle, funding, mark/index and precision validation for every retained symbol and every available class, not a BTC-only sample.
