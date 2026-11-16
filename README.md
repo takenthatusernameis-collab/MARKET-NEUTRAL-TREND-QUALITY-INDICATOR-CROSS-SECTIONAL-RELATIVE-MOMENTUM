@@ -33,9 +33,9 @@ Technical API reachability does **not** establish individual account or Romanian
 
 ## Research universe and currency
 
-Use every active MEXC linear perpetual with cross-margin support and both quote and settlement currency USDT. MEXC's positionOpenType values 2 or 3 indicate cross-margin capability; isolated-only contracts are excluded. Do not require any particular asset category. Unknown category labels remain eligible as unclassified.
+The research ranking includes **every active MEXC linear perpetual with per-instrument cross-margin support**, across all quote/settlement currencies and every asset category. MEXC's positionOpenType values 2 or 3 indicate cross-margin capability; isolated-only, inactive and retired/settled contracts are excluded. Unknown category labels remain eligible as unclassified. The live public discovery returned **1,143 cross-margin perpetuals** across settlements.
 
-Other settlement currencies are retained as provider metadata but excluded from the USDT paper account. Do not mix USDC, USD1, coin-margined or other collateral into USDT NAV.
+The current single-currency paper execution/account subset is **1,061 active USDT-quoted and USDT-settled contracts**. Non-USDT contracts remain in the research Q rankings but are labelled research-only for execution. Do not mix USDC, USD1, BTC or other collateral and quote-currency P&L into USDT NAV without a separately validated point-in-time conversion and settlement model.
 
 MEXC contract volume is denominated in contracts. Convert it using each instrument's contractSize; use volUnit, minVol, maxVol, priceUnit and its fee rates for sizing and paper execution. Public order-book quantities and Kline volume are also in contract units. amount24 and daily amount supply USDT turnover; do not confuse turnover with contract volume. See the [official MEXC Futures API documentation](https://mexcdevelop.github.io/apidocs/contract_v1_en/).
 
