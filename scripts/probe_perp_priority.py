@@ -240,6 +240,7 @@ def probe_mexc() -> dict[str, Any]:
     required = ("symbol", "baseCoin", "quoteCoin", "settleCoin", "contractSize", "priceUnit", "volUnit", "minVol", "maxVol")
     incomplete = {str(r.get("symbol")): missing_fields(r, required) for r in eligible if missing_fields(r, required)}
     by_class = choose_by_class(eligible, "mexc")
+    unclassified = [r for r in eligible if asset_class(r, "mexc") == "unclassified"]
     if not any(x.get("baseCoin") == "BTC" for x in eligible):
         btc = next((x for x in eligible if x.get("symbol") == "BTC_USDT"), None)
         if btc:
@@ -256,6 +257,11 @@ def probe_mexc() -> dict[str, Any]:
             f"{r.get('quoteCoin')}/{r.get('settleCoin')}" for r in cross_candidates
         )),
         "asset_class_counts": asset_class_counts(eligible, "mexc"),
+        "unclassified_contract_count": len(unclassified),
+        "unclassified_contract_sample": [
+            {key: r.get(key) for key in ("symbol", "baseCoin", "baseCoinName", "displayNameEn", "conceptPlate")}
+            for r in unclassified[:10]
+        ],
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
@@ -300,6 +306,7 @@ def probe_binance() -> dict[str, Any]:
             "instruments": info.get("http_status") == 200 and len(eligible) >= 50,
             "cross_margin": True,
             "contract_precision": bool(eligible) and not incomplete,
+            "all_contracts_classified": not unclassified,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
         "cross_margin_scope": "USDⓈ-M futures supports cross; multi-assets margin is cross-only and uses its own eligibility rules",
@@ -320,6 +327,7 @@ def probe_weex() -> dict[str, Any]:
     required = ("symbol", "baseAsset", "quoteAsset", "marginAsset", "contractType", "pricePrecision", "quantityPrecision", "contractVal", "minOrderSize", "maxOrderSize")
     incomplete = {str(r.get("symbol")): missing_fields(r, required) for r in eligible if missing_fields(r, required)}
     samples_by_class = choose_by_class(eligible, "weex")
+    unclassified = [r for r in eligible if asset_class(r, "weex") == "unclassified"]
     samples = [data_probe("weex", str(r["symbol"]), label) for label, r in samples_by_class.items()]
     return {
         "exchange": "weex", "base_url": base,
@@ -330,6 +338,11 @@ def probe_weex() -> dict[str, Any]:
         "eligible_perpetual_count": len(eligible),
         "contract_type_counts": dict(Counter(str(r.get("contractType")) for r in eligible)),
         "asset_class_counts": asset_class_counts(eligible, "weex"),
+        "unclassified_contract_count": len(unclassified),
+        "unclassified_contract_sample": [
+            {key: r.get(key) for key in ("symbol", "baseAsset", "underlyingType", "underlyingSubType", "contractType")}
+            for r in unclassified[:10]
+        ],
         "collateral_assets": (payload or {}).get("assets") if isinstance(payload, dict) else None,
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
