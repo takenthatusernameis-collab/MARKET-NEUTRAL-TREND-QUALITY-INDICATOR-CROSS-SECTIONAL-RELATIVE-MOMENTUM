@@ -85,6 +85,17 @@ def rank_mexc_universe(
         observations.append((key, point))
         instruments_by_key[key] = instrument
 
+        # All settlement types remain in the Q research ranking. Only the
+        # homogeneous USDT quote+settlement subset can be sized in this account.
+        usdt_account_eligible = instrument.get(
+            "usdt_account_eligible",
+            str(instrument.get("quote_asset", "")).upper() == "USDT"
+            and str(instrument.get("settlement_asset", "")).upper() == "USDT",
+        )
+        if not usdt_account_eligible:
+            excluded.append(f"{symbol}:NON_USDT_SETTLEMENT_RESEARCH_ONLY")
+            continue
+
         turnovers: list[Decimal] = []
         for row in rows[-30:]:
             value = row.get("turnover_usdt")
