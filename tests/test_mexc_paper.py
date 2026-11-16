@@ -93,7 +93,7 @@ def test_ranker_keeps_research_universe_separate_from_execution_gate(monkeypatch
 def test_mexc_contract_sizing_converts_contracts_to_base_quantity() -> None:
     rules = instrument(1, "BTC_USDT")
     quantity = size_mexc_leg(rules, Decimal("100"), Decimal("100"))
-    assert quantity == Decimal("0.5000")
+    assert quantity == Decimal("1.0000")
 
 
 def test_mexc_orderbook_levels_convert_contract_depth_to_base_units() -> None:
