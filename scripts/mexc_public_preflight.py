@@ -30,13 +30,22 @@ def main() -> int:
         server_ms = client.server_time_ms()
         raw_instruments = client.contract_details()
         instruments = client.instruments()
+        usdt_instruments = client.instruments(usdt_only=True)
         ticker_rows = client.tickers()
         report.update({
             "server_time_ms": server_ms,
             "instrument_count_all": len(raw_instruments),
-            "active_cross_usdt_perpetual_count": len(instruments),
+            "active_cross_margin_perpetual_count": len(instruments),
+            "active_cross_usdt_perpetual_count": len(usdt_instruments),
+            "settlement_counts": dict(sorted(Counter(
+                f"{row['quote_asset']}/{row['settlement_asset']}"
+                for row in instruments
+            ).items())),
             "asset_class_counts": dict(sorted(Counter(
                 row["category"] for row in instruments
+            ).items())),
+            "usdt_asset_class_counts": dict(sorted(Counter(
+                row["category"] for row in usdt_instruments
             ).items())),
             "ticker_count": len(ticker_rows),
             "unmatched_ticker_symbols": sorted(
@@ -47,6 +56,7 @@ def main() -> int:
         ticker_by_symbol = {row["symbol"]: row for row in ticker_rows}
         report["checks"]["server_time"] = server_ms > 0
         report["checks"]["instrument_discovery"] = len(instruments) >= 50
+        report["checks"]["usdt_execution_universe"] = len(usdt_instruments) >= 500
         report["checks"]["bulk_ticker_coverage"] = (
             bool(ticker_by_symbol)
             and not (
@@ -65,8 +75,8 @@ def main() -> int:
                 continue
             prior = samples.get(category)
             if prior is None or (
-                float(ticker["turnover_24h_usdt"])
-                > float(prior["ticker"]["turnover_24h_usdt"])
+                float(ticker["turnover_24h_quote"])
+                > float(prior["ticker"]["turnover_24h_quote"])
             ):
                 samples[category] = {"instrument": instrument, "ticker": ticker}
 
