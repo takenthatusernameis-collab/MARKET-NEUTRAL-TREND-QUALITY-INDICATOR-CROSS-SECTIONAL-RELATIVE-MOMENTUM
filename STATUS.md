@@ -67,7 +67,7 @@ Latest green pre-MEXC-cycle CI evidence: [run 43976183687](https://github.com/ta
 - Routine snapshots are scheduled every five minutes. The daily Q decision uses only the latest completed UTC daily bar, and the decision key is its timestamp.
 - A scheduled GitHub workflow is best-effort and is not a continuous monitoring service.
 
-The first MEXC data/ranking execution successfully ran its Python cycle and produced a report showing 150 bootstrap instruments completed and 911 remaining. Its public-data commit failed because Git ignored the data/ directory. The workflow now uses a forced add of that directory on the dedicated market-data branch. Do not claim those first-run records are durably stored until a subsequent run confirms the commit.
+The first MEXC data/ranking cycle that attempted persistence failed because Git ignored the data/ directory. The workflow was corrected to force-add the dedicated public data directory. The subsequent cycle [43976810498](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976810498) completed successfully, including its market-data branch commit and report upload. Its persisted report records 54,316 daily-candle rows, 1,061/1,061 ticker coverage, zero missing latest completed bars, zero reported API failures, 150 instruments bootstrapped and 911 still pending. Thus this verifies the data persistence path and the first bounded batch, but not full-universe historical completeness. The full-history gate remains false and portfolio decisions remain blocked.
 
 ## Portfolio state and no-write gate
 
