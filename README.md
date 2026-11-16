@@ -1,17 +1,17 @@
 # Market-Neutral Trend-Quality Research System
 
-**Status: BOOTSTRAPPING — no portfolio is active.**  
+**Status: RED-TEAM NO-GO — no portfolio is active and no replacement exchange is approved.**  
 **Execution: local paper simulation only.**  
 **Live data source: Bybit Global V5 public API (currently blocked from tested GitHub runners).**  
 **Historical data path: official Bybit public trade archive (verified reachable; importer not yet implemented).**
 
-This repository implements a research system based on David Sepiashvili's [Trend-Quality Indicator paper](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf). The strategy hypothesis is to rank the complete eligible Bybit USDT linear perpetual universe, select the strongest qualifying positive-Q asset as the long and the strongest qualifying negative-Q asset as the short, then evaluate the pair under realistic simulated costs and risk controls.
+This repository implements a research system based on David Sepiashvili's [Trend-Quality Indicator paper](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf). The strategy hypothesis is exchange-neutral: rank the complete eligible USDT-settled linear crypto perpetual universe from one explicitly approved provider, select the strongest qualifying positive-Q asset as the long and the strongest qualifying negative-Q asset as the short, then evaluate the pair under realistic simulated costs and risk controls. The Bybit adapter remains the only implemented provider client; its live API access is currently blocked and no replacement has passed the readiness gate.
 
 ## Current implementation
 
 The core repository now contains the causal indicator engine, signed-Q ranking and pair-selection primitives, a public Bybit API client, Decimal accounting functions, paper execution models, daily performance analytics, an immutable event journal, a SQLite projection and an append-only Git state-branch publisher. The code and mocked contracts are covered by CI.
 
-The current verified CI run reports **62 passing tests**. This is not a live Bybit integration result and not a strategy backtest. Full-universe ingestion, historical replay, an integrated forward paper broker and portfolio automation are not operational.
+The latest verified core CI run reports **67 passing tests**. See [RED_TEAM_REPORT.md](RED_TEAM_REPORT.md) for the emergency review, corrected performance and state-chain defects, and outstanding no-go controls. This is not a live Bybit integration result and not a strategy backtest. Full-universe ingestion, historical replay, an integrated forward paper broker and portfolio automation are not operational.
 
 ## Baseline configuration
 
@@ -50,6 +50,11 @@ python -m trend_quality.cli public-api-smoke
 ```
 
 The public API smoke command uses only unauthenticated Bybit Global public market-data endpoints. It does not place or simulate orders.
+
+
+## Replacement exchange status
+
+Crypto.com is **NOT_READY**, not a replacement: its diagnostic probe found only six USD-quoted perpetuals, funding-history returned API error 40004 for the tested instrument names, and local derivatives access/collateral eligibility is not verified. Candidate readiness now requires geographic eligibility, at least 20 qualifying contracts (research threshold to be raised/validated), compatible USDT settlement, functioning market-data and funding endpoints, and execution metadata. No exchange migration has been performed. See [the red-team report](RED_TEAM_REPORT.md) and [master directive](IMPLEMENTATION_PROMPT.md).
 
 ## Network access constraint
 
