@@ -4,8 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from math import sqrt
+from collections.abc import Iterable
 from statistics import mean, stdev
-from typing import Iterable
 
 DAY_MS = 86_400_000
 TRADING_DAYS_PER_YEAR = 365
@@ -149,7 +149,10 @@ def compute_performance_metrics(
         "recovery_period_days": (
             Metric(recovery_period_days, None, len(drawdowns))
             if recovery_period_days is not None
-            else _unavailable("Maximum drawdown has not recovered by the latest observation", len(drawdowns))
+            else _unavailable(
+                "Maximum drawdown has not recovered by the latest observation",
+                len(drawdowns),
+            )
         ),
     }
 
