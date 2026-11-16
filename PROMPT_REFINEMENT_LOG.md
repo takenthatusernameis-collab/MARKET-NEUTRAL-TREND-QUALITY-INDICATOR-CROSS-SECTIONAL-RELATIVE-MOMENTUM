@@ -208,7 +208,8 @@
 
 ### Result and disclosure
 - MEXC remains selected. Bitget's 886-instrument curiosity screen is recorded but does not replace it.
-- The MEXC public API preflight is integration-tested; the market-data scheduler's first successful durable branch write is still to be verified.
+- All-settlement MEXC preflight run 43977889004 passed: 1,143/1,143 research tickers, sampled order-book/candle/funding calls across all discovered categories, with 1,061 USDT/USDT execution-account contracts.
+- MEXC five-minute cycle run 43977854892 committed 231,692 candle rows and full ticker snapshots, with 750 instruments bootstrapped and 393 pending; market-data persistence is verified, but full history coverage remains incomplete.
 - The forward paper account is uninitialized; no NAV, fills, return or performance claim exists. Romania-specific derivatives account eligibility remains unverified.
 
 
