@@ -1,15 +1,15 @@
 # Market-Neutral Trend-Quality Research System
 
-**Status: RED-TEAM NO-GO — no portfolio is active and no replacement exchange is approved.**  
-**Execution: local paper simulation only.**  
-**Live data source: Bybit Global V5 public API (currently blocked from tested GitHub runners).**  
-**Historical data path: official Bybit public trade archive (verified reachable; importer not yet implemented).**
+**Status: POLYMARKET-FIRST QUALIFICATION — public-data adapter and cross-margin universe work in progress.**  
+**Execution: paper-only; no live orders, wallet or private API.**  
+**Provider order: Polymarket Perps → MEXC → Bitget.**  
+**Persistent market data: separate `market-data` branch; immutable portfolio events remain on `state`.**
 
-This repository implements a research system based on David Sepiashvili's [Trend-Quality Indicator paper](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf). The strategy hypothesis is exchange-neutral: rank the complete eligible USDT-settled linear crypto perpetual universe from one explicitly approved provider, select the strongest qualifying positive-Q asset as the long and the strongest qualifying negative-Q asset as the short, then evaluate the pair under realistic simulated costs and risk controls. The Bybit adapter remains the only implemented provider client; its live API access is currently blocked and no replacement has passed the readiness gate.
+This repository implements a research system based on David Sepiashvili's [Trend-Quality Indicator paper](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf). The strategy hypothesis is exchange-neutral: rank every active instrument on the selected provider that offers cross margin, irrespective of asset category; select the strongest qualifying positive-Q asset as the long and strongest qualifying negative-Q asset as the short. Asset category is metadata, not an exchange-wide requirement. Liquidity, minimum notional and book depth are separate execution gates.
 
 ## Current implementation
 
-The core repository now contains the causal indicator engine, signed-Q ranking and pair-selection primitives, a public Bybit API client, Decimal accounting functions, paper execution models, daily performance analytics, an immutable event journal, a SQLite projection and an append-only Git state-branch publisher. The code and mocked contracts are covered by CI.
+The repository contains the causal indicator engine, signed-Q ranking, Decimal accounting and paper execution primitives, immutable event journal, SQLite projection, public Polymarket Perps adapter, and incremental market-data store. The ordered public API qualification is running; full scheduler/portfolio integration remains gated on a verified provider result and complete initial candle coverage.
 
 The latest verified core CI run reports **67 passing tests**. See [RED_TEAM_REPORT.md](RED_TEAM_REPORT.md) for the emergency review, corrected performance and state-chain defects, and outstanding no-go controls. This is not a live Bybit integration result and not a strategy backtest. Full-universe ingestion, historical replay, an integrated forward paper broker and portfolio automation are not operational.
 
@@ -25,7 +25,7 @@ The latest verified core CI run reports **67 passing tests**. See [RED_TEAM_REPO
 | Correction factor | 1.0 | Provisional |
 | ATR | 14, Wilder | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial paper equity | 100 USDT | Account setting |
+| Initial paper equity | 100 pUSD (Polymarket paper denomination) | Account setting |
 | Long / short target | 50% / 50% NAV | Dollar neutral, not beta neutral |
 
 The paper's equations and qualitative interpretations are not a guarantee of profitability. See [IMPLEMENTATION_PROMPT.md](IMPLEMENTATION_PROMPT.md) and [MATHEMATICAL_REFERENCE.md](MATHEMATICAL_REFERENCE.md).
@@ -49,7 +49,7 @@ pytest
 python -m trend_quality.cli public-api-smoke
 ```
 
-The public API smoke command uses only unauthenticated Bybit Global public market-data endpoints. It does not place or simulate orders.
+The public API smoke command uses only unauthenticated public Perps market-data endpoints only. It does not place or simulate orders.
 
 
 ## Replacement exchange status
