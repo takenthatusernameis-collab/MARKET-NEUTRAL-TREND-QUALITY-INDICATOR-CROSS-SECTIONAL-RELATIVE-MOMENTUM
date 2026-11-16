@@ -121,6 +121,35 @@ def test_funding_signs() -> None:
     assert funding_cashflow("short", quantity, mark, negative) == Decimal("-0.200")
 
 
+
+def test_portfolio_rejects_nonfinite_decimal_inputs() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="finite Decimal"):
+        Position("AUSDT", "long", Decimal("Infinity"), Decimal("100"))
+    position = Position("AUSDT", "long", Decimal("1"), Decimal("100"))
+    with pytest.raises(ValueError, match="finite Decimal"):
+        position.unrealized_pnl(Decimal("NaN"))
+    with pytest.raises(ValueError, match="finite Decimal"):
+        funding_cashflow("long", Decimal("1"), Decimal("100"), Decimal("NaN"))
+    with pytest.raises(ValueError, match="finite Decimal"):
+        target_quantity(
+            Decimal("100"), Decimal("0.5"), Decimal("10"),
+            Decimal("0.01"), Decimal("0"), Decimal("0"),
+            Decimal("Infinity"),
+        )
+    with pytest.raises(ValueError, match="finite Decimal"):
+        calculate_nav(
+            Decimal("100"), Decimal("0"), Decimal("0"),
+            Decimal("0"), Decimal("NaN"),
+        )
+    with pytest.raises(ValueError, match="non-negative"):
+        calculate_nav(
+            Decimal("100"), Decimal("0"), Decimal("0"),
+            Decimal("-0.01"), Decimal("0"),
+        )
+
+
 def test_exposure_and_nav_reconciliation() -> None:
     exposure = portfolio_exposure(
         Decimal("100"), Decimal("50"), Decimal("48")
