@@ -195,3 +195,34 @@ def test_malformed_market_response_fails_closed() -> None:
     client = client_for({"/api/v1/contract/detail": {"success": False, "code": 6001}})
     with pytest.raises(MEXCAPIError):
         client.contract_details()
+
+
+
+def test_bulk_ticker_keeps_instruments_with_absent_best_quotes() -> None:
+    client = client_for({
+        "/api/v1/contract/ticker": success([
+            {
+                "symbol": "USDGO_USDT",
+                "lastPrice": "1.25",
+                "fairPrice": "1.24",
+                "indexPrice": "1.25",
+                "bid1": None,
+                "ask1": "",
+                "fundingRate": None,
+                "volume24": None,
+                "amount24": None,
+                "holdVol": None,
+                "riseFallRate": None,
+                "timestamp": 1_700_000_000_000,
+                "nextSettleTime": "",
+            }
+        ])
+    })
+    row = client.tickers()[0]
+    assert row["symbol"] == "USDGO_USDT"
+    assert row["bid_price"] == "0"
+    assert row["ask_price"] == "0"
+    assert row["mid_price"] == "1.24"
+    assert row["funding_rate"] == "0"
+    assert row["turnover_24h_usdt"] == "0"
+    assert row["next_funding_timestamp_ms"] is None
