@@ -122,6 +122,32 @@ def _ticker_maps(
     return mapped, missing
 
 
+def _ranking_report_rows(
+    candidates: list[Any],
+    instruments_by_key: dict[str, dict[str, Any]],
+    *,
+    include_b: bool = True,
+) -> list[dict[str, Any]]:
+    """Translate stable internal ranking keys to human-readable venue tickers."""
+    rows: list[dict[str, Any]] = []
+    for candidate in candidates:
+        instrument = instruments_by_key.get(candidate.symbol)
+        if instrument is None:
+            continue
+        row = {
+            "symbol": str(instrument["symbol"]),
+            "instrument_id": int(instrument["instrument_id"]),
+            "category": str(instrument.get("category", "unclassified")),
+            "q": str(candidate.q),
+            "direction": candidate.direction,
+            "cycle_age": candidate.cycle_age,
+        }
+        if include_b:
+            row["b"] = candidate.b
+        rows.append(row)
+    return rows
+
+
 def _snapshot_rows(
     instruments: list[dict[str, Any]],
     ticker_by_id: dict[int, dict[str, Any]],
@@ -810,22 +836,22 @@ def _run() -> int:
                 "stop_exits": stop_exits,
                 "trailing_stop_updates": trailing_updates,
                 "funding_events": funding_events,
-                "research_long_top": [
-                    {"symbol": row.symbol, "q": str(row.q)}
-                    for row in rankings.research_longs[:10]
-                ],
-                "research_short_top": [
-                    {"symbol": row.symbol, "q": str(row.q)}
-                    for row in rankings.research_shorts[:10]
-                ],
-                "execution_long_top": [
-                    {"symbol": row.symbol, "q": str(row.q)}
-                    for row in rankings.executable_longs[:10]
-                ],
-                "execution_short_top": [
-                    {"symbol": row.symbol, "q": str(row.q)}
-                    for row in rankings.executable_shorts[:10]
-                ],
+                "research_long_top": _ranking_report_rows(
+                    rankings.research_longs[:10], rankings.instruments_by_key
+                ),
+                "research_short_top": _ranking_report_rows(
+                    rankings.research_shorts[:10], rankings.instruments_by_key
+                ),
+                "execution_long_top": _ranking_report_rows(
+                    rankings.executable_longs[:10],
+                    rankings.instruments_by_key,
+                    include_b=False,
+                ),
+                "execution_short_top": _ranking_report_rows(
+                    rankings.executable_shorts[:10],
+                    rankings.instruments_by_key,
+                    include_b=False,
+                ),
                 "history_coverage_pass": history_coverage_pass,
                 "unresolved_funding_count": unresolved_funding,
             }
@@ -887,22 +913,22 @@ def _run() -> int:
         "api_failure_count": len(api_failures),
         "api_failure_sample": api_failures[:20],
         "history_coverage_pass": history_coverage_pass,
-        "research_long_top": [
-            {"symbol": row.symbol, "q": str(row.q), "b": row.b}
-            for row in rankings.research_longs[:20]
-        ],
-        "research_short_top": [
-            {"symbol": row.symbol, "q": str(row.q), "b": row.b}
-            for row in rankings.research_shorts[:20]
-        ],
-        "execution_long_top": [
-            {"symbol": row.symbol, "q": str(row.q)}
-            for row in rankings.executable_longs[:20]
-        ],
-        "execution_short_top": [
-            {"symbol": row.symbol, "q": str(row.q)}
-            for row in rankings.executable_shorts[:20]
-        ],
+        "research_long_top": _ranking_report_rows(
+            rankings.research_longs[:20], rankings.instruments_by_key
+        ),
+        "research_short_top": _ranking_report_rows(
+            rankings.research_shorts[:20], rankings.instruments_by_key
+        ),
+        "execution_long_top": _ranking_report_rows(
+            rankings.executable_longs[:20],
+            rankings.instruments_by_key,
+            include_b=False,
+        ),
+        "execution_short_top": _ranking_report_rows(
+            rankings.executable_shorts[:20],
+            rankings.instruments_by_key,
+            include_b=False,
+        ),
         "excluded_or_unranked_sample": rankings.excluded[:50],
         "paper_state_write_requested": writer_requested,
         "state_branch_protection": state_protection_reason,
