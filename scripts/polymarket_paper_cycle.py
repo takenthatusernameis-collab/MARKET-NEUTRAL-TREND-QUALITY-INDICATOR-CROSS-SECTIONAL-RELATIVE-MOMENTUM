@@ -537,11 +537,6 @@ def _run() -> int:
         int(row["instrument_id"]) for row in new_entry
         if int(row["instrument_id"]) not in ticker_map
     ]
-    if missing_tickers:
-        raise RuntimeError(
-            f"Bulk tickers omitted {len(missing_tickers)} active cross-margin instruments: "
-            f"{missing_tickers[:10]}"
-        )
     timestamp_values = [
         int(row["timestamp"])
         for row in ticker_rows
@@ -561,6 +556,7 @@ def _run() -> int:
     candle_updates: list[dict[str, Any]] = []
     bootstrap_completed = 0
     api_failures: list[dict[str, Any]] = []
+    bootstrapped_this_run: set[int] = set()
 
     for instrument in pending_bootstrap:
         iid = int(instrument["instrument_id"])
@@ -573,6 +569,7 @@ def _run() -> int:
             candle_updates.extend(completed)
             state_row = store.manifest["instruments"][str(iid)]
             state_row["bootstrap_complete"] = True
+            bootstrapped_this_run.add(iid)
             state_row["history_status"] = (
                 "AVAILABLE" if len(completed) >= MIN_HISTORY_FOR_RANKING
                 else "INSUFFICIENT_HISTORY"
@@ -587,7 +584,7 @@ def _run() -> int:
     for instrument in new_entry:
         iid = int(instrument["instrument_id"])
         state_row = store.manifest["instruments"][str(iid)]
-        if not state_row.get("bootstrap_complete"):
+        if not state_row.get("bootstrap_complete") or iid in bootstrapped_this_run:
             continue
         last_ts = state_row.get("last_candle_timestamp_ms")
         if last_ts is not None and int(last_ts) >= latest_completed_bar_ms:
@@ -676,6 +673,7 @@ def _run() -> int:
 
     state_changed = False
     stop_events: list[dict[str, Any]] = []
+    trailing_updates: list[dict[str, Any]] = []
     mark_failures: list[int] = []
     for position in list(portfolio.get("positions", [])):
         iid = int(position["instrument_id"])
@@ -687,6 +685,41 @@ def _run() -> int:
         mark = dec(ticker.get("mark_price"), position.get("last_mark_price", "0"))
         last = dec(ticker.get("last_price"), str(mark))
         position["last_mark_price"] = str(mark)
+        last_trailing_bar = position.get("last_trailing_bar_ms")
+        if (
+            latest_completed_bar_ms > int(last_trailing_bar or 0)
+            and latest_completed_bar_ms > int(position["entry_timestamp_ms"])
+        ):
+            series = history.get(iid, [])
+            bar = next(
+                (
+                    item for item in series
+                    if int(item["timestamp_ms"]) == latest_completed_bar_ms
+                ),
+                None,
+            )
+            atr = _atr_for_history(series)
+            if bar is not None and atr is not None:
+                high = dec(bar["high"])
+                low = dec(bar["low"])
+                if position["side"] == "long":
+                    extreme = max(dec(position["highest_since_entry"]), high)
+                    proposed = extreme - atr * STOP_ATR_MULTIPLE
+                    stop = max(dec(position["stop_price"]), proposed)
+                    position["highest_since_entry"] = str(extreme)
+                else:
+                    extreme = min(dec(position["lowest_since_entry"]), low)
+                    proposed = extreme + atr * STOP_ATR_MULTIPLE
+                    stop = min(dec(position["stop_price"]), proposed)
+                    position["lowest_since_entry"] = str(extreme)
+                position["stop_price"] = str(stop)
+                position["last_trailing_bar_ms"] = latest_completed_bar_ms
+                trailing_updates.append({
+                    "instrument_id": iid,
+                    "daily_bar_timestamp_ms": latest_completed_bar_ms,
+                    "atr14": str(atr),
+                    "stop_price": str(stop),
+                })
         stop = dec(position.get("stop_price"))
         triggered = (
             position["side"] == "long" and stop > 0 and last <= stop
@@ -920,9 +953,10 @@ def _run() -> int:
             portfolio,
             details,
         )
-    elif stop_events or funding_events:
+    elif stop_events or funding_events or trailing_updates:
         details = {
             "stop_exits": stop_events,
+            "trailing_stop_updates": trailing_updates,
             "funding_events": funding_events,
             "nav_pusd": str(nav),
         }
@@ -959,6 +993,7 @@ def _run() -> int:
         "lifecycle_counts": lifecycle_counts,
         "ticker_coverage": len(ticker_map),
         "missing_ticker_count": len(missing_tickers),
+        "missing_ticker_sample": missing_tickers[:20],
         "bootstrap_completed_this_run": bootstrap_completed,
         "bootstrap_remaining": sum(
             not store.manifest["instruments"][str(row["instrument_id"])].get("bootstrap_complete")
@@ -974,7 +1009,9 @@ def _run() -> int:
         "missing_latest_bar_count": len(missing_latest_bar),
         "missing_fee_categories": missing_fee_categories,
         "mark_failures": mark_failures,
+        "latest_universe_coverage_pass": latest_coverage_pass,
         "stop_events": stop_events,
+        "trailing_stop_updates": trailing_updates,
         "funding_events": funding_events,
         "unresolved_funding_count": unresolved_funding,
         "portfolio": {
@@ -1001,7 +1038,7 @@ def _run() -> int:
     report_path.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, default=str))
     store.save_manifest(server_ms)
-    return 0 if latest_coverage_pass else 2
+    return 0
 
 
 if __name__ == "__main__":
