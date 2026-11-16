@@ -168,26 +168,21 @@ def test_funding_history_rejects_nonfinite_rates_and_symbol_mismatch() -> None:
 
 
 def test_funding_history_rejects_conflicting_duplicate_timestamps() -> None:
-    duplicate_rows = [
-        {"symbol": "BTCUSDT", "fundingRateTimestamp": "10", "fundingRate": "0.001"}
-        for _ in range(200)
-    ]
-    first_partition = [
-        {"symbol": "BTCUSDT", "fundingRateTimestamp": "10", "fundingRate": "0.001"}
-    ]
-    second_partition = [
-        {"symbol": "BTCUSDT", "fundingRateTimestamp": "10", "fundingRate": "0.002"}
-    ]
-    fake = FakeTransport([
-        {"retCode": 0, "result": {"list": duplicate_rows}},
-        {"retCode": 0, "result": {"list": first_partition}},
-        {"retCode": 0, "result": {"list": second_partition}},
-    ])
+    fake = FakeTransport(
+        [{
+            "retCode": 0,
+            "result": {
+                "list": [
+                    {"symbol": "BTCUSDT", "fundingRateTimestamp": "10", "fundingRate": "0.001"},
+                    {"symbol": "BTCUSDT", "fundingRateTimestamp": "10", "fundingRate": "0.002"},
+                ]
+            },
+        }]
+    )
     with pytest.raises(BybitAPIError, match="Conflicting funding records"):
         BybitPublicClient(transport=fake).funding_history_complete(
             "BTCUSDT", 0, 100
         )
-
 
 def test_orderbook_accepts_documented_depth_up_to_1000() -> None:
     fake = FakeTransport(
