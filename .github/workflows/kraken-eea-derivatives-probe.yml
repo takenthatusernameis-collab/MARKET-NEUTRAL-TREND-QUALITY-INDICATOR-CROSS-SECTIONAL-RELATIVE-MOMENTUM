@@ -122,6 +122,33 @@ jobs:
               if not any(marker in str(x.get("symbol", "")).upper() for marker in non_crypto_markers)
               and x.get("underlying") not in ("in_us100usd", "rr_us100usd")
           ]
+          def has_europe_retail_margin(row):
+              schedules = row.get("marginSchedules")
+              if not isinstance(schedules, dict):
+                  return False
+              europe = schedules.get("europa")
+              if not isinstance(europe, dict):
+                  return False
+              retail = europe.get("retail")
+              return isinstance(retail, list) and bool(retail)
+
+          def has_valid_contract_precision(row):
+              try:
+                  return (
+                      float(row.get("tickSize", 0)) > 0
+                      and float(row.get("contractSize", 0)) > 0
+                      and float(row.get("maxPositionSize", 0)) > 0
+                      and int(row.get("contractValueTradePrecision", 0)) >= 0
+                  )
+              except (TypeError, ValueError, OverflowError):
+                  return False
+
+          precision_ready_count = sum(
+              has_valid_contract_precision(row) for row in crypto_pf
+          )
+          eeea_retail_margin_count = sum(
+              has_europe_retail_margin(row) for row in crypto_pf
+          )
           symbol = "PF_XBTUSD"
 
           tickers = rest("/tickers")
@@ -152,11 +179,6 @@ jobs:
           now_seconds = int(time.time())
           utc_today_start = (now_seconds // 86400) * 86400
           latest_completed_daily_start = (utc_today_start - 86400) * 1000
-          chart_discovery = {
-              "markets": chart("/markets"),
-              "tick_types": chart("/tick-types"),
-              "resolutions": chart("/resolutions"),
-          }
           candle_attempts = {}
           for candidate_symbol in (symbol, "PF_BTCUSD", "PI_XBTUSD"):
               for tick_type in ("trade", "mark"):
@@ -231,6 +253,8 @@ jobs:
                   or "payward_digital_solutions" in row.get("platformsPermitted", [])
                   for row in crypto_pf
               ),
+              "eea_retail_margin_metadata": eeea_retail_margin_count >= 50,
+              "contract_precision_metadata": precision_ready_count >= 50,
               "ticker": valid_success(tickers) and ticker is not None,
               "orderbook": (
                   valid_success(book)
@@ -264,6 +288,8 @@ jobs:
               "tradeable_pf_usd_count": len(pf),
               "eea_platform_permitted_pf_usd_count": len(pf),
               "approx_crypto_pf_usd_count": len(crypto_pf),
+              "eea_retail_margin_metadata_count": eeea_retail_margin_count,
+              "valid_contract_precision_metadata_count": precision_ready_count,
               "excluded_ro_banned_count": sum(
                   1 for row in all_instruments
                   if isinstance(row, dict) and "RO" in row.get("countriesBanned", [])
@@ -280,10 +306,6 @@ jobs:
                   "http_status": book.get("http_status"),
                   "sample": book_data,
                   "body_excerpt": book.get("body_excerpt"),
-              },
-              "chart_discovery": {
-                  name: {"http_status": result.get("http_status"), "payload": result.get("payload"), "body_excerpt": result.get("body_excerpt")}
-                  for name, result in chart_discovery.items()
               },
               "candle_attempts": {
                   name: {"http_status": result.get("http_status"), "payload": result.get("payload"), "body_excerpt": result.get("body_excerpt")}
