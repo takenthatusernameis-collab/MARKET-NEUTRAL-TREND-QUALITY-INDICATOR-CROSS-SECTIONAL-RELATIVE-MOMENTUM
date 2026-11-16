@@ -1,4 +1,4 @@
-# Master Implementation Directive v2.2
+# Master Implementation Directive v2.3
 ## Market-Neutral Trend-Quality Indicator — Bybit Full-Universe Paper Research
 
 Repository: `takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM`  
@@ -140,7 +140,7 @@ On a stop-out close only that leg; keep survivor, record single-leg exposure and
 
 ## 9. Public order-book execution and costs
 
-Use only public `GET /v5/market/orderbook` and `GET /v5/market/tickers`. For linear order book the currently documented REST depth limit is at most 200 levels, not 1,000. Validate `ts` and matching-engine `cts` freshness. RPI orders are not exposed in the standard order-book snapshot; disclose this limitation.
+Use only public `GET /v5/market/orderbook` and `GET /v5/market/tickers`. For linear REST order books, the documented depth parameter supports up to 1,000 levels. Request a bounded depth (initially 200 or 1,000 after payload/latency benchmarking), validate the response and disclose that RPI orders are not included. Do not confuse REST limits with the separate WebSocket depth update tiers. Validate `ts` and matching-engine `cts` freshness. RPI orders are not exposed in the standard order-book snapshot; disclose this limitation.
 
 For buys consume asks; for sells consume bids; calculate depth-weighted VWAP; support partial fill/reject if visible depth is insufficient. Apply configurable maximum impact. Historical order-book depth is unavailable from ordinary Klines, so historical execution must use next eligible one-minute open plus explicitly adverse spread/slippage assumptions. Never use signal-candle close retrospectively.
 
