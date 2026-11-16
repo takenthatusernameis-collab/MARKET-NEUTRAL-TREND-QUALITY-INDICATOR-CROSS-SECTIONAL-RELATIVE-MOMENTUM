@@ -6,6 +6,7 @@ on:
     paths:
       - "src/trend_quality/exchange_probe.py"
       - "scripts/probe_perp_priority.py"
+      - "scripts/validate_okx_eea_universe.py"
       - "tests/test_exchange_probe.py"
       - ".github/workflows/perp-exchange-priority.yml"
   workflow_dispatch:
@@ -21,7 +22,7 @@ jobs:
   public-qualification:
     name: Ordered public API and product qualification
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -40,10 +41,16 @@ jobs:
       - name: Probe exchanges in the requested priority order
         run: |
           python scripts/probe_perp_priority.py | tee perp-exchange-qualification.json
-      - name: Upload public qualification report
+      - name: Run full-universe OKX EEA acceptance
+        run: |
+          python scripts/validate_okx_eea_universe.py | tee okx-eea-full-universe-acceptance.json
+      - name: Upload public qualification reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: perp-exchange-qualification-report
-          path: perp-exchange-qualification.json
-          if-no-files-found: error
+          name: perp-exchange-qualification-reports
+          path: |
+            perp-exchange-qualification.json
+            okx-eea-full-universe-acceptance.json
+          if-no-files-found: warn
           retention-days: 30
