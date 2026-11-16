@@ -150,8 +150,8 @@ The public-data API probe does not use a wallet, API key, private account endpoi
 
 - [x] Run the independent Bitget curiosity screen without changing the selected provider.
 - [x] Preserve ordered provider history: Polymarket Perps failed the required fee/book coverage gate; MEXC passed first; Bitget later passed its curiosity sample.
-- [x] Select MEXC Futures on public API evidence: 1,061 active cross-margin USDT-settled linear perpetuals, with all selected tickers represented.
-- [x] Implement MEXC public instrument, bulk ticker, depth, daily Kline, funding history and server-time adapter.
+- [x] Select MEXC Futures on public API evidence: 1,143 active cross-margin linear perps across settlements, including a 1,061-contract USDT execution/account subset.
+- [x] Implement MEXC public instrument, bulk ticker, depth, daily Kline, funding history and server-time adapter for the all-settlement cross-margin research universe.
 - [x] Normalize per-contract positionOpenType, settlement, contract multiplier, quantity/price steps, min/max volume, leverage and fee fields.
 - [x] Preserve unclassified and future asset categories; keep research universe separate from execution eligibility.
 - [x] Convert contract-denominated depth and Kline volume using contractSize; keep USDT turnover separately.
