@@ -140,7 +140,7 @@ def test_bulk_tickers_accept_signed_funding_and_returns() -> None:
     assert ticker["mid_price"] == "101.0"
     assert ticker["funding_rate"] == "-0.0001"
     assert ticker["change_24h"] == "-0.025"
-    assert ticker["turnover_24h_usdt"] == "120000"
+    assert ticker["turnover_24h_quote"] == "120000"
 
 
 def test_orderbook_translates_contract_depth_levels() -> None:
@@ -183,7 +183,7 @@ def test_daily_candle_arrays_are_normalized_to_milliseconds() -> None:
         "low": "90",
         "close": "105",
         "volume_contracts": "1234",
-        "turnover_usdt": "129570",
+        "turnover_quote": "129570",
     }]
 
 
@@ -247,5 +247,5 @@ def test_bulk_ticker_keeps_instruments_with_absent_best_quotes() -> None:
     assert row["ask_price"] == "0"
     assert row["mid_price"] == "1.24"
     assert row["funding_rate"] == "0"
-    assert row["turnover_24h_usdt"] == "0"
+    assert row["turnover_24h_quote"] == "0"
     assert row["next_funding_timestamp_ms"] is None
