@@ -1,4 +1,4 @@
-name: Crypto.com Derivatives Candidate Probe
+name: Crypto.com Derivatives Readiness Gate
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: crypto-com-derivatives-probe
+  group: crypto-com-derivatives-readiness
   cancel-in-progress: false
 
 jobs:
@@ -30,13 +30,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 5
     steps:
-      - name: Probe unauthenticated Crypto.com derivatives market data
+      - name: Test the complete public-data readiness gate
         shell: bash
         run: |
           python3 - <<'PY'
           import json
           import sys
-          import time
           import urllib.error
           import urllib.parse
           import urllib.request
@@ -45,86 +44,244 @@ jobs:
               "dcm": "https://api.crypto.com/dcm-margined/v1",
               "fcm": "https://api.crypto.com/fcm/v1",
           }
+          MINIMUM_UNIVERSE = 20
+          REQUIRED_ENDPOINTS = (
+              "public/get-book",
+              "public/get-tickers",
+              "public/get-candlestick",
+              "public/get-valuations",
+          )
 
           def get_json(url):
               request = urllib.request.Request(
                   url,
                   headers={
                       "Accept": "application/json",
-                      "User-Agent": "market-neutral-trend-quality-research/exchange-probe",
+                      "User-Agent": "market-neutral-trend-quality-research/exchange-readiness",
                   },
               )
-              with urllib.request.urlopen(request, timeout=15) as response:
-                  body = response.read(2_000_000)
-                  return response.status, json.loads(body.decode("utf-8"))
-
-          report = {"credentials_used": False, "orders_submitted": 0, "providers": {}}
-          for provider, base in BASES.items():
-              item = {"base_url": base}
               try:
-                  query = urllib.parse.urlencode({"since": 0, "limit": 1000, "inst_type": "PERPETUAL_SWAP"})
-                  status, payload = get_json(f"{base}/public/get-instruments?{query}")
-                  data = payload.get("result", {}).get("data", []) if isinstance(payload, dict) else []
-                  cursor = payload.get("result", {}).get("next_cursor") if isinstance(payload, dict) else None
-                  perps = [
-                      x for x in data
-                      if isinstance(x, dict)
-                      and x.get("inst_type") == "PERPETUAL_SWAP"
-                      and x.get("product_type") in (None, "DIGITAL_CURRENCIES")
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      status = response.status
+                      body = response.read(2_000_000).decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as exc:
+                  status = exc.code
+                  body = exc.read(2_000_000).decode("utf-8", errors="replace")
+              try:
+                  payload = json.loads(body)
+              except json.JSONDecodeError:
+                  payload = None
+              return status, payload, body[:1200]
+
+          def data_rows(payload):
+              if not isinstance(payload, dict):
+                  return []
+              block = payload.get("result")
+              if not isinstance(block, dict):
+                  return []
+              rows = block.get("data", [])
+              return rows if isinstance(rows, list) else []
+
+          def successful_payload(status, payload, rows):
+              return (
+                  status == 200
+                  and isinstance(payload, dict)
+                  and str(payload.get("code")) == "0"
+                  and bool(rows)
+              )
+
+          report = {
+              "credentials_used": False,
+              "orders_submitted": 0,
+              "readiness_rule": {
+                  "minimum_tradable_crypto_perpetuals": MINIMUM_UNIVERSE,
+                  "required_nonempty_endpoints": list(REQUIRED_ENDPOINTS),
+                  "account_currency": "USDT",
+                  "jurisdiction_and_collateral_confirmation_required": True,
+              },
+              "providers": {},
+          }
+
+          for provider, base in BASES.items():
+              item = {"base_url": base, "endpoint_checks": {}}
+              all_instruments = []
+              seen_cursors = set()
+              cursor = None
+              instrument_error = None
+              for _ in range(20):
+                  params = {
+                      "since": 0,
+                      "limit": 1000,
+                      "inst_type": "PERPETUAL_SWAP",
+                  }
+                  if cursor:
+                      params["cursor"] = cursor
+                  url = f"{base}/public/get-instruments?{urllib.parse.urlencode(params)}"
+                  try:
+                      status, payload, body = get_json(url)
+                  except Exception as exc:
+                      instrument_error = {
+                          "error_type": type(exc).__name__,
+                          "error": str(exc)[:500],
+                      }
+                      break
+                  rows = data_rows(payload)
+                  if status != 200 or not isinstance(payload, dict) or str(payload.get("code")) != "0":
+                      instrument_error = {
+                          "http_status": status,
+                          "api_code": payload.get("code") if isinstance(payload, dict) else None,
+                          "message": payload.get("message") if isinstance(payload, dict) else None,
+                          "body_excerpt": body,
+                      }
+                      break
+                  all_instruments.extend(x for x in rows if isinstance(x, dict))
+                  next_cursor = payload.get("result", {}).get("next_cursor")
+                  if not next_cursor:
+                      break
+                  cursor = str(next_cursor)
+                  if cursor in seen_cursors:
+                      instrument_error = {"error": "instrument cursor repeated"}
+                      break
+                  seen_cursors.add(cursor)
+              else:
+                  instrument_error = {"error": "instrument pagination exceeded 20 pages"}
+
+              eligible = [
+                  x for x in all_instruments
+                  if x.get("inst_type") == "PERPETUAL_SWAP"
+                  and x.get("tradable") is True
+                  and str(x.get("expiry_timestamp_ms", "0")) in ("0", "0.0", "")
+                  and (
+                      x.get("product_type") == "DIGITAL_CURRENCIES"
+                      or x.get("detail_product_type") == "DIGITAL_CURRENCIES"
+                  )
+              ]
+              item.update({
+                  "instrument_error": instrument_error,
+                  "instrument_count_all_pages": len(all_instruments),
+                  "eligible_tradable_crypto_perpetual_count": len(eligible),
+                  "eligible_symbols": [x.get("symbol") for x in eligible],
+                  "quote_currencies": sorted({
+                      str(x.get("quote_ccy")) for x in eligible if x.get("quote_ccy")
+                  }),
+              })
+
+              if eligible:
+                  product = eligible[0]
+                  symbol = product.get("symbol")
+                  endpoint_requests = [
+                      ("public/get-book", {"instrument_name": symbol, "depth": 5}),
+                      ("public/get-tickers", {"instrument_name": symbol}),
+                      ("public/get-candlestick", {
+                          "instrument_name": symbol,
+                          "timeframe": "1h",
+                          "count": 3,
+                      }),
                   ]
-                  item.update({
-                      "instrument_http_status": status,
-                      "api_code": payload.get("code"),
-                      "instrument_count": len(data),
-                      "perpetual_count": len(perps),
-                      "perpetual_symbols": [x.get("symbol") for x in perps[:80]],
-                      "next_cursor_present": bool(cursor),
-                      "sample_instrument": perps[0] if perps else (data[0] if data else None),
-                  })
-                  if perps:
-                      symbol = perps[0].get("symbol")
-                      product = perps[0]
-                      for endpoint, params in (
-                          ("public/get-book", {"instrument_name": symbol, "depth": 5}),
-                          ("public/get-tickers", {"instrument_name": symbol}),
-                          ("public/get-candlestick", {
-                              "instrument_name": symbol,
-                              "timeframe": "1h",
-                              "count": 3,
-                          }),
-                          ("public/get-valuations", {
-                              "instrument_name": product.get("underlying_symbol") or symbol,
+                  for endpoint, params in endpoint_requests:
+                      try:
+                          url = f"{base}/{endpoint}?{urllib.parse.urlencode(params)}"
+                          status, payload, body = get_json(url)
+                          rows = data_rows(payload)
+                          item["endpoint_checks"][endpoint] = {
+                              "http_status": status,
+                              "api_code": payload.get("code") if isinstance(payload, dict) else None,
+                              "row_count": len(rows),
+                              "has_data": successful_payload(status, payload, rows),
+                              "message": payload.get("message") if isinstance(payload, dict) else None,
+                              "body_excerpt": None if successful_payload(status, payload, rows) else body,
+                              "sample": rows[:2],
+                          }
+                      except Exception as exc:
+                          item["endpoint_checks"][endpoint] = {
+                              "has_data": False,
+                              "error_type": type(exc).__name__,
+                              "error": str(exc)[:500],
+                          }
+
+                  # The metadata may use a hyphenated underlying symbol, whereas
+                  # the public API docs show BASEQUOTE-INDEX. Test both explicitly.
+                  index_names = []
+                  if product.get("underlying_symbol"):
+                      index_names.append(str(product["underlying_symbol"]))
+                  base_ccy = str(product.get("base_ccy", ""))
+                  quote_ccy = str(product.get("quote_ccy", ""))
+                  documented_index = f"{base_ccy}{quote_ccy}-INDEX"
+                  if documented_index and documented_index not in index_names:
+                      index_names.append(documented_index)
+
+                  funding_attempts = []
+                  funding_ok = False
+                  for index_name in index_names:
+                      try:
+                          params = {
+                              "instrument_name": index_name,
                               "valuation_type": "funding_hist",
                               "count": 3,
-                          }),
-                      ):
-                          try:
-                              url = f"{base}/{endpoint}?{urllib.parse.urlencode(params)}"
-                              code, result = get_json(url)
-                              block = result.get("result", {}) if isinstance(result, dict) else {}
-                              rows = block.get("data", []) if isinstance(block, dict) else []
-                              item[endpoint] = {
-                                  "http_status": code,
-                                  "api_code": result.get("code") if isinstance(result, dict) else None,
-                                  "row_count": len(rows) if isinstance(rows, list) else None,
-                                  "sample": rows[:2] if isinstance(rows, list) else str(block)[:500],
-                                  "message": result.get("message") if isinstance(result, dict) else None,
-                              }
-                          except Exception as exc:
-                              item[endpoint] = {"error_type": type(exc).__name__, "error": str(exc)[:300]}
-                      item["test_symbol"] = symbol
-                  else:
-                      item["data_endpoints"] = "SKIPPED_NO_PERPETUALS"
-              except urllib.error.HTTPError as exc:
-                  item.update({"error_type": "HTTPError", "http_status": exc.code,
-                               "body": exc.read(1000).decode("utf-8", errors="replace")})
-              except Exception as exc:
-                  item.update({"error_type": type(exc).__name__, "error": str(exc)[:500]})
+                          }
+                          url = f"{base}/public/get-valuations?{urllib.parse.urlencode(params)}"
+                          status, payload, body = get_json(url)
+                          rows = data_rows(payload)
+                          attempt = {
+                              "instrument_name": index_name,
+                              "http_status": status,
+                              "api_code": payload.get("code") if isinstance(payload, dict) else None,
+                              "row_count": len(rows),
+                              "has_data": successful_payload(status, payload, rows),
+                              "message": payload.get("message") if isinstance(payload, dict) else None,
+                              "body_excerpt": None if successful_payload(status, payload, rows) else body,
+                              "sample": rows[:2],
+                          }
+                          funding_attempts.append(attempt)
+                          if attempt["has_data"]:
+                              funding_ok = True
+                              break
+                      except Exception as exc:
+                          funding_attempts.append({
+                              "instrument_name": index_name,
+                              "has_data": False,
+                              "error_type": type(exc).__name__,
+                              "error": str(exc)[:500],
+                          })
+                  item["endpoint_checks"]["public/get-valuations"] = {
+                      "has_data": funding_ok,
+                      "attempts": funding_attempts,
+                  }
+                  item["test_symbol"] = symbol
+                  item["sample_instrument"] = product
+              else:
+                  item["data_endpoints"] = "SKIPPED_NO_ELIGIBLE_TRADABLE_CRYPTO_PERPETUALS"
+
+              endpoint_ok = all(
+                  item["endpoint_checks"].get(endpoint, {}).get("has_data") is True
+                  for endpoint in REQUIRED_ENDPOINTS
+              )
+              universe_ok = len(eligible) >= MINIMUM_UNIVERSE
+              quote_ok = bool(eligible) and all(
+                  x.get("quote_ccy") == "USDT" for x in eligible
+              )
+              item["readiness_checks"] = {
+                  "minimum_universe_pass": universe_ok,
+                  "all_required_public_data_pass": endpoint_ok,
+                  "quote_currency_matches_usdt_account": quote_ok,
+                  "account_collateral_and_jurisdiction": "UNVERIFIED",
+              }
+              # Public REST success alone is not exchange readiness. An adapter
+              # is not approved without enough instruments, funding data, USDT
+              # quote compatibility, and separate account/legal eligibility.
+              item["candidate_ready"] = (
+                  universe_ok and endpoint_ok and quote_ok
+                  and item["readiness_checks"]["account_collateral_and_jurisdiction"] == "VERIFIED"
+              )
+              item["candidate_status"] = (
+                  "READY" if item["candidate_ready"] else "NOT_READY"
+              )
               report["providers"][provider] = item
+
           print(json.dumps(report, indent=2, default=str))
-          successes = [
-              p for p in report["providers"].values()
-              if p.get("perpetual_count", 0) > 0 and p.get("instrument_http_status") == 200
-          ]
-          sys.exit(0 if successes else 1)
+          ready = any(
+              p.get("candidate_ready") is True
+              for p in report["providers"].values()
+          )
+          sys.exit(0 if ready else 1)
           PY
