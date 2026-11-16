@@ -144,3 +144,31 @@ The new workflow uses public, unauthenticated market-data endpoints only. Public
 - [ ] Do not initialize the forward paper account until all active cross-margin data and accounting gates pass.
 
 The public-data API probe does not use a wallet, API key, private account endpoint or order operation. Five-minute GitHub Actions scheduling is best-effort, not exchange-grade real-time protection. Portfolio ranking uses completed daily candles only.
+
+
+## Phase 0D — MEXC public-data adapter and paper-research implementation (2026-11-17)
+
+- [x] Run the independent Bitget curiosity screen without changing the selected provider.
+- [x] Preserve ordered provider history: Polymarket Perps failed the required fee/book coverage gate; MEXC passed first; Bitget later passed its curiosity sample.
+- [x] Select MEXC Futures on public API evidence: 1,061 active cross-margin USDT-settled linear perpetuals, with all selected tickers represented.
+- [x] Implement MEXC public instrument, bulk ticker, depth, daily Kline, funding history and server-time adapter.
+- [x] Normalize per-contract positionOpenType, settlement, contract multiplier, quantity/price steps, min/max volume, leverage and fee fields.
+- [x] Preserve unclassified and future asset categories; keep research universe separate from execution eligibility.
+- [x] Convert contract-denominated depth and Kline volume using contractSize; keep USDT turnover separately.
+- [x] Add MEXC cross-sectional positive/negative Q ranker and execution-gated candidate lists.
+- [x] Add simulated book VWAP fills, fees, maximum impact and stale-book rejection.
+- [x] Add USDT portfolio accounting primitives for cash, realized/unrealized P&L, fees, signed funding, ATR stops, daily equity and sample-gated performance.
+- [x] Extend provider-isolated incremental storage for daily candles, five-minute snapshots, funding and lifecycle state.
+- [x] Add bounded 365-day initial bootstrap, resumable 150-instrument batches and incremental candles after stored cursors.
+- [x] Verify sampled Day1 boundaries at 00:00 UTC across crypto, equity, commodity, FX and unclassified instrument groups.
+- [x] Add read-only hosted-runner MEXC preflight; success evidence is linked in STATUS.md.
+- [x] Add a five-minute MEXC public-data/ranking workflow with PAPER_STATE_WRITE_ENABLED=false.
+- [ ] Verify a successful market-data branch commit after correcting the branch's ignored data directory; initial cycle completed 150 bootstraps but the first commit failed, so durable ingestion is not yet declared operational.
+- [ ] Complete full-universe data-quality/freshness verification and independent Q ranking reconstruction.
+- [ ] Configure server-side protection and restricted writers for state branch; current branch is unprotected and no rulesets exist.
+- [ ] Test real event publisher, idempotency/conflict behavior and full restore from immutable state events.
+- [ ] Only after every gate passes, initialize the separate 100 USDT forward paper account.
+- [ ] Implement chronological historical replay, survivorship-aware universe reconstruction and cost/funding/stop-delay sensitivity.
+- [ ] Generate verified equity and drawdown charts and human-readable performance report from persisted NAV data.
+
+MEXC is the current selected public-data provider. This phase overrides earlier historical Polymarket-first/Bybit-first plan entries. The account writer remains disabled until server-side persistence protections and integration/recovery tests pass.
