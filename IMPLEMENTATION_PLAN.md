@@ -110,3 +110,19 @@ Crypto.com is NOT_READY: only six USD-quoted contracts, failed funding-history A
 ## Release gate
 
 No automated portfolio transition may run until complete universe/data coverage, causal calculations, execution timing, funding and fee accounting, independent NAV reconciliation, durable Git persistence and restore/recovery all pass integration tests.
+
+
+
+## Phase 0B — ordered 24/7 cross-margin perpetual-provider search
+
+- [x] Refine the master directive to include all explicitly listed perpetual asset classes, documented cross margin and Romanian/EEA product eligibility.
+- [x] Preserve the requested primary order: HTX, MEXC, Binance, WEEX, Bitget.
+- [x] Add strict provider-specific contract eligibility parsers and unit tests.
+- [x] Add a read-only GitHub Actions workflow that checks instrument metadata and samples ticker, order-book, daily candle and funding endpoints by available asset class.
+- [ ] Complete the public probes on the current main commit and inspect their full reports.
+- [ ] If none of the five is both technically viable and legally/product-eligible for Romania, use OKX EEA as the primary fallback and retain Kraken EEA as backup.
+- [ ] For either fallback, reconcile every retained contract against official specifications before coding the production adapter.
+- [ ] Implement currency-aware P&L/collateral/funding/fee/NAV accounting for any non-USDT settlement route.
+- [ ] Run the next acceptance test across every eligible contract and every available asset class; BTC-only endpoint coverage is insufficient.
+
+The new workflow uses public, unauthenticated market-data endpoints only. Public API success is a technical signal, never proof of Romanian user eligibility. HTX is skipped at the jurisdiction gate because its published EU restrictions include Romania. No exchange account, credential, private endpoint or order is used.
