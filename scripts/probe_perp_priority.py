@@ -222,7 +222,7 @@ def data_probe(exchange: str, symbol: str, category: str) -> dict[str, Any]:
         return {"symbol": sym, "asset_class": category, "endpoints": results,
                 "checks": {"ticker": ok(results["ticker"]) and bool(ticker),
                            "orderbook": book_ok,
-                           "daily_candles": ok(results["daily_candles"]) and bool(candles),
+                           "daily_candles": ok(results["daily_candles"]) and isinstance(candle_data, list) and bool(candle_data),
                            "funding_history": ok(results["funding_history"]) and bool(funding)}}
 
     raise ValueError(f"Unsupported market-data probe: {exchange}")
@@ -366,7 +366,7 @@ def probe_bitget() -> dict[str, Any]:
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
         "checks": {
             "instruments": response_ok("bitget", contracts) and len(eligible) >= 50,
-            "cross_margin": "Bitget Futures Services Agreement documents cross margin within a contract type",
+            "cross_margin": True,
             "contract_precision": bool(eligible) and not incomplete,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
