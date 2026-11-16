@@ -351,6 +351,7 @@ def probe_weex() -> dict[str, Any]:
             "instruments": info.get("http_status") == 200 and api_symbols_result.get("http_status") == 200 and len(eligible) >= 50,
             "cross_margin": True,
             "contract_precision": bool(eligible) and not incomplete,
+            "all_contracts_classified": not unclassified,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
         "cross_margin_scope": "WEEX terms describe a shared margin balance within each contract type; crypto PERPETUAL and TRADIFI_PERPETUAL pools are not assumed to be one combined pool",
