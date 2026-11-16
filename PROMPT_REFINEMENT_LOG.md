@@ -52,7 +52,7 @@
 - Repository initialization: completed.
 - Mathematical/data/API client modules: implemented; CI validation pending.
 - First CI lint run: failed with 15 findings; fixes reduced the remaining lint issues to two; those two import-order findings were corrected.
-- Full green CI: pending confirmation.
-- Public API integration: attempted on three GitHub-hosted runner allocations; all blocked by CloudFront regional restriction.
+- Full green CI: completed on main commit a99774baa59aa35795622abe7a7cfc8f456762c8; Ruff passed and pytest reported 32 passed in 0.06 seconds.
+- Public API integration: attempted on three GitHub-hosted runner allocations; all blocked by CloudFront regional restriction (documented runs and response body).
 - Historical replay: not implemented.
 - Forward paper verification: not started.
