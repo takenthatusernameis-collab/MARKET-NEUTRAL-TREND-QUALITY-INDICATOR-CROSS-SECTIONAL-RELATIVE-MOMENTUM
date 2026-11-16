@@ -1,0 +1,282 @@
+name: Replacement Exchange Public API Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/replacement-exchange-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: replacement-exchange-public-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: ${{ matrix.exchange }} / ${{ matrix.runner_id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - exchange: bitget
+            runner_id: ubuntu-22.04
+            runner: ubuntu-22.04
+          - exchange: bitget
+            runner_id: ubuntu-24.04
+            runner: ubuntu-24.04
+          - exchange: bitget
+            runner_id: ubuntu-26.04
+            runner: ubuntu-26.04
+          - exchange: gate
+            runner_id: ubuntu-22.04
+            runner: ubuntu-22.04
+          - exchange: gate
+            runner_id: ubuntu-24.04
+            runner: ubuntu-24.04
+          - exchange: gate
+            runner_id: ubuntu-26.04
+            runner: ubuntu-26.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - name: Probe official public derivatives market-data endpoints
+        env:
+          EXCHANGE: ${{ matrix.exchange }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          EXCHANGE = os.environ["EXCHANGE"]
+
+          def get_json(url):
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/json",
+                      "User-Agent": "market-neutral-trend-quality-research/replacement-probe",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      status = response.status
+                      body = response.read(4_000_000).decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as exc:
+                  status = exc.code
+                  body = exc.read(4_000_000).decode("utf-8", errors="replace")
+              except Exception as exc:
+                  return {
+                      "http_status": None,
+                      "network_error": type(exc).__name__,
+                      "error": str(exc)[:500],
+                  }
+              try:
+                  payload = json.loads(body)
+              except json.JSONDecodeError:
+                  payload = None
+              return {
+                  "http_status": status,
+                  "payload": payload,
+                  "body_excerpt": None if isinstance(payload, (dict, list)) else body[:1000],
+              }
+
+          def bitget_call(path, params):
+              return get_json(
+                  "https://api.bitget.com" + path + "?" + urllib.parse.urlencode(params)
+              )
+
+          def bitget_ok(result):
+              payload = result.get("payload")
+              return (
+                  result.get("http_status") == 200
+                  and isinstance(payload, dict)
+                  and str(payload.get("code")) == "00000"
+              )
+
+          def gate_call(path, params):
+              return get_json(
+                  "https://api.gateio.ws/api/v4" + path + "?" + urllib.parse.urlencode(params)
+              )
+
+          def sample_endpoint(result):
+              payload = result.get("payload")
+              if not isinstance(payload, dict):
+                  return None
+              return payload.get("data", payload.get("result"))
+
+          report = {
+              "exchange": EXCHANGE,
+              "credentials_used": False,
+              "private_endpoints_used": False,
+              "orders_submitted": 0,
+              "jurisdiction_and_account_derivatives_eligibility": "NOT_VERIFIED_BY_PUBLIC_API_PROBE",
+          }
+
+          if EXCHANGE == "bitget":
+              product = "USDT-FUTURES"
+              contracts = bitget_call(
+                  "/api/v2/mix/market/contracts", {"productType": product}
+              )
+              contract_payload = contracts.get("payload")
+              contract_rows = (
+                  contract_payload.get("data", [])
+                  if isinstance(contract_payload, dict)
+                  and isinstance(contract_payload.get("data"), list)
+                  else []
+              )
+              live_rows = [
+                  row for row in contract_rows
+                  if isinstance(row, dict)
+                  and row.get("quoteCoin") == "USDT"
+                  and row.get("symbolStatus") in ("normal", "listed", "trading")
+              ]
+              symbol = "BTCUSDT"
+              ticker = bitget_call(
+                  "/api/v3/market/tickers",
+                  {"category": product, "symbol": symbol},
+              )
+              book = bitget_call(
+                  "/api/v3/market/orderbook",
+                  {"category": product, "symbol": symbol, "limit": "5"},
+              )
+              candles = bitget_call(
+                  "/api/v2/mix/market/history-candles",
+                  {
+                      "symbol": symbol,
+                      "productType": product,
+                      "granularity": "1D",
+                      "limit": "3",
+                  },
+              )
+              funding = bitget_call(
+                  "/api/v3/market/history-fund-rate",
+                  {"category": product, "symbol": symbol, "limit": "3"},
+              )
+              ticker_data = sample_endpoint(ticker)
+              book_data = sample_endpoint(book)
+              candle_data = sample_endpoint(candles)
+              funding_data = sample_endpoint(funding)
+              ticker_rows = (
+                  ticker_data if isinstance(ticker_data, list)
+                  else [ticker_data] if isinstance(ticker_data, dict)
+                  else []
+              )
+              checks = {
+                  "contracts": bitget_ok(contracts) and len(live_rows) >= 50,
+                  "tickers": bitget_ok(ticker) and bool(ticker_rows),
+                  "orderbook": (
+                      bitget_ok(book)
+                      and isinstance(book_data, dict)
+                      and bool(book_data.get("a"))
+                      and bool(book_data.get("b"))
+                  ),
+                  "daily_candles": bitget_ok(candles) and isinstance(candle_data, list) and bool(candle_data),
+                  "funding_history": (
+                      bitget_ok(funding)
+                      and isinstance(funding_data, dict)
+                      and bool(funding_data.get("resultList"))
+                  ),
+              }
+              report.update({
+                  "base_url": "https://api.bitget.com",
+                  "contract_endpoint_http_status": contracts.get("http_status"),
+                  "contract_api_code": contract_payload.get("code") if isinstance(contract_payload, dict) else None,
+                  "usdt_quote_contract_count": len(live_rows),
+                  "status_values": sorted({
+                      str(row.get("symbolStatus")) for row in contract_rows
+                      if isinstance(row, dict)
+                  }),
+                  "sample_contracts": live_rows[:5],
+                  "endpoints": {
+                      "tickers": {"http_status": ticker.get("http_status"), "api_code": ticker_data if isinstance(ticker_data, dict) and not ticker_rows else "00000", "sample": ticker_rows[:1]},
+                      "orderbook": {"http_status": book.get("http_status"), "sample": book_data if isinstance(book_data, dict) else None},
+                      "daily_candles": {"http_status": candles.get("http_status"), "sample": candle_data[:2] if isinstance(candle_data, list) else None},
+                      "funding_history": {"http_status": funding.get("http_status"), "sample": funding_data},
+                  },
+                  "checks": checks,
+                  "funding_history_documented_lookback": "last 90 days",
+                  "technical_market_data_pass": all(checks.values()),
+              })
+
+          elif EXCHANGE == "gate":
+              contracts = gate_call("/futures/usdt/contracts", {})
+              contract_rows = contracts.get("payload")
+              contract_rows = contract_rows if isinstance(contract_rows, list) else []
+              live_rows = [
+                  row for row in contract_rows
+                  if isinstance(row, dict)
+                  and row.get("name", "").endswith("_USDT")
+                  and row.get("in_delisting") is False
+                  and row.get("status") == "trading"
+              ]
+              symbol = "BTC_USDT"
+              ticker = gate_call("/futures/usdt/tickers", {"contract": symbol})
+              book = gate_call(
+                  "/futures/usdt/order_book",
+                  {"contract": symbol, "limit": "5"},
+              )
+              candles = gate_call(
+                  "/futures/usdt/candlesticks",
+                  {"contract": symbol, "interval": "1d", "limit": "3"},
+              )
+              funding = gate_call(
+                  "/futures/usdt/funding_rate",
+                  {"contract": symbol, "limit": "3"},
+              )
+              ticker_rows = ticker.get("payload")
+              ticker_rows = ticker_rows if isinstance(ticker_rows, list) else []
+              book_data = book.get("payload")
+              candle_rows = candles.get("payload")
+              funding_rows = funding.get("payload")
+              checks = {
+                  "contracts": contracts.get("http_status") == 200 and len(live_rows) >= 50,
+                  "tickers": ticker.get("http_status") == 200 and bool(ticker_rows),
+                  "orderbook": (
+                      book.get("http_status") == 200
+                      and isinstance(book_data, dict)
+                      and bool(book_data.get("asks"))
+                      and bool(book_data.get("bids"))
+                  ),
+                  "daily_candles": candles.get("http_status") == 200 and isinstance(candle_rows, list) and bool(candle_rows),
+                  "funding_history": funding.get("http_status") == 200 and isinstance(funding_rows, list) and bool(funding_rows),
+              }
+              report.update({
+                  "base_url": "https://api.gateio.ws/api/v4",
+                  "contract_endpoint_http_status": contracts.get("http_status"),
+                  "usdt_settled_direct_tradable_contract_count": len(live_rows),
+                  "contract_type_values": sorted({
+                      str(row.get("contract_type")) for row in contract_rows
+                      if isinstance(row, dict)
+                  }),
+                  "sample_contracts": live_rows[:5],
+                  "endpoints": {
+                      "tickers": {"http_status": ticker.get("http_status"), "sample": ticker_rows[:1]},
+                      "orderbook": {"http_status": book.get("http_status"), "sample": book_data},
+                      "daily_candles": {"http_status": candles.get("http_status"), "sample": candle_rows[:2] if isinstance(candle_rows, list) else None},
+                      "funding_history": {"http_status": funding.get("http_status"), "sample": funding_rows[:3] if isinstance(funding_rows, list) else funding_rows},
+                  },
+                  "checks": checks,
+                  "technical_market_data_pass": all(checks.values()),
+              })
+          else:
+              raise SystemExit("Unknown exchange")
+
+          # Public market-data reachability is only a technical screen. The
+          # workflow never asserts legal eligibility or account readiness.
+          report["candidate_ready"] = False
+          report["candidate_status"] = (
+              "TECHNICALLY_COMPATIBLE_PENDING_JURISDICTION_AND_ADAPTER_AUDIT"
+              if report["technical_market_data_pass"]
+              else "NOT_READY"
+          )
+          print(json.dumps(report, indent=2, default=str))
+          sys.exit(0 if report["technical_market_data_pass"] else 1)
+          PY
