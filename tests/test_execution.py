@@ -124,6 +124,24 @@ def test_historical_minute_fill_applies_adverse_slippage_once() -> None:
     assert sell.fee == Decimal("0.19980")
 
 
+
+def test_historical_sell_fill_rejects_zero_or_negative_price_after_slippage() -> None:
+    with pytest.raises(ExecutionModelError, match="fill price must be finite and positive"):
+        simulate_historical_minute_fill(
+            "sell",
+            Decimal("1"),
+            Decimal("100"),
+            adverse_slippage_bps=Decimal("10000"),
+        )
+    with pytest.raises(ExecutionModelError, match="fill price must be finite and positive"):
+        simulate_historical_minute_fill(
+            "sell",
+            Decimal("1"),
+            Decimal("100"),
+            adverse_slippage_bps=Decimal("10001"),
+        )
+
+
 def test_book_level_rejects_nonpositive_or_nonfinite_values() -> None:
     with pytest.raises(ValueError, match="finite and positive"):
         BookLevel(Decimal("0"), Decimal("1"))
