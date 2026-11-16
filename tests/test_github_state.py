@@ -39,6 +39,19 @@ class FakeGitHub:
             return {"object": {"sha": self.ref_sha}}
         if method == "GET" and "/git/commits/" in path:
             return {"tree": {"sha": "tree-parent"}}
+        if method == "GET" and "/git/trees/" in path:
+            entries = []
+            for file_path, data in self.files.items():
+                sha = hashlib.sha256(data.encode("utf-8")).hexdigest()
+                self.blobs[sha] = data
+                entries.append({"path": file_path, "type": "blob", "sha": sha})
+            return {"tree": entries, "truncated": False}
+        if method == "GET" and "/git/blobs/" in path:
+            sha = path.rsplit("/", 1)[1]
+            if sha not in self.blobs:
+                raise GitHubStateError("blob not found", status_code=404)
+            encoded = base64.b64encode(self.blobs[sha].encode("utf-8")).decode("ascii")
+            return {"encoding": "base64", "content": encoded}
         if method == "POST" and path.endswith("/git/blobs"):
             assert payload is not None
             data = str(payload["content"])
@@ -72,7 +85,10 @@ class FakeGitHub:
         raise AssertionError(f"Unexpected GitHub request: {method} {path}")
 
 
-def _batch(run_id: str = "run-1") -> dict[str, object]:
+def _batch(
+    run_id: str = "run-1",
+    previous_batch_hash: str | None = None,
+) -> dict[str, object]:
     event = {
         "event_id": f"event-{run_id}",
         "idempotency_key": f"idem-{run_id}",
@@ -82,7 +98,12 @@ def _batch(run_id: str = "run-1") -> dict[str, object]:
         "event_type": "VALUATION",
         "payload": {"nav": "100.00", "currency": "USDT"},
     }
-    return build_event_batch(run_id, 1794787201000, [event])
+    return build_event_batch(
+        run_id,
+        1794787201000,
+        [event],
+        previous_batch_hash=previous_batch_hash,
+    )
 
 
 def _expected_path(batch: dict[str, object]) -> str:
@@ -108,6 +129,50 @@ def test_publish_creates_append_only_batch_with_fast_forward_ref_update() -> Non
     patch_calls = [call for call in fake.calls if call[0] == "PATCH"]
     assert len(patch_calls) == 1
     assert patch_calls[0][2] == {"sha": result.commit_sha, "force": False}
+
+
+def test_second_batch_must_extend_the_verified_remote_chain_tip() -> None:
+    fake = FakeGitHub()
+    publisher = GitHubStatePublisher("owner/repo", "dummy-token", transport=fake)
+    first = _batch("run-1")
+    first_result = publisher.publish_batch(first)
+    second = _batch("run-2", str(first["batch_hash"]))
+    second_result = publisher.publish_batch(second)
+    assert first_result.created and second_result.created
+    assert fake.files[_expected_path(first)] == canonical_json(first) + "\n"
+    assert fake.files[_expected_path(second)] == canonical_json(second) + "\n"
+
+
+def test_unanchored_genesis_batch_is_rejected_after_existing_batch() -> None:
+    fake = FakeGitHub()
+    publisher = GitHubStatePublisher("owner/repo", "dummy-token", transport=fake)
+    first = _batch("run-1")
+    publisher.publish_batch(first)
+    unanchored = _batch("run-2")
+    patch_count_before = sum(call[0] == "PATCH" for call in fake.calls)
+    try:
+        publisher.publish_batch(unanchored)
+    except GitHubStateError as exc:
+        assert "unanchored previous hash" in str(exc)
+    else:
+        raise AssertionError("second genesis batch must not be appended")
+    assert sum(call[0] == "PATCH" for call in fake.calls) == patch_count_before
+
+
+def test_existing_forked_event_tree_is_rejected() -> None:
+    fake = FakeGitHub()
+    first = _batch("root-1")
+    second_root = _batch("root-2")
+    fake.files[_expected_path(first)] = canonical_json(first) + "\n"
+    fake.files[_expected_path(second_root)] = canonical_json(second_root) + "\n"
+    publisher = GitHubStatePublisher("owner/repo", "dummy-token", transport=fake)
+    candidate = _batch("run-3", str(first["batch_hash"]))
+    try:
+        publisher.publish_batch(candidate)
+    except GitHubStateError as exc:
+        assert "exactly one genesis" in str(exc)
+    else:
+        raise AssertionError("forked state chain must be rejected before append")
 
 
 def test_identical_existing_batch_is_an_idempotent_noop() -> None:
