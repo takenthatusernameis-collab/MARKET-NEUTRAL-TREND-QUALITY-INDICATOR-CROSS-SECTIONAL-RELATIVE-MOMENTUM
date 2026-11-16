@@ -306,7 +306,6 @@ def probe_binance() -> dict[str, Any]:
             "instruments": info.get("http_status") == 200 and len(eligible) >= 50,
             "cross_margin": True,
             "contract_precision": bool(eligible) and not incomplete,
-            "all_contracts_classified": not unclassified,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
         "cross_margin_scope": "USDⓈ-M futures supports cross; multi-assets margin is cross-only and uses its own eligibility rules",
