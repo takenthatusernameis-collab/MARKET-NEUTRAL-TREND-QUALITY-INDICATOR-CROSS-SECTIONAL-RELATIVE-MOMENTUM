@@ -89,13 +89,17 @@ class BybitPublicClient:
                     raise BybitAPIError("Bybit response is missing retCode")
                 if str(code) != "0":
                     message = str(payload.get("retMsg", "unknown API error"))
-                    raise BybitAPIError(f"Bybit retCode={code}: {message}")
-                result = payload.get("result")
-                if not isinstance(result, dict):
-                    raise BybitAPIError("Bybit response result is not an object")
-                return payload
-            except BybitAPIError as exc:
-                # Application-level errors are generally not fixed by retrying.
+                    api_error = BybitAPIError(f"Bybit retCode={code}: {message}")
+                    retryable_codes = {"10000", "10006", "10016", "10018"}
+                    if str(code) not in retryable_codes or attempt >= self.max_retries:
+                        raise api_error
+                    last_error = api_error
+                else:
+                    result = payload.get("result")
+                    if not isinstance(result, dict):
+                        raise BybitAPIError("Bybit response result is not an object")
+                    return payload
+            except BybitAPIError:
                 raise
             except HTTPError as exc:
                 last_error = exc
