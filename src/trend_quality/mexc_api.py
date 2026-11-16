@@ -193,6 +193,7 @@ class MEXCPublicClient:
         self.transport = transport
         self._rate_lock = threading.Lock()
         self._last_request_at = 0.0
+        self._contract_details_cache: list[dict[str, Any]] | None = None
 
     def _throttle(self) -> None:
         with self._rate_lock:
