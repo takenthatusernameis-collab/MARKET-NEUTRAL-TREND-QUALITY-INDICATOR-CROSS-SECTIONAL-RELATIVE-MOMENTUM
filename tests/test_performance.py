@@ -44,6 +44,13 @@ def test_drawdown_duration_and_recovery_period() -> None:
     assert metrics["recovery_period_days"].value == pytest.approx(2.0)
 
 
+def test_monotonic_equity_has_no_drawdown_or_recovery_duration() -> None:
+    metrics = compute_performance_metrics(_equity(["100", "101", "102"]))
+    assert metrics["maximum_drawdown"].value == 0.0
+    assert metrics["maximum_drawdown_duration_days"].value == 0.0
+    assert metrics["recovery_period_days"].value is None
+
+
 def test_formal_cagr_is_withheld_before_365_elapsed_days() -> None:
     metrics = compute_performance_metrics(_equity(["100", "101"]))
     assert metrics["cagr"].value is None
