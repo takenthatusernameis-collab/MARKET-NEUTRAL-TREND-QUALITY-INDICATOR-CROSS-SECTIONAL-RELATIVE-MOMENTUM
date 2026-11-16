@@ -1,9 +1,9 @@
-# Master Implementation Directive v2.6
+# Master Implementation Directive v2.7
 ## Market-Neutral Trend-Quality Indicator — Exchange-Neutral Paper Research
 
 Repository: `takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM`  
 Target: `main`  
-Current reference adapter: unauthenticated Bybit Global public API (`https://api.bybit.com`); live access is blocked from tested GitHub runner routes. Replacement exchange: NOT APPROVED pending the qualification gates in Section 12.5.  
+Current reference adapter: unauthenticated Bybit Global public API (`https://api.bybit.com`); live access is blocked from tested GitHub runner routes. Ordered provider search: HTX → MEXC → Binance → WEEX → Bitget. If none clears the gates, evaluate OKX EEA as primary and retain Kraken EEA as backup. No replacement is approved until the gates in Section 12.5 pass.  
 Execution: local paper simulation only; no live orders, Testnet, credentials or private endpoints.  
 Initial forward capital: 100 USDT. Target gross exposure: 1.0x NAV, 50% long and 50% short.
 
@@ -216,32 +216,50 @@ This lane may support selective historical price research and daily-bar reconstr
 
 The trade archive does not provide a verified replacement for historical funding settlements, mark/index prices, historical L2 order-book depth, current instrument quantity/price filters, or fresh live quotes. No spread, order-book VWAP, funding cashflow or intraday stop fill may be invented from daily trade aggregates. Any price-only replay that omits funding or executable depth must be labelled exploratory/gross and must not be presented as a full strategy validation.
 
-### 12.5 Replacement-exchange qualification gate
-
-The user explicitly requested evaluation of replacement exchanges. This authorizes research and public unauthenticated endpoint probes; it does not authorize opening an exchange account, submitting orders, using private endpoints, or assuming regional derivatives eligibility.
-
-A candidate is NOT_READY until every gate below passes with current official documentation and repeatable public API evidence:
-
-1. **Jurisdiction:** official derivatives product access must be available to the user's country/residency. A public API response or website reachability is not proof of account/product eligibility. Never bypass provider restrictions.
-2. **Collateral compatibility:** the strategy's current initial account is denominated in USDT. Require a genuinely USDT-quoted/USDT-settled linear contract family or redesign and separately approve the accounting/collateral model. Do not treat USD-quoted coin-margined products as equivalent.
-3. **Universe breadth:** discover all pages and confirm at least 50 active, tradable crypto perpetuals in the required settlement family. Record excluded contracts and lifecycle state. A handful of BTC/ETH-only or USD-margined products is not a cross-sectional replacement.
-4. **Market-data contract:** validate server time, instrument pagination, tickers, completed daily and intraday candles, order-book depth and funding history. Require nonempty successful responses and correct API success codes; HTTP 200 alone is insufficient.
-5. **Funding contract:** verify funding history and timestamps on at least BTC, ETH and one liquid alt perpetual. Confirm settlement interval, rate sign, index/mark reference, and timestamp conventions against the official specification.
-6. **Execution metadata:** validate tick size, quantity step, minimum quantity/notional, maximum market size, contract multiplier and quote/settlement currency. Prove Decimal sizing works on real returned examples without rounding up.
-7. **Runner access:** call the exact official public endpoints from GitHub-hosted runners. Record cloud, region, response, status and timestamp. Repeat across more than one run. Do not disguise source location.
-8. **History and replay:** confirm usable public historical data for at least the intended research horizon and all symbols needed by the point-in-time universe. State missing coverage and survivorship limitations.
-9. **Adapter contract:** implement a dedicated adapter which maps provider-specific responses to normalized instruments, candles, funding events and order-book snapshots. Keep exchange symbols, endpoint payloads and precision rules out of the indicator/ranking core. Add mocked contract tests and live public integration tests.
-10. **Migration evidence:** run side-by-side provider contract tests and reconcile sample instrument/candle/funding/book records. Update source configuration, runbook, data dictionary, decisions, status and reports. Preserve any historical Bybit results with provider provenance; never mix provider histories without an explicit adjustment study.
-
-A readiness workflow must fail when any required gate fails. Candidate readiness must never be inferred from the mere presence of one perpetual or a successful instrument endpoint.
-
-**Crypto.com current disposition:** NOT_READY. The 2026-11-16 hosted probe found six USD-quoted crypto perpetuals; funding-history requests returned API code 40004 for both tested instrument-name formats; the configured minimum-universe gate failed; USDT quote compatibility failed; collateral and jurisdiction remained unverified. Its public derivatives restrictions page lists Romania. Do not promote the Crypto.com probe into a production adapter.
-
-No replacement exchange is approved until the gates pass. This does not mean that an arbitrary provider is interchangeable with Bybit; API contracts, collateral, funding semantics and instrument universes must be revalidated.
 
 ### 12.4 Forward-operation boundary
 
-The daily archive is not a live or intraday feed. It cannot support the current hourly stop monitor, timely order-book simulation, funding settlement reconciliation or reliable current-universe discovery. Do not enable a forward paper account, daily rebalance workflow or hourly monitor from archive files alone. Keep the live API integration gate and all portfolio automation disabled until a repeatably permitted public live-data route and the independent accounting/recovery gates pass.
+A daily archive is not a live or intraday feed. It cannot support the current hourly stop monitor, timely order-book simulation, funding settlement reconciliation or reliable current-universe discovery. Do not enable a forward paper account, daily rebalance workflow or hourly monitor from archive files alone. Keep live API integration and portfolio automation disabled until a repeatably permitted public live-data route and the independent accounting/recovery gates pass.
+
+### 12.5 Ordered 24/7 perpetual-exchange qualification gate
+
+The user explicitly requested this provider order:
+1. HTX
+2. MEXC
+3. Binance
+4. WEEX
+5. Bitget
+
+Run the public qualification in that order. HTX is a hard jurisdiction rejection for Romania while the current HTX terms continue to exclude EU member states. Do not use a VPN, proxy, alternate identity or remote account to bypass that restriction. Continue to the next provider.
+
+If none of the five primary providers is both technically suitable and demonstrably available for Romanian EEA derivatives access, evaluate **OKX EEA as the primary route** and retain **Kraken EEA as the backup**. Do not choose a provider just because its public endpoints respond.
+
+This authorization covers public unauthenticated research and diagnostic API calls only. It does not authorize account creation, credentials, private endpoints, balance/position queries, orders, Testnet, or live trading.
+
+A provider must pass every relevant gate:
+
+1. **Romanian/EEA product eligibility:** inspect the current user agreement, country restrictions, regional entity, derivatives product notices and product-specific eligibility. A country missing from a prohibited list is not proof of authorization. Record outcomes as VERIFIED, PROHIBITED, or UNVERIFIED. PROHIBITED is an immediate hard failure; UNVERIFIED cannot be promoted to approved.
+2. **True perpetual product:** require non-expiring perpetual contracts, not delivery futures or expiring CFDs. Record each contract's product type, delivery/expiry state, funding interval and any settlement, maintenance or trading pauses. "24/7" means the provider documents continuous trading for that contract class; distinguish it from a continuously available quote or 24/7 platform access. Stock/TradFi perpetuals may still have underlying-market closures, index-provider outages, corporate-action adjustments, halted periods or low-liquidity sessions; preserve those constraints.
+3. **All listed asset classes:** fully enumerate every active API-tradable perpetual and classify only from provider metadata/official product documentation. Include every class the exchange actually offers (for example crypto, equities/stock indices, FX, commodities, precious metals and energy where present). Keep unclassified instruments visible and ineligible until resolved. Do not invent classes or infer them from ticker strings alone.
+4. **Cross margin:** require documented cross-margin support for every retained instrument and the selected product family. Record whether the margin pool is shared account-wide, per settlement currency, or only within a contract type. Exclude isolated-only contracts. Distinguish ordinary cross margin from multi-asset/cross-currency collateral; do not assume they are equivalent. Prefer a single-currency cross mode compatible with the research account unless the currency-aware ledger is implemented and approved.
+5. **Universe breadth and completeness:** enumerate all pages; require at least 50 active, cross-margin, 24/7 perpetuals overall for the existing cross-sectional strategy, while documenting every available class even if its individual count is smaller. Record excluded symbols, lifecycle state and reasons. No partial-universe ranking.
+6. **Full contract metadata:** for every retained symbol, validate quote, settlement, margin and P&L currency; contract size/multiplier; tick size; quantity/contract step; minimum order size and notional; maximum order/position; precision; leverage and maintenance-margin tiers; status; listing/delivery fields; funding interval and next funding timestamp. Reconcile every retained contract against official provider specifications. Any mismatch or missing critical field excludes that contract.
+7. **Market-data contract:** validate server time, complete instrument pagination, ticker, order-book depth, completed daily and intraday candles, funding history and mark/index price where applicable. Test at least one representative contract per asset class during initial qualification. Require nonempty successful responses and valid provider-level success codes; HTTP 200 alone is insufficient. The next acceptance stage must run these data checks across the entire eligible universe, not only BTC.
+8. **Funding semantics:** verify funding history and timestamps per product class; confirm rate sign, settlement interval, index/mark reference, timestamp units and whether historical data is complete enough for the research horizon.
+9. **Runner access:** call the documented official public host from standard GitHub-hosted runners. Record runner image, source region when supplied by GitHub, HTTP/API result and UTC time. Do not disguise source location.
+10. **Adapter and currency accounting:** keep exchange-specific schemas outside the indicator/ranking core. Normalize contract IDs, currencies, precision, candles, books, funding and timestamps. For non-USDT P&L or collateral, implement time-aligned conversion, collateral haircuts, conversion fees, interest, funding, fees and NAV attribution in the accounting base currency. Never silently treat USD, USDT, USDC or coin collateral as equivalent.
+11. **Independent tests:** add fixture-based parser tests, pagination and duplicate tests, invalid/missing metadata tests, per-class endpoint tests, Decimal sizing tests and live public diagnostics. A successful probe is not a production adapter.
+12. **Historical and forward separation:** keep historical replay and forward paper account data separate. No forward account may initialize until full-universe freshness/coverage, stops, funding, fees, accounting, persistence, recovery and report reconciliation pass.
+
+### 12.6 Fallback routes and current known constraints
+
+**OKX EEA primary fallback:** OKX's EEA documentation describes perpetual futures, cross-margin and 24/7 crypto perpetuals. Prefer Futures mode with cross margin and a single settlement currency when compatible with the account. Multi-currency margin mode has separate eligibility/asset-value requirements and must not be assumed available to the 100 USDT research account. Product availability is still account- and country-specific; verify rather than assume.
+
+**Kraken EEA backup:** Kraken EEA documents linear multi-collateral perpetuals, cross margin and supported collateral currencies, with USD P&L by default. Retain only contracts whose tick size, minimum lot and maximum position reconcile to Kraken's official EEA specification table. The latest diagnostic counted 95 EEA margin/precision candidates, 69 exact official-spec matches and 26 mismatches; exclude all 26 mismatches. The earlier endpoint test sampled BTC only, so the 69-symbol subset still needs full-universe ticker/book/candle/funding coverage and Decimal sizing validation. Implement currency-aware USD P&L and collateral/USDT reporting before migration.
+
+**Known exclusions:** Crypto.com remains NOT_READY: six USD-quoted crypto perpetuals, funding-history API errors and Romania on its published derivatives restrictions list. HTX is not eligible while Romania is listed within the EU-wide excluded jurisdictions. Do not restore either candidate by changing the source IP.
+
+A readiness workflow fails closed if a required check fails. It may report a technical pass separately from legal/account approval, but may never label a provider READY when jurisdiction is UNVERIFIED, when a product class lacks cross-margin support, when contract specifications are unreconciled, or when full eligible-universe data coverage is absent.
 
 ## 13. Workflow design
 
