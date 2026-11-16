@@ -23,6 +23,7 @@ The repository is in a validated core-code phase, not a trading-ready phase. No 
 - [x] Mocked API contract and pagination tests.
 - [ ] Pass live public API integration; a 6-job multi-cloud test still returned HTTP 403 from five Azure US allocations and one AWS `us-west-2` allocation (run 43911753549).
 - [x] Verify official Bybit static trade archive access from standard GitHub-hosted runners (3/3 HTTP 206 + valid gzip samples; run 43912009008).
+- [x] Inspect the compressed archive CSV header and first data row on hosted runners (3/3 pass; run 43912788709; full-file integrity and coverage still pending).
 - [ ] Implement and test a resumable, integrity-checked Bybit trade-archive importer and daily OHLCV aggregator for selective historical research only.
 
 ## Phase 2 — Ranking and data gates
