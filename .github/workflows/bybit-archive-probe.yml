@@ -1,0 +1,84 @@
+name: Bybit Official Archive Egress Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bybit-archive-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bybit-official-archive-egress-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: ${{ matrix.probe_id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - probe_id: ubuntu-22.04
+            runner: ubuntu-22.04
+          - probe_id: ubuntu-24.04
+            runner: ubuntu-24.04
+          - probe_id: ubuntu-26.04
+            runner: ubuntu-26.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 3
+    steps:
+      - name: Verify one official archived trade file is downloadable
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          import urllib.error
+          import urllib.request
+
+          url = "https://public.bybit.com/trading/BTCUSDT/BTCUSDT2026-11-15.csv.gz"
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "User-Agent": "market-neutral-trend-quality-research/archive-probe",
+                  "Range": "bytes=0-2047",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  status = response.status
+                  content_type = response.headers.get("Content-Type")
+                  content_range = response.headers.get("Content-Range")
+                  sample = response.read(2048)
+          except urllib.error.HTTPError as exc:
+              status = exc.code
+              content_type = exc.headers.get("Content-Type")
+              content_range = exc.headers.get("Content-Range")
+              sample = exc.read(800)
+          except Exception as exc:
+              print(json.dumps({
+                  "result": "NETWORK_ERROR",
+                  "url": url,
+                  "error_type": type(exc).__name__,
+                  "error": str(exc)[:500],
+              }, indent=2))
+              sys.exit(1)
+
+          ok = status in (200, 206) and sample.startswith(bytes((31, 139)))
+          print(json.dumps({
+              "result": "PASS" if ok else "FAIL",
+              "url": url,
+              "http_status": status,
+              "content_type": content_type,
+              "content_range": content_range,
+              "gzip_magic_valid": sample.startswith(bytes((31, 139))),
+              "sample_bytes": len(sample),
+              "response_excerpt": None if ok else sample[:300].decode("utf-8", errors="replace"),
+              "credentials_used": False,
+              "orders_submitted": 0,
+          }, indent=2))
+          sys.exit(0 if ok else 1)
+          PY
