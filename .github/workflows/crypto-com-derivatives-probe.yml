@@ -44,7 +44,7 @@ jobs:
               "dcm": "https://api.crypto.com/dcm-margined/v1",
               "fcm": "https://api.crypto.com/fcm/v1",
           }
-          MINIMUM_UNIVERSE = 20
+          MINIMUM_UNIVERSE = 50
           REQUIRED_ENDPOINTS = (
               "public/get-book",
               "public/get-tickers",
