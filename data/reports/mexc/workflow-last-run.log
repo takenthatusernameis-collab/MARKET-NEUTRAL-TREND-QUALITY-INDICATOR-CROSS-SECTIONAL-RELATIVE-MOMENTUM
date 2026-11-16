@@ -1,0 +1,294 @@
+{
+  "active_cross_usdt_perpetual_count": 1061,
+  "api_failure_count": 0,
+  "api_failure_sample": [],
+  "asset_class_counts": {
+    "commodity": 8,
+    "crypto": 733,
+    "equity": 113,
+    "fx": 7,
+    "unclassified": 200
+  },
+  "bootstrap_completed_this_run": 150,
+  "bootstrap_remaining": 911,
+  "candle_rows_stored": 54316,
+  "credentials_used": false,
+  "excluded_or_unranked_sample": [
+    "ZEC_USDT:NO_VALID_Q",
+    "UNI_USDT:NO_VALID_Q",
+    "LIT_USDT:NO_VALID_Q",
+    "ONE_USDT:NO_VALID_Q",
+    "HOT_USDT:NO_VALID_Q",
+    "RSR_USDT:NO_VALID_Q",
+    "GTC_USDT:NO_VALID_Q",
+    "AGLD_USDT:NO_VALID_Q",
+    "WOO_USDT:NO_VALID_Q",
+    "INJ_USDT:NO_VALID_Q",
+    "GMX_USDT:NO_VALID_Q",
+    "STX_USDT:NO_VALID_Q",
+    "USDC_USDT:NO_VALID_Q",
+    "CKB_USDT:INSUFFICIENT_HISTORY:0",
+    "ID_USDT:INSUFFICIENT_HISTORY:0",
+    "ARB_USDT:INSUFFICIENT_HISTORY:0",
+    "DODO_USDT:INSUFFICIENT_HISTORY:0",
+    "QNT_USDT:INSUFFICIENT_HISTORY:0",
+    "RPL_USDT:INSUFFICIENT_HISTORY:0",
+    "PAXG_USDT:INSUFFICIENT_HISTORY:0",
+    "SUPER_USDT:INSUFFICIENT_HISTORY:0",
+    "OG_USDT:INSUFFICIENT_HISTORY:0",
+    "CGPT_USDT:INSUFFICIENT_HISTORY:0",
+    "XVS_USDT:INSUFFICIENT_HISTORY:0",
+    "BNT_USDT:INSUFFICIENT_HISTORY:0",
+    "PEPE_USDT:INSUFFICIENT_HISTORY:0",
+    "POLYX_USDT:INSUFFICIENT_HISTORY:0",
+    "1000BONK_USDT:INSUFFICIENT_HISTORY:0",
+    "CAKE_USDT:INSUFFICIENT_HISTORY:0",
+    "EDU_USDT:INSUFFICIENT_HISTORY:0",
+    "SUI_USDT:INSUFFICIENT_HISTORY:0",
+    "TURBO_USDT:INSUFFICIENT_HISTORY:0",
+    "ORDI_USDT:INSUFFICIENT_HISTORY:0",
+    "CETUS_USDT:INSUFFICIENT_HISTORY:0",
+    "NMR_USDT:INSUFFICIENT_HISTORY:0",
+    "MAV_USDT:INSUFFICIENT_HISTORY:0",
+    "PENDLE_USDT:INSUFFICIENT_HISTORY:0",
+    "XVG_USDT:INSUFFICIENT_HISTORY:0",
+    "MNT_USDT:INSUFFICIENT_HISTORY:0",
+    "ARKM_USDT:INSUFFICIENT_HISTORY:0",
+    "WLD_USDT:INSUFFICIENT_HISTORY:0",
+    "ARK_USDT:INSUFFICIENT_HISTORY:0",
+    "CYBER_USDT:INSUFFICIENT_HISTORY:0",
+    "SEI_USDT:INSUFFICIENT_HISTORY:0",
+    "AUCTION_USDT:INSUFFICIENT_HISTORY:0",
+    "BIGTIME_USDT:INSUFFICIENT_HISTORY:0",
+    "GAS_USDT:INSUFFICIENT_HISTORY:0",
+    "POWR_USDT:INSUFFICIENT_HISTORY:0",
+    "STEEM_USDT:INSUFFICIENT_HISTORY:0",
+    "TIA_USDT:INSUFFICIENT_HISTORY:0"
+  ],
+  "execution_long_top": [
+    {
+      "q": "5.453625632377747",
+      "symbol": "mexc:233"
+    }
+  ],
+  "execution_short_top": [
+    {
+      "q": "-50.76490789884496",
+      "symbol": "mexc:326"
+    },
+    {
+      "q": "-44.53237410071944",
+      "symbol": "mexc:226"
+    },
+    {
+      "q": "-29.49457479365668",
+      "symbol": "mexc:152"
+    },
+    {
+      "q": "-28.377525252525263",
+      "symbol": "mexc:59"
+    },
+    {
+      "q": "-27.78761061946903",
+      "symbol": "mexc:307"
+    },
+    {
+      "q": "-23.98836786623046",
+      "symbol": "mexc:98"
+    },
+    {
+      "q": "-23.57899585444497",
+      "symbol": "mexc:66"
+    },
+    {
+      "q": "-23.37459283387623",
+      "symbol": "mexc:122"
+    },
+    {
+      "q": "-21.86696544403821",
+      "symbol": "mexc:262"
+    },
+    {
+      "q": "-21.16243460507848",
+      "symbol": "mexc:25"
+    },
+    {
+      "q": "-21.09065155807367",
+      "symbol": "mexc:121"
+    },
+    {
+      "q": "-20.389483933787744",
+      "symbol": "mexc:243"
+    },
+    {
+      "q": "-20.09850419554908",
+      "symbol": "mexc:76"
+    },
+    {
+      "q": "-19.19633774160733",
+      "symbol": "mexc:186"
+    },
+    {
+      "q": "-19.19499715747584",
+      "symbol": "mexc:272"
+    },
+    {
+      "q": "-19.124751819986766",
+      "symbol": "mexc:227"
+    },
+    {
+      "q": "-18.800917957544446",
+      "symbol": "mexc:97"
+    },
+    {
+      "q": "-18.619569630531874",
+      "symbol": "mexc:211"
+    },
+    {
+      "q": "-18.00110436223082",
+      "symbol": "mexc:267"
+    },
+    {
+      "q": "-17.99098518995494",
+      "symbol": "mexc:324"
+    }
+  ],
+  "funding_events": [],
+  "history_coverage_pass": false,
+  "instrument_count_all": 1152,
+  "latest_completed_daily_bar_ms": 1794700800000,
+  "lifecycle_counts": {
+    "active": 1061
+  },
+  "missing_latest_bar_count": 0,
+  "missing_latest_bar_sample": [],
+  "missing_ticker_count": 0,
+  "missing_ticker_sample": [],
+  "mode": "PUBLIC_DATA_AND_Q_RANKING_PAPER_ONLY",
+  "orders_submitted": 0,
+  "paper_decision_status": "BLOCKED_STATE_WRITE_GATE",
+  "paper_simulation_enabled": false,
+  "paper_state_write_requested": false,
+  "portfolio": null,
+  "private_endpoints_used": false,
+  "provider": "mexc",
+  "research_long_top": [
+    {
+      "b": 84.50483407368698,
+      "q": "5.453625632377747",
+      "symbol": "mexc:233"
+    }
+  ],
+  "research_short_top": [
+    {
+      "b": 98.06818935724927,
+      "q": "-50.76490789884496",
+      "symbol": "mexc:326"
+    },
+    {
+      "b": 97.80376046768842,
+      "q": "-44.53237410071944",
+      "symbol": "mexc:226"
+    },
+    {
+      "b": 96.72072817290763,
+      "q": "-29.49457479365668",
+      "symbol": "mexc:152"
+    },
+    {
+      "b": 96.59603730605578,
+      "q": "-28.377525252525263",
+      "symbol": "mexc:59"
+    },
+    {
+      "b": 96.52628343067938,
+      "q": "-27.78761061946903",
+      "symbol": "mexc:307"
+    },
+    {
+      "b": 95.99813799223193,
+      "q": "-23.98836786623046",
+      "symbol": "mexc:98"
+    },
+    {
+      "b": 95.93148554187516,
+      "q": "-23.57899585444497",
+      "symbol": "mexc:66"
+    },
+    {
+      "b": 95.89736736602967,
+      "q": "-23.37459283387623",
+      "symbol": "mexc:122"
+    },
+    {
+      "b": 95.62687929691732,
+      "q": "-21.86696544403821",
+      "symbol": "mexc:262"
+    },
+    {
+      "b": 95.48786034648535,
+      "q": "-21.16243460507848",
+      "symbol": "mexc:25"
+    },
+    {
+      "b": 95.47319825596307,
+      "q": "-21.09065155807367",
+      "symbol": "mexc:121"
+    },
+    {
+      "b": 95.32480538990303,
+      "q": "-20.389483933787744",
+      "symbol": "mexc:243"
+    },
+    {
+      "b": 95.26032750600888,
+      "q": "-20.09850419554908",
+      "symbol": "mexc:76"
+    },
+    {
+      "b": 95.04860726338589,
+      "q": "-19.19633774160733",
+      "symbol": "mexc:186"
+    },
+    {
+      "b": 95.04827858007488,
+      "q": "-19.19499715747584",
+      "symbol": "mexc:272"
+    },
+    {
+      "b": 95.0309946232139,
+      "q": "-19.124751819986766",
+      "symbol": "mexc:227"
+    },
+    {
+      "b": 94.94972908759019,
+      "q": "-18.800917957544446",
+      "symbol": "mexc:97"
+    },
+    {
+      "b": 94.90304823789914,
+      "q": "-18.619569630531874",
+      "symbol": "mexc:211"
+    },
+    {
+      "b": 94.7371480049984,
+      "q": "-18.00110436223082",
+      "symbol": "mexc:267"
+    },
+    {
+      "b": 94.734343742583,
+      "q": "-17.99098518995494",
+      "symbol": "mexc:324"
+    }
+  ],
+  "run_utc": "2026-11-16T23:11:27.172892+00:00",
+  "snapshot_partition": "../market-data/data/snapshots/2026-11-16/23.jsonl.gz",
+  "state_branch_protection": "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION",
+  "state_event": null,
+  "stop_exits": [],
+  "ticker_count": 1161,
+  "ticker_coverage": 1061,
+  "trailing_stop_updates": [],
+  "unresolved_funding_count": 0,
+  "wallet_used": false
+}
