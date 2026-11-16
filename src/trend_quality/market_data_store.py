@@ -136,7 +136,10 @@ class MarketDataStore:
             path = self.candles_dir / f"{day}.jsonl.gz"
             block = "".join(
                 json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n"
-                for row in sorted(day_rows, key=lambda item: (item["instrument_id"], item["timestamp_ms"]))
+                for row in sorted(
+                    day_rows,
+                    key=lambda item: (item["instrument_id"], item["timestamp_ms"]),
+                )
             ).encode("utf-8")
             with path.open("ab") as handle:
                 handle.write(gzip.compress(block, mtime=0))
@@ -185,7 +188,9 @@ class MarketDataStore:
                         if start_timestamp_ms is not None and timestamp < start_timestamp_ms:
                             continue
                         grouped[instrument_id].append(item)
-            except (OSError, EOFError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            except (
+                OSError, EOFError, json.JSONDecodeError, KeyError, TypeError, ValueError
+            ) as exc:
                 raise MarketDataStoreError(
                     f"Invalid candle partition {path}: {exc}"
                 ) from exc
@@ -246,7 +251,9 @@ class MarketDataStore:
                                 and timestamp > (0 if best is None else best[0])
                             ):
                                 best = (timestamp, mark)
-                except (OSError, EOFError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+                except (
+                    OSError, EOFError, json.JSONDecodeError, KeyError, TypeError, ValueError
+                ) as exc:
                     raise MarketDataStoreError(
                         f"Invalid snapshot partition {path}: {exc}"
                     ) from exc
