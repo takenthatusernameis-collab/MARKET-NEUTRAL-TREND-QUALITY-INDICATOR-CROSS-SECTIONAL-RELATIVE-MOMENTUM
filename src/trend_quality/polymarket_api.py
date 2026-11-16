@@ -96,9 +96,18 @@ def validate_instrument(instrument: Mapping[str, Any]) -> list[str]:
             if not isinstance(tier, dict):
                 errors.append("INVALID_RISK_TIER")
                 break
-            if not isinstance(tier.get("max_leverage"), int) or not as_decimal(
-                tier.get("lower_bound"), "risk_tier.lower_bound"
-            ).is_finite():
+            try:
+                lower_bound = as_decimal(tier.get("lower_bound"), "risk_tier.lower_bound")
+            except PolymarketAPIError:
+                errors.append("INVALID_RISK_TIER")
+                break
+            leverage = tier.get("max_leverage")
+            if (
+                isinstance(leverage, bool)
+                or not isinstance(leverage, int)
+                or leverage < 1
+                or lower_bound < 0
+            ):
                 errors.append("INVALID_RISK_TIER")
                 break
     return errors
