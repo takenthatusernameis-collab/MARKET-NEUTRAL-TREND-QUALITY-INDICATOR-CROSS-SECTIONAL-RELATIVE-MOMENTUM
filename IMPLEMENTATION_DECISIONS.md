@@ -17,3 +17,6 @@
 | D-013 | No paper automation until core acceptance tests pass | Prevent partial data and incomplete accounting from affecting paper state | Accepted |
 | D-014 | Historical and forward accounts are separate | Prevent backtest contamination of forward results | Accepted |
 | D-015 | Historical daily replay must use delayed stop detection and later execution price | Match sampled monitoring limitations | Accepted |
+| D-016 | Do not run Bybit market-data jobs from US/mainland-China source IPs | Official Bybit guidance says these source IPs return HTTP 403; observed free GitHub runner region was eastus2 | Blocking |
+| D-017 | Do not use paid larger runners, proxies, or endpoint rotation to bypass a 403 | User's free-infrastructure and exact API-host constraints; preserve provider access restrictions | Accepted |
+| D-018 | A self-hosted runner on user-controlled non-US/non-China hardware may be considered only after explicit setup authorization | Current standard GitHub-hosted runner does not provide a documented region selector | Pending user environment |
