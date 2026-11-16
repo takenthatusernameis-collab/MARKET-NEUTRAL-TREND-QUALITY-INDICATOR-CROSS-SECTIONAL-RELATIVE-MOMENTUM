@@ -1,0 +1,225 @@
+name: Kraken EEA Derivatives Public API Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/kraken-eea-derivatives-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kraken-eea-derivatives-public-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: ${{ matrix.runner_id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner_id: ubuntu-22.04
+            runner: ubuntu-22.04
+          - runner_id: ubuntu-24.04
+            runner: ubuntu-24.04
+          - runner_id: ubuntu-26.04
+            runner: ubuntu-26.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - name: Validate EEA linear perpetual public market-data endpoints
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          REST = "https://futures.kraken.com/derivatives/api/v3"
+          CHARTS = "https://futures.kraken.com/api/charts/v1"
+          headers = {
+              "Accept": "application/json",
+              "User-Agent": "market-neutral-trend-quality-research/kraken-eea-probe",
+          }
+
+          def get_json(url):
+              request = urllib.request.Request(url, headers=headers)
+              try:
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      status = response.status
+                      raw = response.read(4_000_000).decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as exc:
+                  status = exc.code
+                  raw = exc.read(4_000_000).decode("utf-8", errors="replace")
+              except Exception as exc:
+                  return {
+                      "http_status": None,
+                      "network_error": type(exc).__name__,
+                      "error": str(exc)[:500],
+                  }
+              try:
+                  payload = json.loads(raw)
+              except json.JSONDecodeError:
+                  payload = None
+              return {
+                  "http_status": status,
+                  "payload": payload,
+                  "body_excerpt": None if isinstance(payload, dict) else raw[:1000],
+              }
+
+          def rest(path, params=None):
+              query = urllib.parse.urlencode(params or {})
+              return get_json(REST + path + ("?" + query if query else ""))
+
+          def chart(path, params=None):
+              query = urllib.parse.urlencode(params or {})
+              return get_json(CHARTS + path + ("?" + query if query else ""))
+
+          def valid_success(result):
+              payload = result.get("payload")
+              return (
+                  result.get("http_status") == 200
+                  and isinstance(payload, dict)
+                  and payload.get("result") == "success"
+                  and not payload.get("error")
+                  and not payload.get("errors")
+              )
+
+          instrument_result = rest("/instruments")
+          payload = instrument_result.get("payload")
+          all_instruments = (
+              payload.get("instruments", [])
+              if isinstance(payload, dict)
+              and isinstance(payload.get("instruments"), list)
+              else []
+          )
+          pf = [
+              x for x in all_instruments
+              if isinstance(x, dict)
+              and str(x.get("symbol", "")).startswith("PF_")
+              and str(x.get("symbol", "")).endswith("USD")
+              and x.get("tradeable") is True
+          ]
+          # Exclude tokenised equities and indices explicitly visible in the
+          # official EEA instrument naming scheme; still expose all raw PF data.
+          non_crypto_markers = (
+              "AAPLX", "AMZNX", "GOOGLX", "HOODX", "MSTRX",
+              "NV DAX".replace(" ", ""), "QQQX", "SPYX", "TSLAX", "GLDX",
+              "US100", "AMDUSD", "SNDKUSD",
+          )
+          crypto_pf = [
+              x for x in pf
+              if not any(marker in str(x.get("symbol", "")).upper() for marker in non_crypto_markers)
+              and x.get("underlying") not in ("in_us100usd", "rr_us100usd")
+          ]
+          symbol = "PF_XBTUSD"
+
+          tickers = rest("/tickers")
+          ticker_payload = tickers.get("payload")
+          ticker_rows = (
+              ticker_payload.get("tickers", [])
+              if isinstance(ticker_payload, dict)
+              and isinstance(ticker_payload.get("tickers"), list)
+              else []
+          )
+          ticker = next(
+              (x for x in ticker_rows if isinstance(x, dict) and x.get("symbol") == symbol),
+              None,
+          )
+
+          book = rest("/orderbook", {"symbol": symbol})
+          book_payload = book.get("payload")
+          book_data = (
+              book_payload.get("orderBook")
+              if isinstance(book_payload, dict)
+              else None
+          )
+          if not isinstance(book_data, dict) and isinstance(book_payload, dict):
+              book_data = book_payload.get("orderbook")
+
+          candles = chart(f"trade/{symbol}/1d", {"count": "5"})
+          candles_payload = candles.get("payload")
+          candle_rows = (
+              candles_payload.get("candles", [])
+              if isinstance(candles_payload, dict)
+              and isinstance(candles_payload.get("candles"), list)
+              else []
+          )
+
+          funding = rest("/historicalfundingrates", {"symbol": symbol})
+          funding_payload = funding.get("payload")
+          funding_rows = (
+              funding_payload.get("rates", [])
+              if isinstance(funding_payload, dict)
+              and isinstance(funding_payload.get("rates"), list)
+              else []
+          )
+
+          checks = {
+              "instruments": valid_success(instrument_result) and len(crypto_pf) >= 50,
+              "tickers": valid_success(tickers) and ticker is not None,
+              "orderbook": (
+                  valid_success(book)
+                  and isinstance(book_data, dict)
+                  and bool(book_data.get("asks"))
+                  and bool(book_data.get("bids"))
+              ),
+              "daily_candles": (
+                  candles.get("http_status") == 200
+                  and isinstance(candles_payload, dict)
+                  and bool(candle_rows)
+              ),
+              "funding_history": valid_success(funding) and bool(funding_rows),
+          }
+
+          report = {
+              "exchange": "Kraken Futures — EEA multi-collateral linear",
+              "base_url": REST,
+              "credentials_used": False,
+              "private_endpoints_used": False,
+              "orders_submitted": 0,
+              "instrument_http_status": instrument_result.get("http_status"),
+              "instrument_api_result": payload.get("result") if isinstance(payload, dict) else None,
+              "all_instrument_count": len(all_instruments),
+              "tradeable_pf_usd_count": len(pf),
+              "approx_crypto_pf_usd_count": len(crypto_pf),
+              "sample_crypto_perpetuals": crypto_pf[:8],
+              "sample_btc_contract": next(
+                  (x for x in crypto_pf if x.get("symbol") == symbol), None
+              ),
+              "ticker": {
+                  "http_status": tickers.get("http_status"),
+                  "sample": ticker,
+              },
+              "orderbook": {
+                  "http_status": book.get("http_status"),
+                  "sample": book_data,
+                  "body_excerpt": book.get("body_excerpt"),
+              },
+              "daily_candles": {
+                  "http_status": candles.get("http_status"),
+                  "sample": candle_rows[:3],
+                  "body_excerpt": candles.get("body_excerpt"),
+              },
+              "funding_history": {
+                  "http_status": funding.get("http_status"),
+                  "sample": funding_rows[:3],
+                  "body_excerpt": funding.get("body_excerpt"),
+              },
+              "checks": checks,
+              "technical_market_data_pass": all(checks.values()),
+              "jurisdiction_status": "EEA_DERIVATIVES_PRODUCT_DOCUMENTED; INDIVIDUAL_ONBOARDING_REQUIRED",
+              "collateral_status": "EEA_SUPPORTS_USDC_NOT_USDT; USDC HAIRCUT 0.50%",
+              "candidate_ready": False,
+              "candidate_status": (
+                  "TECHNICALLY_COMPATIBLE_EEA_PRODUCT_PENDING_ADAPTER_AND_ACCOUNT_ONBOARDING"
+                  if all(checks.values()) else "NOT_READY"
+              ),
+          }
+          print(json.dumps(report, indent=2, default=str))
+          raise SystemExit(0 if all(checks.values()) else 1)
+          PY
