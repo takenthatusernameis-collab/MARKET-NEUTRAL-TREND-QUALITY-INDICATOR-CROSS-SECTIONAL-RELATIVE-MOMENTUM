@@ -336,7 +336,7 @@ class MEXCPublicClient:
                 "volume_24h_contracts": str(_optional_decimal(
                     row.get("volume24"), f"{symbol}.volume24"
                 )),
-                "turnover_24h_usdt": str(_optional_decimal(
+                "turnover_24h_quote": str(_optional_decimal(
                     row.get("amount24"), f"{symbol}.amount24"
                 )),
                 "open_interest_contracts": str(_optional_decimal(
@@ -438,7 +438,7 @@ class MEXCPublicClient:
                     "volume_contracts": str(_decimal(
                         arrays["vol"][i], "kline volume", allow_zero=True
                     )),
-                    "turnover_usdt": str(_decimal(
+                    "turnover_quote": str(_decimal(
                         arrays["amount"][i], "kline turnover", allow_zero=True
                     )),
                 }
