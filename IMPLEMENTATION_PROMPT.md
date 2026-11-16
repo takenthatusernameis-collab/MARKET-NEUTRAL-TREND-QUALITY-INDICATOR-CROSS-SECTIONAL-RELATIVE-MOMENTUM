@@ -1,9 +1,9 @@
-# Master Implementation Directive v2.5
-## Market-Neutral Trend-Quality Indicator — Bybit Full-Universe Paper Research
+# Master Implementation Directive v2.6
+## Market-Neutral Trend-Quality Indicator — Exchange-Neutral Paper Research
 
 Repository: `takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM`  
 Target: `main`  
-Data: unauthenticated Bybit Global public API only (`https://api.bybit.com`)  
+Current reference adapter: unauthenticated Bybit Global public API (`https://api.bybit.com`); live access is blocked from tested GitHub runner routes. Replacement exchange: NOT APPROVED pending the qualification gates in Section 12.5.  
 Execution: local paper simulation only; no live orders, Testnet, credentials or private endpoints.  
 Initial forward capital: 100 USDT. Target gross exposure: 1.0x NAV, 50% long and 50% short.
 
@@ -11,7 +11,7 @@ Primary source: David Sepiashvili, [Trend-Quality Indicator](https://www.proreal
 
 ## 1. Mission and non-negotiable priorities
 
-Build an auditable, persistent, self-improving quantitative research system that evaluates every eligible Bybit USDT linear perpetual contract, calculates the original Q Indicator, ranks both directions, and eventually maintains one long and one short in a separate forward paper account.
+Build an auditable, persistent, self-improving quantitative research system that evaluates every eligible contract on one explicitly approved exchange, calculates the original Q Indicator, ranks both directions, and eventually maintains one long and one short in a separate forward paper account. Keep the strategy mathematics and normalized data contract independent of exchange-specific symbol and response formats.
 
 Priority order: (1) no look-ahead; (2) mathematical correctness; (3) accounting correctness; (4) complete data and universe; (5) risk integrity; (6) recoverability; (7) statistical validity; (8) reporting; (9) efficiency.
 
@@ -172,6 +172,10 @@ Use SQLite as a transactional, rebuildable projection. The durable source of tru
 
 Each workflow produces a uniquely named event batch (for example `events/YYYY/MM/<run-id>.jsonl`) with unique event IDs and idempotency keys. Commit the entire batch atomically using a normal fast-forward push with conflict detection; no force push. If the state commit fails, the workflow must not claim the transition is durable. On a later run, replay already committed events into SQLite. Keep snapshots/checkpoints with checksums and schema version. Do not edit/delete past financial events; corrections are compensating events.
 
+Before any new batch is committed, reconstruct the complete remote event-batch chain from the current `state` branch tree and verify that the new batch's `previous_batch_hash` equals the unique remote chain tip. Reject a second genesis batch, forks, cycles, orphaned/disconnected batches, invalid file paths, malformed blobs, and truncated Git trees. Do not trust a local SQLite hash or caller-supplied parent hash as evidence of the remote tip.
+
+The `state` branch must have server-side GitHub branch protection or a repository ruleset that disallows force pushes/deletion and restricts writers before account initialization. Publisher-side fast-forward logic is not a substitute for server-side protection. Because this repository is public, every event file is public and persistent: never store credentials, personal identifiers or confidential account data in its Git history.
+
 Storage is not unlimited. Estimate and monitor repository growth; partition compressed market data. If Git storage cannot safely support the required data volume, report the blocker instead of silently deleting history or introducing paid services.
 
 ## 12. Network access, automatic runner tests and official historical archive
@@ -190,7 +194,7 @@ A one-time matrix probe on 2026-11-16 tested the exact official Bybit server-tim
 
 This establishes that enabling GitHub's automatic AWS/Azure pool and changing standard Ubuntu labels does not currently provide an allowed egress route. Do not keep spawning jobs hoping for a different country, attempt to pin an undocumented region, or treat a single transient success as a stable deployment. Any future runner candidate must be tested against the exact endpoint, and its reported region/cloud and response must be recorded. Scheduled operation requires a repeatably allowed route, not a one-off pass.
 
-No proxy, VPN, residential proxy, outbound relay, API-domain rotation, API broker, alternate exchange, paid runner or user-installed self-hosted runner may be introduced as an implicit workaround. The task's no-manual-input requirement does not authorize creating third-party accounts, provisioning infrastructure, requesting credentials, or changing the data-provider contract. If no compliant automatic route exists, report that the live API gate remains blocked.
+No proxy, VPN, residential proxy, outbound relay, API-domain rotation, paid runner or unapproved user-installed self-hosted runner may be used to disguise a blocked source location. An explicitly requested replacement exchange is not a geographic bypass; it is a provider migration and must pass every acceptance gate in Section 12.5. Do not silently change the exchange, create exchange accounts, request credentials or migrate data until the candidate is independently verified and the user has approved the selected provider.
 
 ### 12.3 Official Bybit historical trade-archive lane
 
@@ -211,6 +215,29 @@ For each UTC day, trades can be aggregated into OHLCV: first price by timestamp,
 This lane may support selective historical price research and daily-bar reconstruction without the blocked V5 API. It is not evidence of a complete full-universe or point-in-time dataset: archive coverage varies by symbol/listing date, the directory alone does not establish historical execution eligibility or delisting status, and downloading a daily trade file can be large. Establish coverage and storage estimates before any universe-scale backfill. Do not silently select only surviving symbols and label the result survivorship-free.
 
 The trade archive does not provide a verified replacement for historical funding settlements, mark/index prices, historical L2 order-book depth, current instrument quantity/price filters, or fresh live quotes. No spread, order-book VWAP, funding cashflow or intraday stop fill may be invented from daily trade aggregates. Any price-only replay that omits funding or executable depth must be labelled exploratory/gross and must not be presented as a full strategy validation.
+
+### 12.5 Replacement-exchange qualification gate
+
+The user explicitly requested evaluation of replacement exchanges. This authorizes research and public unauthenticated endpoint probes; it does not authorize opening an exchange account, submitting orders, using private endpoints, or assuming regional derivatives eligibility.
+
+A candidate is NOT_READY until every gate below passes with current official documentation and repeatable public API evidence:
+
+1. **Jurisdiction:** official derivatives product access must be available to the user's country/residency. A public API response or website reachability is not proof of account/product eligibility. Never bypass provider restrictions.
+2. **Collateral compatibility:** the strategy's current initial account is denominated in USDT. Require a genuinely USDT-quoted/USDT-settled linear contract family or redesign and separately approve the accounting/collateral model. Do not treat USD-quoted coin-margined products as equivalent.
+3. **Universe breadth:** discover all pages and confirm at least 50 active, tradable crypto perpetuals in the required settlement family. Record excluded contracts and lifecycle state. A handful of BTC/ETH-only or USD-margined products is not a cross-sectional replacement.
+4. **Market-data contract:** validate server time, instrument pagination, tickers, completed daily and intraday candles, order-book depth and funding history. Require nonempty successful responses and correct API success codes; HTTP 200 alone is insufficient.
+5. **Funding contract:** verify funding history and timestamps on at least BTC, ETH and one liquid alt perpetual. Confirm settlement interval, rate sign, index/mark reference, and timestamp conventions against the official specification.
+6. **Execution metadata:** validate tick size, quantity step, minimum quantity/notional, maximum market size, contract multiplier and quote/settlement currency. Prove Decimal sizing works on real returned examples without rounding up.
+7. **Runner access:** call the exact official public endpoints from GitHub-hosted runners. Record cloud, region, response, status and timestamp. Repeat across more than one run. Do not disguise source location.
+8. **History and replay:** confirm usable public historical data for at least the intended research horizon and all symbols needed by the point-in-time universe. State missing coverage and survivorship limitations.
+9. **Adapter contract:** implement a dedicated adapter which maps provider-specific responses to normalized instruments, candles, funding events and order-book snapshots. Keep exchange symbols, endpoint payloads and precision rules out of the indicator/ranking core. Add mocked contract tests and live public integration tests.
+10. **Migration evidence:** run side-by-side provider contract tests and reconcile sample instrument/candle/funding/book records. Update source configuration, runbook, data dictionary, decisions, status and reports. Preserve any historical Bybit results with provider provenance; never mix provider histories without an explicit adjustment study.
+
+A readiness workflow must fail when any required gate fails. Candidate readiness must never be inferred from the mere presence of one perpetual or a successful instrument endpoint.
+
+**Crypto.com current disposition:** NOT_READY. The 2026-11-16 hosted probe found six USD-quoted crypto perpetuals; funding-history requests returned API code 40004 for both tested instrument-name formats; the configured minimum-universe gate failed; USDT quote compatibility failed; collateral and jurisdiction remained unverified. Its public derivatives restrictions page lists Romania. Do not promote the Crypto.com probe into a production adapter.
+
+No replacement exchange is approved until the gates pass. This does not mean that an arbitrary provider is interchangeable with Bybit; API contracts, collateral, funding semantics and instrument universes must be revalidated.
 
 ### 12.4 Forward-operation boundary
 
