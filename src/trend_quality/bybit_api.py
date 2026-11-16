@@ -109,7 +109,14 @@ class BybitPublicClient:
                 last_error = exc
                 retryable = exc.code == 429 or 500 <= exc.code < 600
                 if not retryable or attempt >= self.max_retries:
-                    raise BybitAPIError(f"HTTP {exc.code} for {path}") from exc
+                    body = exc.read(2048).decode("utf-8", errors="replace")
+                    server = exc.headers.get("Server", "unknown")
+                    cf_ray = exc.headers.get("CF-RAY", "not-present")
+                    detail = (
+                        f"HTTP {exc.code} for {path}; server={server}; "
+                        f"cf_ray={cf_ray}; body={body[:500]!r}"
+                    )
+                    raise BybitAPIError(detail) from exc
             except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
                 last_error = exc
                 if attempt >= self.max_retries:
