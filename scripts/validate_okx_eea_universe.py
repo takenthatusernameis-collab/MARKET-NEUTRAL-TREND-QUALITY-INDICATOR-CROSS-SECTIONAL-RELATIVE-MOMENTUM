@@ -96,7 +96,7 @@ def metadata_check(row: dict[str, Any]) -> list[str]:
     required = (
         "instId", "instFamily", "ctType", "ctVal", "ctMult", "ctValCcy",
         "tickSz", "lotSz", "minSz", "maxLmtSz", "maxMktSz", "settleCcy",
-        "state", "instType", "ruleType",
+        "state", "instType",
     )
     missing = [key for key in required if row.get(key) is None or str(row.get(key)).strip() == ""]
     positive_fields = (
@@ -120,12 +120,22 @@ def rows_for_universe() -> tuple[dict[str, Any], list[dict[str, Any]], dict[str,
         and row.get("ctType") == "linear"
     ]
     pre_market = [row for row in live_linear_usdt if row.get("ruleType") == "pre_market"]
-    eligible = [row for row in live_linear_usdt if row.get("ruleType") != "pre_market"]
+    fixed_expiry = [
+        row for row in live_linear_usdt
+        if row.get("futureSettlement") is True or bool(str(row.get("expTime") or "").strip())
+    ]
+    eligible = [
+        row for row in live_linear_usdt
+        if row.get("ruleType") != "pre_market"
+        and row.get("futureSettlement") is not True
+        and not str(row.get("expTime") or "").strip()
+    ]
     return result, eligible, {
         "all_swap_instruments": len(rows),
-        "live_linear_usdt_swaps_including_pre_market": len(live_linear_usdt),
+        "live_linear_usdt_swaps_including_pre_market_and_fixed_expiry": len(live_linear_usdt),
         "excluded_pre_market_swaps": len(pre_market),
-        "eligible_live_linear_usdt_swaps": len(eligible),
+        "excluded_fixed_expiry_swaps": len(fixed_expiry),
+        "eligible_live_linear_usdt_non_expiring_swaps": len(eligible),
     }
 
 
