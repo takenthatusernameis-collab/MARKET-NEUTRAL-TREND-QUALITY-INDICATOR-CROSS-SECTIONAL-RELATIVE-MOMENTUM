@@ -166,7 +166,6 @@ def normalize_instrument(row: Mapping[str, Any]) -> dict[str, Any]:
         "api_allowed": row.get("apiAllowed") is not False,
         "create_time_ms": create_time_ms,
         "close_only": False,
-        "settlement": None,
         "raw_display_name": row.get("displayNameEn"),
     }
 
