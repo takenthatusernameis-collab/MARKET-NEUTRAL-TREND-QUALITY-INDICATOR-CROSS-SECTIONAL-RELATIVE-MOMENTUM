@@ -160,6 +160,18 @@ def test_invalid_batch_and_unsafe_repository_are_rejected_before_api_calls() -> 
         assert "token" in str(exc)
     else:
         raise AssertionError("empty token must be rejected")
+    try:
+        GitHubStatePublisher(
+            "owner/repo",
+            "dummy-token",
+            api_base_url="https://attacker.invalid",
+            transport=fake,
+        )
+    except ValueError as exc:
+        assert "official" in str(exc)
+    else:
+        raise AssertionError("non-GitHub API hosts must be rejected")
+
     publisher = GitHubStatePublisher("owner/repo", "dummy-token", transport=fake)
     try:
         publisher.publish_batch({"run_id": "../escape"})
