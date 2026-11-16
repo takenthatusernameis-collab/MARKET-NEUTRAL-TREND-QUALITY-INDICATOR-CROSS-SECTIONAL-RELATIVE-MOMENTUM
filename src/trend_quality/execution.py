@@ -185,6 +185,10 @@ def simulate_historical_minute_fill(
     fill_price = reference * (
         Decimal("1") + direction * adverse_slippage_bps / BPS_DENOMINATOR
     )
+    if not fill_price.is_finite() or fill_price <= ZERO:
+        raise ExecutionModelError(
+            "modeled fill price must be finite and positive after adverse slippage"
+        )
     notional = request * fill_price
     shortfall = request * abs(fill_price - reference)
     fee = notional * fee_rate
