@@ -20,20 +20,35 @@ class EventJournalError(RuntimeError):
     pass
 
 
-def _reject_floats(value: Any, path: str = "event") -> None:
+def _validate_json_value(value: Any, path: str = "event") -> None:
+    """Reject values that cannot be represented unambiguously in canonical JSON."""
     if isinstance(value, float):
         raise EventJournalError(f"Binary float is not allowed in durable events: {path}")
     if isinstance(value, dict):
         for key, child in value.items():
-            _reject_floats(child, f"{path}.{key}")
-    elif isinstance(value, list):
+            if not isinstance(key, str):
+                raise EventJournalError(f"JSON object keys must be strings: {path}")
+            _validate_json_value(child, f"{path}.{key}")
+    elif isinstance(value, (list, tuple)):
         for index, child in enumerate(value):
-            _reject_floats(child, f"{path}[{index}]")
+            _validate_json_value(child, f"{path}[{index}]")
+    elif value is None or isinstance(value, (str, int, bool)):
+        return
+    else:
+        raise EventJournalError(
+            f"Unsupported durable JSON value {type(value).__name__}: {path}"
+        )
 
 
 def canonical_json(value: Any) -> str:
-    _reject_floats(value)
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    _validate_json_value(value)
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
 
 
 def _event_hash(event_without_hash: dict[str, Any]) -> str:
@@ -60,24 +75,31 @@ def build_event_batch(
     ):
         raise EventJournalError("previous_batch_hash must be a SHA-256 hex digest or null")
 
+    required = {
+        "event_id",
+        "idempotency_key",
+        "account_id",
+        "strategy_id",
+        "occurred_at_ms",
+        "event_type",
+        "payload",
+    }
     seen_ids: set[str] = set()
     seen_keys: set[str] = set()
     chained: list[dict[str, Any]] = []
     previous_event_hash = previous_batch_hash
     for original in events:
+        if not isinstance(original, dict):
+            raise EventJournalError("Each event must be a JSON object")
         event = dict(original)
-        required = {
-            "event_id",
-            "idempotency_key",
-            "account_id",
-            "strategy_id",
-            "occurred_at_ms",
-            "event_type",
-            "payload",
-        }
         missing = required - event.keys()
+        unexpected = event.keys() - required
         if missing:
             raise EventJournalError(f"Event missing required keys: {sorted(missing)}")
+        if unexpected:
+            raise EventJournalError(
+                f"Event contains unsupported keys: {sorted(str(key) for key in unexpected)}"
+            )
         for field in (
             "event_id",
             "idempotency_key",
@@ -100,9 +122,7 @@ def build_event_batch(
             raise EventJournalError("Duplicate idempotency_key")
         seen_ids.add(event_id)
         seen_keys.add(idempotency_key)
-        event.pop("event_hash", None)
         event["previous_event_hash"] = previous_event_hash
-        _reject_floats(event)
         event["event_hash"] = _event_hash(event)
         previous_event_hash = event["event_hash"]
         chained.append(event)
@@ -120,7 +140,17 @@ def build_event_batch(
 
 def verify_event_batch(batch: dict[str, Any]) -> bool:
     try:
-        if not isinstance(batch, dict) or batch.get("schema_version") != 1:
+        expected_batch_keys = {
+            "schema_version",
+            "run_id",
+            "created_at_ms",
+            "previous_batch_hash",
+            "events",
+            "batch_hash",
+        }
+        if not isinstance(batch, dict) or set(batch) != expected_batch_keys:
+            return False
+        if batch.get("schema_version") != 1:
             return False
         run_id = batch.get("run_id")
         if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", run_id):
@@ -136,24 +166,22 @@ def verify_event_batch(batch: dict[str, Any]) -> bool:
         events = batch.get("events")
         if not isinstance(events, list):
             return False
+        event_required = {
+            "event_id",
+            "idempotency_key",
+            "account_id",
+            "strategy_id",
+            "occurred_at_ms",
+            "event_type",
+            "payload",
+            "previous_event_hash",
+            "event_hash",
+        }
         event_ids: set[str] = set()
         idempotency: set[str] = set()
         prior = expected_previous
         for event in events:
-            if not isinstance(event, dict):
-                return False
-            required = {
-                "event_id",
-                "idempotency_key",
-                "account_id",
-                "strategy_id",
-                "occurred_at_ms",
-                "event_type",
-                "payload",
-                "previous_event_hash",
-                "event_hash",
-            }
-            if not required.issubset(event):
+            if not isinstance(event, dict) or set(event) != event_required:
                 return False
             for field in (
                 "event_id",
