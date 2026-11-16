@@ -126,6 +126,101 @@ class GitHubStatePublisher:
             raise GitHubStateError("Unsafe run_id")
         return f"events/{date:%Y}/{date:%m}/{run_id}.json"
 
+    def _latest_batch_hash(self, repo_path: str, tree_sha: str) -> str | None:
+        """Verify the full remote event-batch chain and return its unique tip.
+
+        A valid batch hash alone is insufficient: a caller could otherwise
+        append a second genesis batch or fork the chain. Read every event file
+        from the current tree, verify it, and require one complete linear chain.
+        """
+        tree = self._request(
+            "GET",
+            f"{repo_path}/git/trees/{quote(tree_sha, safe='')}?recursive=1",
+        )
+        nodes = tree.get("tree")
+        if tree.get("truncated") is True or not isinstance(nodes, list):
+            raise GitHubStateError("State tree is truncated or malformed; refusing to append")
+
+        event_nodes = [
+            node
+            for node in nodes
+            if isinstance(node, dict)
+            and node.get("type") == "blob"
+            and isinstance(node.get("path"), str)
+            and str(node["path"]).startswith("events/")
+            and str(node["path"]).endswith(".json")
+        ]
+        batches: dict[str, dict[str, Any]] = {}
+        for node in event_nodes:
+            path = str(node["path"])
+            blob_sha = node.get("sha")
+            if not isinstance(blob_sha, str) or not blob_sha:
+                raise GitHubStateError(f"State event tree entry has no blob SHA: {path}")
+            blob = self._request(
+                "GET",
+                f"{repo_path}/git/blobs/{quote(blob_sha, safe='')}",
+            )
+            if blob.get("encoding") != "base64" or not isinstance(blob.get("content"), str):
+                raise GitHubStateError(f"State event blob has unexpected encoding: {path}")
+            try:
+                decoded = base64.b64decode(blob["content"], validate=False).decode("utf-8")
+                batch = json.loads(decoded)
+            except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise GitHubStateError(f"State event blob cannot be decoded: {path}") from exc
+            if not isinstance(batch, dict) or not verify_event_batch(batch):
+                raise GitHubStateError(f"State event batch integrity check failed: {path}")
+            expected_path = self._event_path(batch)
+            if path != expected_path:
+                raise GitHubStateError(
+                    f"State event path does not match batch metadata: {path} != {expected_path}"
+                )
+            batch_hash = str(batch["batch_hash"])
+            if batch_hash in batches:
+                raise GitHubStateError(f"Duplicate event batch hash in state tree: {batch_hash}")
+            batches[batch_hash] = batch
+
+        if not batches:
+            return None
+
+        roots = [
+            batch for batch in batches.values()
+            if batch.get("previous_batch_hash") is None
+        ]
+        if len(roots) != 1:
+            raise GitHubStateError(
+                f"State event chain must have exactly one genesis batch; found {len(roots)}"
+            )
+
+        children: dict[str, list[str]] = {}
+        for batch_hash, batch in batches.items():
+            previous = batch.get("previous_batch_hash")
+            if previous is None:
+                continue
+            if previous not in batches:
+                raise GitHubStateError(
+                    f"State event chain has an orphan batch: {batch_hash}"
+                )
+            children.setdefault(str(previous), []).append(batch_hash)
+
+        current_hash = str(roots[0]["batch_hash"])
+        visited: set[str] = set()
+        while True:
+            if current_hash in visited:
+                raise GitHubStateError("State event chain contains a cycle")
+            visited.add(current_hash)
+            next_hashes = children.get(current_hash, [])
+            if not next_hashes:
+                break
+            if len(next_hashes) != 1:
+                raise GitHubStateError(
+                    f"State event chain forks after batch {current_hash}"
+                )
+            current_hash = next_hashes[0]
+
+        if len(visited) != len(batches):
+            raise GitHubStateError("State event tree contains disconnected batch chains")
+        return current_hash
+
     def publish_batch(self, batch: dict[str, Any]) -> PublishResult:
         """Commit a batch as a new immutable file and advance branch fast-forward.
 
@@ -183,6 +278,13 @@ class GitHubStatePublisher:
             base_tree_sha = str(parent["tree"]["sha"])
         except (KeyError, TypeError) as exc:
             raise GitHubStateError("Parent commit tree response is malformed") from exc
+
+        latest_batch_hash = self._latest_batch_hash(repo_path, base_tree_sha)
+        if batch.get("previous_batch_hash") != latest_batch_hash:
+            raise GitHubStateError(
+                "Refusing to append event batch with an unanchored previous hash: "
+                f"expected {latest_batch_hash!r}, got {batch.get('previous_batch_hash')!r}"
+            )
 
         blob = self._request(
             "POST",
