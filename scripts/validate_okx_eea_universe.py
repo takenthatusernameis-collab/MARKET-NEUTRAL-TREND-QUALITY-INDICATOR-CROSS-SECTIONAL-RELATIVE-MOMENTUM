@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E501  # Long failure samples and public API diagnostics are intentional.
 """Full-universe, read-only acceptance test for OKX's EEA public SWAP API.
 
 Validates every live linear USDT-settled non-pre-market perpetual contract:
@@ -9,7 +10,6 @@ reads private account data or submits orders.
 from __future__ import annotations
 
 import json
-import math
 import os
 import threading
 import time
@@ -195,8 +195,12 @@ def validate_one(kind: str, symbol: str) -> tuple[str, str, bool, str | None]:
         if not ok(result) or not rows or not isinstance(rows[0], dict):
             return kind, symbol, False, "EMPTY_OR_FAILED_FUNDING_HISTORY"
         funding = rows[0]
-        valid = positive_decimal(abs(float(funding.get("fundingRate", 0)))) or str(funding.get("fundingRate")) in {"0", "0.0", "0.000000"}
-        valid = bool(valid and str(funding.get("fundingTime", "")).isdigit())
+        try:
+            rate = Decimal(str(funding.get("fundingRate")))
+            valid_rate = rate.is_finite()
+        except (InvalidOperation, TypeError, ValueError):
+            valid_rate = False
+        valid = bool(valid_rate and str(funding.get("fundingTime", "")).isdigit())
         return kind, symbol, valid, None if valid else "INVALID_FUNDING_RECORD"
 
     if kind == "mark_price":
