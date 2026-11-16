@@ -1,14 +1,6 @@
 name: Ordered 24/7 Perpetual Exchange Qualification
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/trend_quality/exchange_probe.py"
-      - "scripts/probe_perp_priority.py"
-      - "scripts/validate_okx_eea_universe.py"
-      - "tests/test_exchange_probe.py"
-      - ".github/workflows/perp-exchange-priority.yml"
   workflow_dispatch:
 
 permissions:
