@@ -14,13 +14,13 @@ The required search order was Polymarket Perps → MEXC → Bitget. The first pr
 
 | Provider | Evidence | Current result |
 |---|---|---|
-| MEXC Futures | 1,152 instruments discovered; 1,143 cross-margin perpetuals across settlements; 1,061 active USDT-settled cross-margin perpetuals; sampled market data and full selected-universe ticker coverage | SELECTED — TECHNICAL PUBLIC-DATA PASS |
+| MEXC Futures | 1,152 instruments discovered; 1,143 cross-margin perpetuals across settlements; 1,061 active USDT quote+settlement execution/account contracts; sampled market data and ticker coverage verified | SELECTED — TECHNICAL PUBLIC-DATA PASS |
 | Polymarket Perps | 90 active cross-margin instruments discovered; missing fee coverage for four categories and sampled order-book reads failed | NOT READY |
 | Bitget | 886 active cross-margin USDT perpetuals; instrument, precision and sampled ticker/book/candle/funding checks passed | CURIOSITY-ONLY PASS; NOT SELECTED |
 
 Verified MEXC workflow: [run 43976183941](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976183941).
 
-The MEXC response provided 1,161 bulk ticker rows; every one of the 1,061 selected instruments had a matching ticker. Public order-book, daily-candle and funding-history calls passed for sampled high-turnover instruments across crypto, equity, commodity, FX and unclassified categories. The sampled daily candles began at 00:00 UTC. This verifies API shapes and representative category coverage, not every book or funding record on the entire universe.
+The MEXC response provided 1,161 bulk ticker rows; every one of the 1,061 USDT execution/account contracts had a matching ticker. The active research discovery covers 1,143 cross-margin perps across settlement types. The expanded all-settlement preflight is being rerun to verify bulk ticker coverage and sampled order-book, daily-candle and funding-history calls across every discovered research category. The sampled daily candles began at 00:00 UTC. This verifies API shapes and representative category coverage, not every book or funding record on the entire universe.
 
 Romanian derivatives-product/account eligibility has not been independently confirmed. Public API reachability is not an authorization determination.
 
@@ -45,7 +45,7 @@ Romanian derivatives-product/account eligibility has not been independently conf
 |---|---|
 | Exchange-neutral Q indicator | EMA, causal semi-cycle/CPC, Trend, absolute and RMS Noise, Q, B and Wilder ATR modules retained |
 | MEXC public adapter | Instrument details, cross-margin filter, bulk tickers, public depth, daily Klines and funding history; adapter unit tests added |
-| USDT universe normalization | 1,061 active USDT-settled cross-margin contracts observed; all categories retained, including unclassified |
+| Research/execution universe normalization | All 1,143 active cross-margin perps retained for Q research; 1,061 USDT quote+settlement contracts are eligible for the single-currency portfolio; non-USDT instruments remain research-only pending conversion model |
 | Contract-unit handling | contractSize, volUnit, minVol, maxVol and priceUnit normalized; book and Kline contract volume converted to base units; quote turnover retained separately |
 | Research/execution split | Q ranker produces independent long and short research lists; liquidity/turnover and order-book impact are execution gates |
 | Incremental data storage | Provider-isolated manifest, date-partitioned daily candles, compressed five-minute ticker snapshots, funding partitions, new listing lifecycle and delisting/settlement tracking |
