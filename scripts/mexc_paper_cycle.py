@@ -288,10 +288,10 @@ def _state_branch_protection(
     repository: str,
     token: str,
 ) -> tuple[bool, str]:
-    """Require a real positive branch-protection response before any account write."""
+    """Require branch protection, force-push/deletion blocks and writer restrictions."""
     if not repository or not token:
         return False, "MISSING_GITHUB_REPOSITORY_OR_TOKEN"
-    url = f"https://api.github.com/repos/{repository}/branches/state/protection"
+    url = f"https://api.github.com/repos/{repository}/branches/state"
     request = urllib.request.Request(
         url,
         headers={
@@ -306,13 +306,28 @@ def _state_branch_protection(
         with urllib.request.urlopen(request, timeout=12) as response:
             value = json.loads(response.read(1_000_000).decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        return False, f"BRANCH_PROTECTION_HTTP_{exc.code}"
+        return False, f"STATE_BRANCH_CHECK_HTTP_{exc.code}"
     except Exception as exc:
-        return False, f"BRANCH_PROTECTION_CHECK_FAILED:{type(exc).__name__}"
-    if not isinstance(value, dict) or not value:
-        return False, "BRANCH_PROTECTION_RESPONSE_EMPTY"
-    return True, "BRANCH_PROTECTION_CONFIRMED"
-
+        return False, f"STATE_BRANCH_CHECK_FAILED:{type(exc).__name__}"
+    if not isinstance(value, dict) or value.get("protected") is not True:
+        return False, "STATE_BRANCH_NOT_PROTECTED"
+    protection = value.get("protection")
+    if not isinstance(protection, dict) or protection.get("enabled") is not True:
+        return False, "STATE_BRANCH_PROTECTION_NOT_ENABLED"
+    force_pushes = protection.get("allow_force_pushes") or {}
+    deletions = protection.get("allow_deletions") or {}
+    if force_pushes.get("enabled") is True:
+        return False, "STATE_BRANCH_FORCE_PUSHES_ALLOWED"
+    if deletions.get("enabled") is True:
+        return False, "STATE_BRANCH_DELETION_ALLOWED"
+    if (protection.get("enforce_admins") or {}).get("enabled") is not True:
+        return False, "STATE_BRANCH_PROTECTION_NOT_ENFORCED_FOR_ADMINS"
+    restrictions = protection.get("restrictions")
+    if not isinstance(restrictions, dict) or not any(
+        restrictions.get(key) for key in ("users", "teams", "apps")
+    ):
+        return False, "STATE_BRANCH_WRITER_RESTRICTIONS_MISSING"
+    return True, "STATE_BRANCH_PROTECTION_AND_WRITER_RESTRICTIONS_CONFIRMED"
 
 def _publish_event(
     state: dict[str, Any],
