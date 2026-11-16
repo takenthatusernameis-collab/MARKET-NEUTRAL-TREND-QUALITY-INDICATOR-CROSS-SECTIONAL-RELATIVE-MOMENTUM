@@ -149,6 +149,10 @@ jobs:
           eeea_retail_margin_count = sum(
               has_europe_retail_margin(row) for row in crypto_pf
           )
+          full_contract_ready_count = sum(
+              has_valid_contract_precision(row) and has_europe_retail_margin(row)
+              for row in crypto_pf
+          )
           symbol = "PF_XBTUSD"
 
           tickers = rest("/tickers")
@@ -255,6 +259,7 @@ jobs:
               ),
               "eea_retail_margin_metadata": eeea_retail_margin_count >= 50,
               "contract_precision_metadata": precision_ready_count >= 50,
+              "intersection_of_eea_margin_and_precision": full_contract_ready_count >= 50,
               "ticker": valid_success(tickers) and ticker is not None,
               "orderbook": (
                   valid_success(book)
@@ -290,6 +295,7 @@ jobs:
               "approx_crypto_pf_usd_count": len(crypto_pf),
               "eea_retail_margin_metadata_count": eeea_retail_margin_count,
               "valid_contract_precision_metadata_count": precision_ready_count,
+              "eea_margin_and_precision_intersection_count": full_contract_ready_count,
               "excluded_ro_banned_count": sum(
                   1 for row in all_instruments
                   if isinstance(row, dict) and "RO" in row.get("countriesBanned", [])
