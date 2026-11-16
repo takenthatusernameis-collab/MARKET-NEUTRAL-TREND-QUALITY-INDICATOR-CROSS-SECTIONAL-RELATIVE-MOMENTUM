@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E501  # Keep long machine-readable API diagnostics intact.
 """Ordered, read-only public-market-data screen for 24/7 cross-margin perpetuals.
 
 No credentials, private endpoints, account creation, order endpoints, proxies or VPNs.
@@ -138,15 +139,22 @@ def data_probe(exchange: str, symbol: str, category: str) -> dict[str, Any]:
             base, "/api/v1/contract/funding_rate/history",
             {"symbol": sym, "page_num": 1, "page_size": 3},
         )
-        ok = lambda r: response_ok("mexc", r)
+        def ok(result: dict[str, Any]) -> bool:
+            return response_ok("mexc", result)
         ticker_ok = ok(results["ticker"]) and bool(rows_from(results["ticker"]["payload"], "data"))
         book = rows_from(results["orderbook"]["payload"], "data")
-        candle = rows_from(results["daily_candles"]["payload"], "data", "klines")
+        candle_payload = results["daily_candles"].get("payload")
+        candle_data = candle_payload.get("data") if isinstance(candle_payload, dict) else None
+        candles_ok = (
+            isinstance(candle_data, dict)
+            and isinstance(candle_data.get("time"), list)
+            and bool(candle_data.get("time"))
+        ) or (isinstance(candle_data, list) and bool(candle_data))
         funding = rows_from(results["funding_history"]["payload"], "data", "resultList")
         book_ok = ok(results["orderbook"]) and bool(book) and bool(book[0].get("bids")) and bool(book[0].get("asks"))
         return {"symbol": sym, "asset_class": category, "endpoints": results,
                 "checks": {"ticker": ticker_ok, "orderbook": book_ok,
-                           "daily_candles": ok(results["daily_candles"]) and bool(candle),
+                           "daily_candles": ok(results["daily_candles"]) and candles_ok,
                            "funding_history": ok(results["funding_history"]) and bool(funding)}}
 
     if exchange == "binance":
@@ -191,7 +199,8 @@ def data_probe(exchange: str, symbol: str, category: str) -> dict[str, Any]:
         results["orderbook"] = get_json(base, "/api/v2/mix/market/merge-depth", {"productType": product, "symbol": sym, "limit": 5})
         results["daily_candles"] = get_json(base, "/api/v2/mix/market/history-candles", {"productType": product, "symbol": sym, "granularity": "1D", "limit": 3})
         results["funding_history"] = get_json(base, "/api/v3/market/history-fund-rate", {"category": product, "symbol": sym, "limit": 3})
-        ok = lambda r: response_ok("bitget", r)
+        def ok(result: dict[str, Any]) -> bool:
+            return response_ok("bitget", result)
         ticker = rows_from(results["ticker"]["payload"], "data")
         book = rows_from(results["orderbook"]["payload"], "data")
         candles = rows_from(results["daily_candles"]["payload"], "data")
