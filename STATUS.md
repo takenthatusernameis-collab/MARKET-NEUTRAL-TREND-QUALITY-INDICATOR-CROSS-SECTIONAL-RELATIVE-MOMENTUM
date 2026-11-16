@@ -1,7 +1,7 @@
 # Market-Neutral Trend-Quality System — Status
 
 **Report date:** 2026-11-16  
-**Overall status:** RED-TEAM NO-GO — Bybit live API blocked; no replacement exchange approved  
+**Overall status:** RED-TEAM NO-GO — Bybit live API blocked; ordered 24/7 cross-margin replacement search in progress  
 **Trading mode:** Paper-only; no exchange orders or authenticated account access  
 **Forward paper account:** Not initialized  
 **Historical replay:** Not implemented  
@@ -35,7 +35,7 @@
 
 | Component | Current evidence / limitation |
 |---|---|
-| Specification and research safeguards | Master directive v2.6; exchange-neutral research core and explicit candidate qualification gates |
+| Specification and research safeguards | Master directive v2.7; exchange-neutral research core and explicit candidate qualification gates |
 | Indicator engine | EMA, causal semi-cycle/CPC, Trend, absolute and RMS Noise, Q, B and Wilder ATR; tested |
 | Cross-sectional ranking | Signed-Q candidate ranking and distinct-symbol pair-selection primitives; not yet applied to a complete live universe |
 | Bybit public client | Server time, paginated USDT linear perpetual instruments, backward Kline retrieval, funding history subdivision and public order-book parsing; mocked API tests pass |
@@ -104,3 +104,18 @@ The archive gives a credible path for selective historical trade ingestion and O
 **Release decision:** Do not activate ranking-dependent portfolio workflows. No NAV, trade count, return, CAGR, Sharpe, drawdown or profitability statistic is claimed until the missing data, replay/portfolio integration and persistence gates are passed.
 
 This report is evidence-based and must be regenerated from persisted account state once that system exists.
+
+
+## Ordered 24/7 cross-margin perpetual exchange search
+
+**Required search order:** HTX → MEXC → Binance → WEEX → Bitget.
+
+- HTX: hard jurisdiction rejection for Romania while its current published terms exclude EU member states. No account access or geographic workaround is attempted.
+- MEXC, Binance, WEEX and Bitget: read-only public market-data qualification is being executed. No candidate is approved from endpoint reachability alone; Romanian/EEA derivatives product eligibility must be independently confirmed.
+- If none of the five clears the complete gate, the specified fallback is OKX EEA primary, Kraken EEA backup.
+- Candidate screens enumerate documented perpetual contract classes and require cross-margin mode. They preserve unclassified asset types and exclude isolated-only, delivery/expiry and metadata-incomplete contracts.
+- New parser tests and the read-only public qualification workflow are committed. The corresponding CI and public API results are pending verification as of this report update.
+
+The first qualification screen samples market-data endpoints by available asset class. It is not the full-universe acceptance test. Before a paper account can be initialized, the selected provider must pass ticker, book, candle, funding, mark/index and contract-precision validation across every retained eligible instrument. For Kraken, retain only the 69 previously reconciled contracts and exclude the 26 mismatches; the 69-symbol full-universe coverage test has not yet run.
+
+**No replacement adapter, paper account, equity curve or performance result is claimed.** The system remains paper-only and all scheduled portfolio workflows remain disabled.
