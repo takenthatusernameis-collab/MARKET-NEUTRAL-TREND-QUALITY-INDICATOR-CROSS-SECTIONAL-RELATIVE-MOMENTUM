@@ -11,6 +11,7 @@ import json
 import os
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -110,6 +111,11 @@ class MarketDataStore:
                 "status": status,
                 "last_candle_timestamp_ms": previous.get("last_candle_timestamp_ms"),
                 "bootstrap_complete": bool(previous.get("bootstrap_complete", False)),
+                "bootstrap_attempts": int(previous.get("bootstrap_attempts", 0)),
+                "last_bootstrap_error": previous.get("last_bootstrap_error"),
+                "history_status": previous.get("history_status"),
+                "last_checked_daily_bar_ms": previous.get("last_checked_daily_bar_ms"),
+                "last_funding_timestamp_ms": previous.get("last_funding_timestamp_ms"),
             }
             counts[status] += 1
         for instrument_id, previous in stored.items():
@@ -347,6 +353,8 @@ class MarketDataStore:
                             if (
                                 start_ms <= timestamp <= target_timestamp_ms
                                 and isinstance(mark, str)
+                                and Decimal(mark).is_finite()
+                                and Decimal(mark) > 0
                                 and timestamp > (0 if best is None else best[0])
                             ):
                                 best = (timestamp, mark)
