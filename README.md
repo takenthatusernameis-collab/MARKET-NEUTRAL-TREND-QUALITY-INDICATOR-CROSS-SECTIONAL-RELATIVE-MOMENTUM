@@ -2,7 +2,8 @@
 
 **Status: BOOTSTRAPPING — no portfolio is active.**  
 **Execution: local paper simulation only.**  
-**Data source: Bybit Global public endpoints only.**
+**Live data source: Bybit Global V5 public API (currently blocked from tested GitHub runners).**  
+**Historical data path: official Bybit public trade archive (verified reachable; importer not yet implemented).**
 
 This repository implements a research system based on David Sepiashvili's [Trend-Quality Indicator paper](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf). The strategy hypothesis is to rank the complete eligible Bybit USDT linear perpetual universe, select the strongest qualifying positive-Q asset as the long and the strongest qualifying negative-Q asset as the short, then evaluate the pair under realistic simulated costs and risk controls.
 
@@ -52,7 +53,9 @@ The public API smoke command uses only unauthenticated Bybit Global public marke
 
 ## Network access constraint
 
-The public Bybit preflight has returned HTTP 403 from three standard GitHub-hosted runner allocations (Azure eastus2, eastus and westus3). The CloudFront response states that the distribution blocks access from the runner's country. This is a runner-region restriction, not proof of a general Bybit outage. No proxy, VPN, endpoint rotation, alternate exchange or paid runner is used. Public API preflight remains manually dispatchable; portfolio automation stays disabled until a supported runner network passes the integration gate.
+A six-job GitHub-hosted multi-cloud test (Ubuntu 22.04/24.04/26.04) received HTTP 403 from Bybit Global V5 in all cases, including the one job scheduled on AWS `us-west-2`. GitHub selects the cloud and region automatically; no region selector is available in the workflow. No proxy, VPN, domain rotation, alternate exchange, paid runner or manual self-hosted runner is used. Live API ingestion and forward portfolio automation remain gated.
+
+The separate official Bybit historical trade archive is reachable: three standard runner jobs successfully read a valid gzip range from a BTCUSDT daily file (HTTP 206). This may support selective historical OHLCV reconstruction after a resumable importer, coverage checks and data-quality audit are implemented. It does not supply verified funding, mark/index prices, current instrument metadata, or executable L2 order-book data, and is not a live-data substitute.
 
 ## Repository status
 
