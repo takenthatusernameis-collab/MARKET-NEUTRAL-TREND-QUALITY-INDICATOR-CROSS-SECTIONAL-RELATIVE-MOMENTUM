@@ -172,3 +172,41 @@
 - Added ordered Polymarket/MEXC/Bitget qualification script and GitHub Actions workflow.
 - Added `MarketDataStore` with incremental candle persistence, lifecycle manifest, hourly snapshot append and snapshot retention.
 - The first priority workflow did not reach the public API because the shared lint/test gate found fallback-probe and adapter formatting issues. These are being repaired; no provider pass is claimed until the workflow runs through its API step.
+
+
+## 2026-11-17 — Six refinement passes: Bitget curiosity and MEXC implementation
+
+### Pass 20 — provider-status honesty and priority preservation
+- Separated public endpoint reachability, API-contract completeness, account/jurisdiction eligibility and end-to-end paper readiness.
+- Added an independent Bitget diagnostic for curiosity only. It was not allowed to change the established provider priority or the MEXC selection.
+
+### Pass 21 — collateral and per-instrument universe
+- Confirmed the MEXC account research universe is active cross-margin linear USDT quote + USDT settlement perpetuals.
+- Kept other settlement currencies in metadata but outside the single-currency USDT account.
+- Preserved unknown asset categories rather than excluding them.
+
+### Pass 22 — contract math and research/execution separation
+- Required contractSize conversion for contract-count depth and Kline volume.
+- Used volUnit, minVol, maxVol, priceUnit and fee fields for sizing/fills.
+- Kept valid research candidates in the Q universe even when turnover or order book makes them non-executable.
+
+### Pass 23 — durable portfolio-account boundary
+- Reconfirmed the state branch is not protected and the repository rulesets endpoint is empty.
+- Portfolio writer must remain disabled; market-data collection and ranking do not initialize a financial account.
+- Required real branch-protection checks, restricted writers, remote chain anchoring, publisher test and full recovery before any account writes.
+
+### Pass 24 — public API and UTC daily-bar verification
+- Added a read-only MEXC hosted-runner preflight and executed real public calls.
+- Confirmed 1,061 active cross-margin USDT perps, full selected ticker coverage and sampled book/candle/funding access across all reported categories.
+- Added an explicit daily boundary check. The sampled Day1 bars opened at 00:00 UTC; the daily decision uses completed UTC bars only.
+
+### Pass 25 — incremental operation and reporting
+- Added provider-specific manifest isolation, daily candle/funding partitions, five-minute snapshots, bootstrap progress and incremental cursors.
+- Added MEXC contract-aware Q rankings, simulated fills, USDT account accounting primitives, funding and ATR stop functions, and sample-gated performance metrics.
+- Added the five-minute MEXC market-data/ranking workflow with account writing explicitly disabled.
+- Initial workflow run completed a 150-contract bootstrap batch (911 remained) but the data-branch commit failed because data/ was ignored. Workflow now force-adds the data directory; a subsequent successful commit remains an acceptance gate.
+
+### Result and disclosure
+- MEXC remains selected. Bitget's 886-instrument curiosity screen is recorded but does not replace it.
+- The MEXC public API preflight is integration-tested; the market-data scheduler's first successful durable branch write is still to be verified.
+- The forward paper account is uninitialized; no NAV, fills, return or performance claim exists. Romania-specific derivatives account eligibility remains unverified.
