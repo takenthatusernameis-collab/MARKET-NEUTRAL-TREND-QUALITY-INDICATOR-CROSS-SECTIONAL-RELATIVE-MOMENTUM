@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import statistics
-import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -31,7 +29,6 @@ from trend_quality.portfolio import (
     target_quantity,
 )
 from trend_quality.ranking import rank_candidates
-from trend_quality.selection import select_pair
 
 DAY_MS = 86_400_000
 BOOTSTRAP_DAYS = 365
@@ -395,7 +392,10 @@ def _daily_candidates(
     tickers: dict[int, dict[str, Any]],
     fees: dict[str, Decimal],
     nav: Decimal,
-) -> tuple[list[Any], list[Any], dict[str, dict[str, Any]], list[str]]:
+) -> tuple[
+    list[Any], list[Any], dict[str, dict[str, Any]], list[str],
+    list[Any], list[Any],
+]:
     observations: list[tuple[str, Any]] = []
     instruments_by_key: dict[str, dict[str, Any]] = {}
     execution_eligible: set[str] = set()
@@ -529,7 +529,7 @@ def _run() -> int:
     if invalid:
         raise RuntimeError(f"Active cross-margin instrument metadata invalid: {list(invalid.items())[:10]}")
 
-    ticker_rows, statistics = client.tickers()
+    ticker_rows, _statistics = client.tickers()
     ticker_map = _rows_by_id(ticker_rows)
     if len(ticker_map) != len(ticker_rows):
         raise RuntimeError("Bulk ticker response has duplicate or invalid instrument IDs")
@@ -823,8 +823,13 @@ def _run() -> int:
                     break
             if close_ok and pair_try is not None:
                 _, new_positions, entry_details = pair_try
-                # Entry sizing was performed at current NAV; apply fees to the
-                # post-close account and preserve a one-long/one-short pair.
+                # Apply the two entry fees once, after all new fills are verified.
+                entry_fees = sum(
+                    (dec(item.get("fee")) for item in entry_details),
+                    Decimal("0"),
+                )
+                trial_state["cash"] = str(dec(trial_state["cash"]) - entry_fees)
+                trial_state["fees_paid"] = str(dec(trial_state["fees_paid"]) + entry_fees)
                 trial_state["positions"] = new_positions
                 portfolio = trial_state
                 fills = simulated_closed + entry_details
@@ -838,8 +843,10 @@ def _run() -> int:
                 state_changed = True
             else:
                 decision_status = "REBALANCE_BLOCKED_BY_EXIT_BOOK_OR_METADATA"
-        portfolio["last_processed_daily_bar_ms"] = int(latest_completed_bar_ms)
-        if decision_status in {"PAIR_HELD", "PAIR_OPENED_OR_REPLACED", "FLAT_NO_EXECUTABLE_PAIR"}:
+        if decision_status in {
+            "PAIR_HELD", "PAIR_OPENED_OR_REPLACED", "FLAT_NO_EXECUTABLE_PAIR"
+        }:
+            portfolio["last_processed_daily_bar_ms"] = int(latest_completed_bar_ms)
             state_changed = True
 
     nav = _nav(portfolio, ticker_map)
