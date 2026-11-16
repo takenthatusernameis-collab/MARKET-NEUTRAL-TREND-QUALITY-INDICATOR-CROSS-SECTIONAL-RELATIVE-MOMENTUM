@@ -160,13 +160,20 @@ def _bootstrap_or_increment(
     latest_completed_bar_ms: int,
     batch_size: int,
 ) -> tuple[int, int, list[dict[str, Any]]]:
-    """Backfill new assets in bounded batches; fetch only new completed daily bars."""
+    """Backfill new assets in bounded, fair batches; fetch only unchecked bars."""
     manifest_rows = store.manifest["instruments"]
     pending = [
-        instrument for instrument in instruments
-        if not manifest_rows[str(instrument["instrument_id"])].get("bootstrap_complete")
+        row for row in instruments
+        if not manifest_rows[str(row["instrument_id"])].get("bootstrap_complete")
     ]
-    selected = pending[:batch_size]
+    pending.sort(key=lambda row: (
+        int(manifest_rows[str(row["instrument_id"])].get("bootstrap_attempts", 0)),
+        int(manifest_rows[str(row["instrument_id"])].get("first_seen_at_ms", 0)),
+        int(row["instrument_id"]),
+    ))
+    selected_ids = {
+        int(row["instrument_id"]) for row in pending[:batch_size]
+    }
     completed_count = 0
     api_failures: list[dict[str, Any]] = []
     all_candle_updates: list[dict[str, Any]] = []
@@ -175,33 +182,32 @@ def _bootstrap_or_increment(
         iid = int(instrument["instrument_id"])
         record = manifest_rows[str(iid)]
         is_bootstrap = not bool(record.get("bootstrap_complete"))
-        if is_bootstrap and instrument not in selected:
+        if is_bootstrap and iid not in selected_ids:
             continue
+
         last_timestamp = record.get("last_candle_timestamp_ms")
-        if is_bootstrap:
+        last_checked = record.get("last_checked_daily_bar_ms")
+        if is_bootstrap and last_timestamp is None and last_checked is None:
             listing_time = instrument.get("create_time_ms")
             start_ms = max(
                 server_ms - BOOTSTRAP_DAYS * DAY_MS,
                 int(listing_time) if listing_time else server_ms - BOOTSTRAP_DAYS * DAY_MS,
             )
+        elif last_timestamp is not None:
+            start_ms = int(last_timestamp) + DAY_MS
         else:
-            if last_timestamp is None:
-                start_ms = server_ms - BOOTSTRAP_DAYS * DAY_MS
-                is_bootstrap = True
-            else:
-                start_ms = int(last_timestamp) + DAY_MS
-                if start_ms > latest_completed_bar_ms:
-                    continue
+            start_ms = int(last_checked or 0) + DAY_MS
 
         end_ms = min(server_ms, latest_completed_bar_ms + DAY_MS)
         if start_ms >= end_ms:
             if is_bootstrap:
-                # Successful empty lookback is recorded explicitly as insufficient history.
                 store.mark_bootstrap_complete(
                     iid,
                     completed_at_ms=server_ms,
                     history_status="INSUFFICIENT_HISTORY",
                 )
+                record["last_checked_daily_bar_ms"] = latest_completed_bar_ms
+                record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
                 completed_count += 1
             continue
         try:
@@ -215,12 +221,13 @@ def _bootstrap_or_increment(
             existing = store.load_candles(iid)
             existing_stamps = {int(row["timestamp_ms"]) for row in existing}
             all_candle_updates.extend(
-                row for row in rows if int(row["timestamp_ms"]) not in existing_stamps
+                row for row in rows
+                if int(row["timestamp_ms"]) not in existing_stamps
+            )
+            total_count = len(existing) + sum(
+                int(row["timestamp_ms"]) not in existing_stamps for row in rows
             )
             if is_bootstrap:
-                # The endpoint request completed successfully. Short listing histories
-                # remain explicitly unrankable but do not stall the entire universe.
-                total_count = len(existing) + len(rows)
                 status = "AVAILABLE" if total_count >= 35 else "INSUFFICIENT_HISTORY"
                 store.mark_bootstrap_complete(
                     iid,
@@ -228,11 +235,21 @@ def _bootstrap_or_increment(
                     history_status=status,
                 )
                 completed_count += 1
+            elif (
+                record.get("history_status") == "INSUFFICIENT_HISTORY"
+                and total_count >= 35
+            ):
+                record["history_status"] = "AVAILABLE"
+            record["last_checked_daily_bar_ms"] = latest_completed_bar_ms
+            record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
+            record["last_bootstrap_error"] = None
         except Exception as exc:
+            record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
+            record["last_bootstrap_error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
             api_failures.append({
                 "instrument_id": iid,
                 "symbol": instrument["symbol"],
-                "error": f"{type(exc).__name__}: {str(exc)[:250]}",
+                "error": record["last_bootstrap_error"],
             })
 
     if all_candle_updates:
@@ -242,7 +259,6 @@ def _bootstrap_or_increment(
         for row in instruments
     )
     return completed_count, remaining, api_failures
-
 
 def _load_state(state_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
     paths = sorted((state_dir / "events").glob("**/*.json"))
