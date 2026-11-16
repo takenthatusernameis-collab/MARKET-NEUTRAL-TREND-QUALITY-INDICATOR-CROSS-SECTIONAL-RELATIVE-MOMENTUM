@@ -1,0 +1,91 @@
+name: MEXC Trend-Quality — 5-Minute Data and Paper Research
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/trend_quality/mexc_api.py"
+      - "src/trend_quality/mexc_paper.py"
+      - "src/trend_quality/mexc_portfolio.py"
+      - "src/trend_quality/market_data_store.py"
+      - "scripts/mexc_paper_cycle.py"
+      - ".github/workflows/mexc-paper-cycle.yml"
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mexc-five-minute-cycle
+  cancel-in-progress: false
+
+jobs:
+  cycle:
+    name: Snapshot, increment history and rank MEXC contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      MARKET_DATA_DIR: ../market-data
+      PAPER_STATE_DIR: ../state
+      BOOTSTRAP_BATCH_SIZE: "150"
+      PAPER_STATE_WRITE_ENABLED: "false"
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out strategy source
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: strategy
+      - name: Check out public market-data branch
+        uses: actions/checkout@v4
+        with:
+          ref: market-data
+          path: market-data
+          fetch-depth: 0
+      - name: Check out immutable paper-event branch
+        uses: actions/checkout@v4
+        with:
+          ref: state
+          path: state
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install strategy package
+        working-directory: strategy
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Run five-minute public-data and ranking cycle
+        working-directory: strategy
+        shell: bash
+        run: |
+          mkdir -p ../market-data/data/reports/mexc
+          set -o pipefail
+          python scripts/mexc_paper_cycle.py | tee ../market-data/data/reports/mexc/workflow-last-run.log
+      - name: Commit public data, snapshots and research reports
+        if: always()
+        working-directory: market-data
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No public market-data changes to commit."
+          else
+            git commit -m "Append MEXC market data and research snapshot"
+            git push origin HEAD:market-data
+          fi
+      - name: Upload MEXC research report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mexc-paper-research-report
+          path: market-data/data/reports/mexc/
+          if-no-files-found: warn
+          retention-days: 30
