@@ -1,10 +1,10 @@
 """Auditable daily-equity and closed-trade performance analytics."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from math import sqrt
-from collections.abc import Iterable
 from statistics import mean, stdev
 
 DAY_MS = 86_400_000
@@ -55,7 +55,7 @@ def daily_returns(points: Iterable[EquityPoint]) -> list[float]:
     _validate_equity(ordered)
     return [
         float(current.nav / previous.nav - Decimal("1"))
-        for previous, current in zip(ordered, ordered[1:])
+        for previous, current in zip(ordered, ordered[1:], strict=False)
     ]
 
 
