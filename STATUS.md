@@ -1,7 +1,7 @@
 # Market-Neutral Trend-Quality System — Status
 
 **Report date:** 2026-11-16  
-**Overall status:** BOOTSTRAPPING — external data access blocked  
+**Overall status:** BOOTSTRAPPING — live V5 API blocked; official historical archive reachable  
 **Trading mode:** Paper-only; no exchange orders or authenticated account access  
 **Forward paper account:** Not initialized  
 **Historical replay:** Not implemented  
@@ -55,17 +55,26 @@
 - Pytest: **62 passed in 0.21 seconds**.
 - These tests cover deterministic calculations, mocked API response/pagination behavior, accounting, simulated execution, performance metrics, local event persistence, SQLite projection and mocked Git state publication. They do not establish successful live Bybit access or strategy profitability.
 
-## External Bybit connectivity blocker
+## External Bybit API and archive access
 
-Three standard GitHub-hosted runner allocations were tested:
+### Live V5 API
+Six jobs were run on GitHub-hosted standard Linux runners using Ubuntu 22.04, 24.04 and 26.04. Each made one request to `https://api.bybit.com/v5/market/time`.
 
-- `eastus2`: HTTP 403 from `/v5/market/time`.
-- `eastus`: CloudFront response explicitly stated that access was blocked based on the runner's country.
-- `westus3`: the same CloudFront country-block response.
+- Workflow run [43911753549](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43911753549): 6/6 failed with HTTP 403 and a CloudFront country-block response.
+- Five jobs were assigned to Azure US regions. One job was assigned to AWS `us-west-2`; it also received HTTP 403.
+- The standard Linux multi-cloud pool is automatic and provides no user-selectable region. This test therefore did not create a compliant route to the live API.
 
-The Bybit public API client is therefore implemented but has not passed live integration from the available free GitHub-hosted runner network. This is evidence of a country restriction on those runner paths, not evidence of a general Bybit outage. No proxy, VPN, API-host rotation, exchange substitution or paid runner has been used.
+### Official historical trade archive
+A separate read-only probe tested the official Bybit archive host from the same standard Linux runner pool.
 
-A user-controlled self-hosted runner on a network permitted by Bybit is the remaining plausible no-paid-infrastructure route. It has not been provisioned or authorized.
+- Workflow run [43912009008](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43912009008): 3/3 passed.
+- Each job fetched bytes 0–2047 of `https://public.bybit.com/trading/BTCUSDT/BTCUSDT2026-11-15.csv.gz`, received HTTP 206 and validated gzip magic bytes.
+- GitHub assigned the jobs to Azure `centralus`, Azure `westus3`, and AWS `us-west-2`.
+- The archive index shows daily BTCUSDT trade files beginning 2020-03-25 and extending through 2026-11-15. The tested file advertises 126,793,002 compressed bytes.
+
+The archive gives a credible path for selective historical trade ingestion and OHLCV reconstruction. It is not integrated yet, and it is not a replacement for live V5 data: funding history, mark/index prices, fresh order books, current instrument rules, and intraday execution are not established by this archive. Historical symbol coverage and survivorship bias also require audit before universe-level claims.
+
+**Release decision:** Live ranking-dependent portfolio workflows remain disabled. The historical archive path may be implemented for selective price research only after schema, integrity, coverage, storage and cost validation. No NAV, trade count, return, CAGR, Sharpe, drawdown or profitability statistic is claimed until historical or forward account data actually exists.
 
 ## Not yet implemented or operational
 
