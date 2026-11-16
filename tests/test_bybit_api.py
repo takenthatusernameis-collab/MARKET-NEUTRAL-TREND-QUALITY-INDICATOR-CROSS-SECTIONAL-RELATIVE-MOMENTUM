@@ -113,13 +113,25 @@ def test_funding_full_page_is_subdivided() -> None:
             {
                 "retCode": 0,
                 "result": {
-                    "list": [{"symbol": "BTCUSDT", "fundingRateTimestamp": "10", "fundingRate": "0.001"}]
+                    "list": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "fundingRateTimestamp": "10",
+                            "fundingRate": "0.001",
+                        }
+                    ]
                 },
             },
             {
                 "retCode": 0,
                 "result": {
-                    "list": [{"symbol": "BTCUSDT", "fundingRateTimestamp": "90", "fundingRate": "0.002"}]
+                    "list": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "fundingRateTimestamp": "90",
+                            "fundingRate": "0.002",
+                        }
+                    ]
                 },
             },
         ]
