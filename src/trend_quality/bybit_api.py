@@ -8,7 +8,8 @@ import json
 import time
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -67,7 +68,10 @@ class BybitPublicClient:
         query = urlencode({key: str(value) for key, value in params.items()})
         request = Request(
             f"{self.base_url}{path}?{query}",
-            headers={"User-Agent": "trend-quality-paper-research/0.1", "Accept": "application/json"},
+            headers={
+                "User-Agent": "trend-quality-paper-research/0.1",
+                "Accept": "application/json",
+            },
             method="GET",
         )
         with urlopen(request, timeout=self.timeout_seconds) as response:
@@ -309,6 +313,10 @@ class BybitPublicClient:
             {"category": "linear", "symbol": symbol, "limit": limit},
         )
         result = payload["result"]
-        if result.get("s") != symbol or not isinstance(result.get("b"), list) or not isinstance(result.get("a"), list):
+        if (
+            result.get("s") != symbol
+            or not isinstance(result.get("b"), list)
+            or not isinstance(result.get("a"), list)
+        ):
             raise BybitAPIError("Malformed order-book response")
         return result
