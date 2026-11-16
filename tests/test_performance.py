@@ -92,6 +92,36 @@ def test_monotonic_equity_has_no_drawdown_or_recovery_duration() -> None:
     assert metrics["recovery_period_days"].reason == "No drawdown occurred"
 
 
+
+def test_performance_rejects_nonfinite_nav_and_trade_pnl() -> None:
+    with CHECKS.assertRaisesRegex(ValueError, "finite and positive Decimals"):
+        daily_returns(
+            [
+                EquityPoint(BASE_TIME, decimal.Decimal("100")),
+                EquityPoint(BASE_TIME + DAY_MS, decimal.Decimal("Infinity")),
+            ]
+        )
+    with CHECKS.assertRaisesRegex(ValueError, "finite and positive Decimals"):
+        daily_returns(
+            [
+                EquityPoint(BASE_TIME, decimal.Decimal("100")),
+                EquityPoint(BASE_TIME + DAY_MS, decimal.Decimal("NaN")),
+            ]
+        )
+    with CHECKS.assertRaisesRegex(ValueError, "positive integer UTC milliseconds"):
+        daily_returns(
+            [
+                EquityPoint(True, decimal.Decimal("100")),
+                EquityPoint(True + DAY_MS, decimal.Decimal("101")),
+            ]
+        )
+    with CHECKS.assertRaisesRegex(ValueError, "finite Decimals"):
+        compute_performance_metrics(
+            _equity(["100", "101"]),
+            [decimal.Decimal("Infinity")],
+        )
+
+
 def test_formal_cagr_is_withheld_before_365_elapsed_days() -> None:
     metrics = compute_performance_metrics(_equity(["100", "101"]))
     assert metrics["cagr"].value is None
