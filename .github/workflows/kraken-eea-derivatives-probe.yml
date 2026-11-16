@@ -143,10 +143,34 @@ jobs:
 
           import time
           now_seconds = int(time.time())
-          candles = chart(
-              f"trade/{symbol}/1d",
-              {"from": str(now_seconds - 10 * 86400), "to": str(now_seconds), "count": "5"},
-          )
+          chart_discovery = {
+              "markets": chart("/markets"),
+              "tick_types": chart("/tick-types"),
+              "resolutions": chart("/resolutions"),
+          }
+          candle_attempts = {}
+          for candidate_symbol in (symbol, "PF_BTCUSD", "PI_XBTUSD"):
+              for tick_type in ("trade", "mark"):
+                  route = f"/{tick_type}/{candidate_symbol}/1d"
+                  result = chart(
+                      route,
+                      {"from": str(now_seconds - 10 * 86400), "to": str(now_seconds), "count": "5"},
+                  )
+                  candle_attempts[route] = result
+                  payload_candidate = result.get("payload")
+                  if (
+                      result.get("http_status") == 200
+                      and isinstance(payload_candidate, dict)
+                      and isinstance(payload_candidate.get("candles"), list)
+                      and payload_candidate.get("candles")
+                  ):
+                      candles = result
+                      break
+              else:
+                  continue
+              break
+          else:
+              candles = candle_attempts.get(f"/trade/{symbol}/1d", {})
           candles_payload = candles.get("payload")
           candle_rows = (
               candles_payload.get("candles", [])
@@ -205,6 +229,14 @@ jobs:
                   "sample": book_data,
                   "body_excerpt": book.get("body_excerpt"),
               },
+              "chart_discovery": {
+                  name: {"http_status": result.get("http_status"), "payload": result.get("payload"), "body_excerpt": result.get("body_excerpt")}
+                  for name, result in chart_discovery.items()
+              },
+              "candle_attempts": {
+                  name: {"http_status": result.get("http_status"), "payload": result.get("payload"), "body_excerpt": result.get("body_excerpt")}
+                  for name, result in candle_attempts.items()
+              },
               "daily_candles": {
                   "http_status": candles.get("http_status"),
                   "sample": candle_rows[:3],
@@ -218,7 +250,7 @@ jobs:
               "checks": checks,
               "technical_market_data_pass": all(checks.values()),
               "jurisdiction_status": "EEA_DERIVATIVES_PRODUCT_DOCUMENTED; INDIVIDUAL_ONBOARDING_REQUIRED",
-              "collateral_status": "EEA_SUPPORTS_USDC_NOT_USDT; USDC HAIRCUT 0.50%",
+              "collateral_status": "CURRENT EEA COLLATERAL LIST INCLUDES USDT AND USDC; BOTH 0.50% HAIRCUT; USD PNL DEFAULT",
               "candidate_ready": False,
               "candidate_status": (
                   "TECHNICALLY_COMPATIBLE_EEA_PRODUCT_PENDING_ADAPTER_AND_ACCOUNT_ONBOARDING"
