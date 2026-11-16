@@ -106,6 +106,21 @@ def main() -> int:
                 ]
                 checks["daily_candles"] = bool(completed)
                 row["completed_daily_candles_14d"] = len(completed)
+                if completed:
+                    latest_stamp = max(int(item["timestamp_ms"]) for item in completed)
+                    row["latest_completed_daily_bar_start_ms"] = latest_stamp
+                    row["latest_completed_daily_bar_start_utc"] = (
+                        datetime.fromtimestamp(
+                            latest_stamp / 1000, tz=UTC
+                        ).isoformat()
+                    )
+                    row["daily_bar_start_offset_seconds_utc"] = (
+                        latest_stamp // 1000
+                    ) % 86_400
+                    row["current_partial_daily_bar_present"] = any(
+                        int(item["timestamp_ms"]) + 86_400_000 > now_ms
+                        for item in candles
+                    )
             except Exception as exc:
                 checks["daily_candles"] = False
                 row["candle_error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
