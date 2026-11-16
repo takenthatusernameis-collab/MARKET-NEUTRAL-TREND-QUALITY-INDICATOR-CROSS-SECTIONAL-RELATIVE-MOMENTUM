@@ -5,6 +5,7 @@ This module is deterministic and never submits exchange orders.
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -13,7 +14,10 @@ from .performance import EquityPoint, compute_performance_metrics
 from .portfolio import Position, funding_cashflow, portfolio_exposure
 
 ZERO = Decimal("0")
+ONE = Decimal("1")
 DEFAULT_INITIAL_CAPITAL = Decimal("100")
+DEFAULT_DAILY_DRAWDOWN_LIMIT = Decimal("0.25")
+DEFAULT_LEVERAGE = Decimal("2")
 
 
 def _decimal(value: object, field: str) -> Decimal:
@@ -44,6 +48,8 @@ def initial_portfolio_state(
         "positions": [],
         "closed_trade_net_pnls": [],
         "daily_equity": [],
+        "equity_curve": [],
+        "daily_risk": {},
         "last_processed_daily_bar_ms": None,
         "last_snapshot_ms": None,
         "unresolved_funding_count": 0,
@@ -92,6 +98,7 @@ def open_paper_position(
     timestamp_ms: int,
     *,
     stop_atr_multiple: Decimal = Decimal("3"),
+    leverage: Decimal = DEFAULT_LEVERAGE,
 ) -> dict[str, Any]:
     if side not in {"long", "short"}:
         raise ValueError("Position side must be long or short")
@@ -100,8 +107,11 @@ def open_paper_position(
     iid = int(instrument["instrument_id"])
     if any(int(row["instrument_id"]) == iid for row in state.get("positions", [])):
         raise ValueError("Instrument already has an open paper position")
-    if atr <= ZERO or stop_atr_multiple <= ZERO:
-        raise ValueError("ATR and stop multiple must be positive")
+    if atr <= ZERO or stop_atr_multiple <= ZERO or not leverage.is_finite() or leverage <= ZERO:
+        raise ValueError("ATR, stop multiple and leverage must be positive")
+    maximum_leverage = _decimal(instrument.get("max_leverage", leverage), "maximum leverage")
+    if leverage > maximum_leverage:
+        raise ValueError("Requested paper leverage exceeds instrument maximum")
     entry = fill.average_price
     stop = (
         entry - atr * stop_atr_multiple
@@ -122,6 +132,8 @@ def open_paper_position(
         "entry_price": str(entry),
         "entry_timestamp_ms": int(timestamp_ms),
         "entry_fee": str(fee),
+        "leverage": str(leverage),
+        "initial_margin_usdt": str(fill.notional / leverage),
         "last_mark_price": str(ticker.get("mark_price", entry)),
         "stop_price": str(stop),
         "highest_since_entry": str(entry),
@@ -262,6 +274,116 @@ def append_daily_equity(
     curve.append({"timestamp_ms": int(timestamp_ms), "nav": str(nav)})
 
 
+
+def append_equity_snapshot(
+    state: dict[str, Any],
+    timestamp_ms: int,
+    nav: Decimal,
+    long_notional: Decimal,
+    short_notional: Decimal,
+    *,
+    drawdown_limit: Decimal = DEFAULT_DAILY_DRAWDOWN_LIMIT,
+) -> dict[str, Any]:
+    """Append a portfolio mark and update the combined-book daily risk watermark."""
+    for value, field in (
+        (nav, "nav"),
+        (long_notional, "long_notional"),
+        (short_notional, "short_notional"),
+        (drawdown_limit, "drawdown_limit"),
+    ):
+        if not isinstance(value, Decimal) or not value.is_finite():
+            raise ValueError(f"{field} must be a finite Decimal")
+    if timestamp_ms <= 0 or long_notional < ZERO or short_notional < ZERO:
+        raise ValueError("Invalid equity snapshot timestamp or exposure")
+    if drawdown_limit <= ZERO or drawdown_limit >= ONE:
+        raise ValueError("drawdown_limit must be in (0, 1)")
+    timestamp = datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
+    day_key = timestamp.strftime("%Y-%m-%d")
+    risk = state.setdefault("daily_risk", {})
+    if risk.get("utc_date") != day_key:
+        risk = {
+            "utc_date": day_key,
+            "starting_nav": str(nav),
+            "starting_timestamp_ms": int(timestamp_ms),
+            "starting_reference": "first_observation_of_utc_day",
+            "peak_nav": str(nav),
+            "peak_timestamp_ms": int(timestamp_ms),
+            "stop_triggered": False,
+            "stop_triggered_at_ms": None,
+            "stop_reason": None,
+            "flattened": False,
+            "flatten_attempts": 0,
+        }
+        state["daily_risk"] = risk
+    else:
+        peak = _decimal(risk.get("peak_nav", nav), "daily peak NAV")
+        if nav > peak:
+            risk["peak_nav"] = str(nav)
+            risk["peak_timestamp_ms"] = int(timestamp_ms)
+            peak = nav
+    starting_nav = _decimal(risk["starting_nav"], "daily starting NAV")
+    peak_nav = _decimal(risk["peak_nav"], "daily peak NAV")
+    if starting_nav <= ZERO or peak_nav <= ZERO:
+        daily_return = Decimal("-1")
+        daily_drawdown = Decimal("-1")
+    else:
+        daily_return = nav / starting_nav - ONE
+        daily_drawdown = nav / peak_nav - ONE
+    newly_triggered = False
+    if daily_drawdown <= -drawdown_limit and not bool(risk.get("stop_triggered")):
+        risk["stop_triggered"] = True
+        risk["stop_triggered_at_ms"] = int(timestamp_ms)
+        risk["stop_reason"] = "COMBINED_PORTFOLIO_DAILY_DRAWDOWN_LIMIT"
+        risk["flattened"] = False
+        newly_triggered = True
+    initial_capital = _decimal(state["initial_capital"], "initial capital")
+    total_roi = nav / initial_capital - ONE if initial_capital > ZERO else ZERO
+    gross_notional = long_notional + short_notional
+    gross_exposure = gross_notional / nav if nav > ZERO else None
+    snapshot = {
+        "timestamp_ms": int(timestamp_ms),
+        "utc_date": day_key,
+        "nav": str(nav),
+        "roi_pct": str(total_roi * Decimal("100")),
+        "daily_return_pct": str(daily_return * Decimal("100")),
+        "daily_drawdown_pct": str(daily_drawdown * Decimal("100")),
+        "daily_starting_nav": str(starting_nav),
+        "daily_peak_nav": str(peak_nav),
+        "long_notional_usdt": str(long_notional),
+        "short_notional_usdt": str(short_notional),
+        "gross_exposure": None if gross_exposure is None else str(gross_exposure),
+        "emergency_stop_triggered": bool(risk.get("stop_triggered")),
+        "emergency_stop_newly_triggered": newly_triggered,
+        "emergency_stop_flattened": bool(risk.get("flattened")),
+    }
+    curve = state.setdefault("equity_curve", [])
+    if curve and int(curve[-1]["timestamp_ms"]) == int(timestamp_ms):
+        curve[-1] = snapshot
+    elif curve and int(curve[-1]["timestamp_ms"]) > int(timestamp_ms):
+        raise ValueError("Equity-curve timestamps cannot move backwards")
+    else:
+        curve.append(snapshot)
+    state["last_snapshot_ms"] = int(timestamp_ms)
+    return snapshot
+
+
+def lifetime_max_drawdown(state: dict[str, Any]) -> Decimal | None:
+    """Peak-to-trough NAV drawdown over all stored portfolio snapshots."""
+    points = state.get("equity_curve") or state.get("daily_equity", [])
+    if not points:
+        return None
+    peak: Decimal | None = None
+    maximum = ZERO
+    for row in points:
+        nav = _decimal(row["nav"], "equity-curve NAV")
+        if peak is None or nav > peak:
+            peak = nav
+        if peak is not None and peak > ZERO:
+            drawdown = nav / peak - ONE
+            if drawdown < maximum:
+                maximum = drawdown
+    return maximum
+
 def performance_summary(state: dict[str, Any]) -> dict[str, Any]:
     curve = state.get("daily_equity", [])
     points = [
@@ -311,6 +433,8 @@ def account_report(
     nav = portfolio_nav(state, ticker_by_instrument_id)
     long_notional = ZERO
     short_notional = ZERO
+    long_margin = ZERO
+    short_margin = ZERO
     for position in state.get("positions", []):
         mark = _decimal(
             ticker_by_instrument_id.get(int(position["instrument_id"]), {}).get(
@@ -319,10 +443,16 @@ def account_report(
             "position mark",
         )
         notional = _decimal(position["quantity"], "quantity") * mark
+        leverage = _decimal(position.get("leverage", "1"), "position leverage")
+        if leverage <= ZERO:
+            raise ValueError("Position leverage must be positive")
+        margin = notional / leverage
         if position["side"] == "long":
             long_notional += notional
+            long_margin += margin
         else:
             short_notional += notional
+            short_margin += margin
     exposure = portfolio_exposure(nav, long_notional, short_notional)
     return {
         "currency": "USDT",
@@ -335,6 +465,19 @@ def account_report(
         "confirmed_funding": state["confirmed_funding"],
         "gross_exposure": str(exposure["gross_exposure"]),
         "net_exposure": str(exposure["net_exposure"]),
+        "long_notional_usdt": str(long_notional),
+        "short_notional_usdt": str(short_notional),
+        "long_margin_used_usdt": str(long_margin),
+        "short_margin_used_usdt": str(short_margin),
+        "total_margin_used_usdt": str(long_margin + short_margin),
+        "effective_gross_leverage": str(exposure["gross_exposure"]),
+        "roi_pct": str((nav / _decimal(state["initial_capital"], "initial capital") - ONE) * Decimal("100")),
+        "lifetime_max_drawdown_pct": (
+            None if lifetime_max_drawdown(state) is None
+            else str(lifetime_max_drawdown(state) * Decimal("100"))
+        ),
+        "daily_risk": dict(state.get("daily_risk", {})),
+        "equity_curve": list(state.get("equity_curve", [])),
         "dollar_neutrality_imbalance": str(
             exposure["dollar_neutrality_imbalance"]
         ),
