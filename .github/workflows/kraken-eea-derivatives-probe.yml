@@ -103,6 +103,12 @@ jobs:
               and str(x.get("symbol", "")).startswith("PF_")
               and str(x.get("symbol", "")).endswith("USD")
               and x.get("tradeable") is True
+              and (
+                  "europa_crypto" in x.get("platformsPermitted", [])
+                  or "europa" in x.get("platformsPermitted", [])
+                  or "payward_digital_solutions" in x.get("platformsPermitted", [])
+              )
+              and "RO" not in x.get("countriesBanned", [])
           ]
           # Exclude tokenised equities and indices explicitly visible in the
           # official EEA instrument naming scheme; still expose all raw PF data.
@@ -142,7 +148,10 @@ jobs:
               book_data = book_payload.get("orderbook")
 
           import time
+          from datetime import datetime, timezone
           now_seconds = int(time.time())
+          utc_today_start = (now_seconds // 86400) * 86400
+          latest_completed_daily_start = (utc_today_start - 86400) * 1000
           chart_discovery = {
               "markets": chart("/markets"),
               "tick_types": chart("/tick-types"),
@@ -154,7 +163,7 @@ jobs:
                   route = f"/{tick_type}/{candidate_symbol}/1d"
                   result = chart(
                       route,
-                      {"from": str(now_seconds - 10 * 86400), "to": str(now_seconds), "count": "5"},
+                      {"from": str(now_seconds - 5 * 86400), "to": str(now_seconds), "count": "5"},
                   )
                   candle_attempts[route] = result
                   payload_candidate = result.get("payload")
@@ -188,21 +197,54 @@ jobs:
               else []
           )
 
+          latest_candle_time = max(
+              (int(row.get("time", 0)) for row in candle_rows if isinstance(row, dict)),
+              default=0,
+          )
+          funding_timestamps = []
+          funding_rates_valid = True
+          for row in funding_rows:
+              try:
+                  timestamp = datetime.fromisoformat(
+                      str(row["timestamp"]).replace("Z", "+00:00")
+                  ).timestamp()
+                  absolute_rate = float(row["fundingRate"])
+                  relative_rate = float(row["relativeFundingRate"])
+                  funding_timestamps.append(int(timestamp))
+                  if not (abs(absolute_rate) < float("inf") and abs(relative_rate) < float("inf")):
+                      funding_rates_valid = False
+              except (KeyError, TypeError, ValueError, OverflowError):
+                  funding_rates_valid = False
+          latest_funding_timestamp = max(funding_timestamps, default=0)
           checks = {
               "instruments": valid_success(instrument_result) and len(crypto_pf) >= 50,
-              "tickers": valid_success(tickers) and ticker is not None,
+              "eea_platform_permissions": bool(pf) and all(
+                  "europa_crypto" in row.get("platformsPermitted", [])
+                  or "europa" in row.get("platformsPermitted", [])
+                  or "payward_digital_solutions" in row.get("platformsPermitted", [])
+                  for row in crypto_pf
+              ),
+              "ticker": valid_success(tickers) and ticker is not None,
               "orderbook": (
                   valid_success(book)
                   and isinstance(book_data, dict)
                   and bool(book_data.get("asks"))
                   and bool(book_data.get("bids"))
               ),
-              "daily_candles": (
+              "latest_completed_daily_candle": (
                   candles.get("http_status") == 200
                   and isinstance(candles_payload, dict)
                   and bool(candle_rows)
+                  and latest_candle_time >= latest_completed_daily_start
+                  and latest_candle_time < utc_today_start * 1000
               ),
-              "funding_history": valid_success(funding) and bool(funding_rows),
+              "recent_settled_funding_history": (
+                  valid_success(funding)
+                  and bool(funding_rows)
+                  and funding_rates_valid
+                  and latest_funding_timestamp >= now_seconds - 2 * 3600
+                  and latest_funding_timestamp <= now_seconds
+              ),
           }
 
           report = {
@@ -215,7 +257,12 @@ jobs:
               "instrument_api_result": payload.get("result") if isinstance(payload, dict) else None,
               "all_instrument_count": len(all_instruments),
               "tradeable_pf_usd_count": len(pf),
+              "eea_platform_permitted_pf_usd_count": len(pf),
               "approx_crypto_pf_usd_count": len(crypto_pf),
+              "excluded_ro_banned_count": sum(
+                  1 for row in all_instruments
+                  if isinstance(row, dict) and "RO" in row.get("countriesBanned", [])
+              ),
               "sample_crypto_perpetuals": crypto_pf[:8],
               "sample_btc_contract": next(
                   (x for x in crypto_pf if x.get("symbol") == symbol), None
@@ -239,12 +286,18 @@ jobs:
               },
               "daily_candles": {
                   "http_status": candles.get("http_status"),
-                  "sample": candle_rows[:3],
+                  "latest_candle_time_ms": latest_candle_time,
+                  "latest_completed_daily_start_ms": latest_completed_daily_start,
+                  "sample_first": candle_rows[:1],
+                  "sample_last": candle_rows[-2:],
                   "body_excerpt": candles.get("body_excerpt"),
               },
               "funding_history": {
                   "http_status": funding.get("http_status"),
-                  "sample": funding_rows[:3],
+                  "row_count": len(funding_rows),
+                  "latest_funding_timestamp": datetime.fromtimestamp(latest_funding_timestamp, tz=timezone.utc).isoformat() if latest_funding_timestamp else None,
+                  "sample_first": funding_rows[:1],
+                  "sample_last": funding_rows[-2:],
                   "body_excerpt": funding.get("body_excerpt"),
               },
               "checks": checks,
