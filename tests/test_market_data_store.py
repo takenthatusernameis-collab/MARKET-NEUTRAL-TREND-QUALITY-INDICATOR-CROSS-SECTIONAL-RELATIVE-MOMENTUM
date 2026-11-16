@@ -103,3 +103,54 @@ def test_snapshot_retention_prunes_only_old_partitions(tmp_path) -> None:
     assert store.prune_snapshots(now, retain_days=90) == 1
     assert not old_path.exists()
     assert recent_path.exists()
+
+
+
+def test_candle_append_does_not_claim_bootstrap_complete_until_verified(tmp_path) -> None:
+    store = MarketDataStore(tmp_path, provider="mexc")
+    store.sync_universe([{
+        "instrument_id": 9,
+        "category": "unclassified",
+        "symbol": "NEW_USDT",
+        "isolated_only": False,
+        "close_only": False,
+        "settlement": None,
+    }], 1_700_000_000_000)
+    store.append_candles([candle(9, 1_700_006_400_000)])
+    assert store.manifest["instruments"]["9"]["bootstrap_complete"] is False
+    store.mark_bootstrap_complete(
+        9,
+        completed_at_ms=1_700_100_000_000,
+        history_status="INSUFFICIENT_HISTORY",
+    )
+    assert store.manifest["instruments"]["9"]["bootstrap_complete"] is True
+    assert store.manifest["instruments"]["9"]["history_status"] == "INSUFFICIENT_HISTORY"
+
+
+def test_market_data_store_refuses_to_mix_exchange_histories(tmp_path) -> None:
+    MarketDataStore(tmp_path, provider="mexc")
+    import pytest
+
+    with pytest.raises(Exception, match="refusing to mix exchange histories"):
+        MarketDataStore(tmp_path, provider="polymarket")
+
+
+def test_funding_events_are_partitioned_deduplicated_and_reloadable(tmp_path) -> None:
+    store = MarketDataStore(tmp_path, provider="mexc")
+    store.sync_universe([{
+        "instrument_id": 21,
+        "category": "crypto",
+        "symbol": "BTC_USDT",
+        "isolated_only": False,
+        "close_only": False,
+        "settlement": None,
+    }], 1_700_000_000_000)
+    funding = {
+        "instrument_id": 21,
+        "symbol": "BTC_USDT",
+        "timestamp_ms": 1_700_000_000_000,
+        "funding_rate": "-0.0001",
+    }
+    assert store.append_funding([funding, funding]) == 1
+    assert store.load_funding(21) == [funding]
+    assert store.manifest["instruments"]["21"]["last_funding_timestamp_ms"] == 1_700_000_000_000
