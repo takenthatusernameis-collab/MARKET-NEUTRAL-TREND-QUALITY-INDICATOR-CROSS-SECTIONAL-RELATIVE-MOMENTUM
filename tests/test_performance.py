@@ -50,6 +50,24 @@ def test_drawdown_duration_and_recovery_period() -> None:
     )
 
 
+
+def test_maximum_drawdown_duration_uses_longest_episode_not_deepest_episode() -> None:
+    # The first episode is shallower (5%) but lasts 5 days. The second is
+    # deeper (11%) but lasts only 3 days. The metric must report 5 days.
+    metrics = compute_performance_metrics(
+        _equity(["100", "95", "96", "97", "98", "100", "90", "89", "100"])
+    )
+    CHECKS.assertAlmostEqual(
+        metrics["maximum_drawdown"].value or 0.0, 0.11, places=10
+    )
+    CHECKS.assertAlmostEqual(
+        metrics["maximum_drawdown_duration_days"].value or 0.0, 5.0, places=10
+    )
+    CHECKS.assertAlmostEqual(
+        metrics["recovery_period_days"].value or 0.0, 1.0, places=10
+    )
+
+
 def test_monotonic_equity_has_no_drawdown_or_recovery_duration() -> None:
     metrics = compute_performance_metrics(_equity(["100", "101", "102"]))
     assert metrics["maximum_drawdown"].value == 0.0
