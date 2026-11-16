@@ -40,11 +40,15 @@ Use only the official public MEXC Futures contract API host, https://contract.me
 
 The Python adapter is src/trend_quality/mexc_api.py. Its normalized output is defined for the exchange-neutral data and accounting modules. The real API preflight is scripts/mexc_public_preflight.py; the five-minute data/ranking workflow is .github/workflows/mexc-paper-cycle.yml.
 
-### 0.3 Per-instrument universe and USDT ledger
+### 0.3 Per-instrument research universe and USDT execution ledger
 
-The selected strategy universe includes every active linear perpetual for which cross margin is available on that specific contract and both quoteCoin and settleCoin are USDT. Use futureType=1, positionOpenType=2 or 3, enabled state, and API eligibility. Exclude isolated-only, inactive, retired/settled and non-USDT settlement contracts from the USDT strategy account. Preserve their metadata separately where appropriate; do not mix their collateral into this account.
+The **research universe** includes every active linear perpetual for which cross margin is available on that specific contract, irrespective of its quote or settlement currency. Use futureType=1, positionOpenType=2 or 3, enabled state, and API eligibility. Exclude isolated-only, inactive and explicitly retired/settled instruments. MEXC's live public discovery found 1,143 cross-margin perpetuals across settlement types.
 
-No exchange-wide category gate is allowed. Include crypto, equity, commodity, FX and all other categories offered by the selected product. Preserve unknown provider classifications as unclassified; do not discard them because the venue category taxonomy is incomplete.
+Calculate the causal Q indicator and rank all cross-margin research contracts with sufficient valid completed daily history. A non-USDT quote or settlement must not be silently discarded from research ranking just because it cannot be entered into the current single-currency paper account. Preserve quote asset and settlement asset with every instrument/history row. Q is calculated within each contract's own price series; never combine raw prices or turnovers across currencies as though they were directly comparable.
+
+The **current execution/account universe** is narrower: only active contracts with quoteCoin=USDT and settleCoin=USDT can be sized or simulated in the 100 USDT account. The public probe found 1,061 of the 1,143 cross-margin perps in this USDT subset. Non-USDT contracts remain in the research lists but are marked NON_USDT_SETTLEMENT_RESEARCH_ONLY for execution. Do not silently convert USDC, USD1, BTC or other collateral into USDT. Adding such contracts to the executable portfolio requires a documented, point-in-time collateral/quote conversion, settlement P&L model, contract multiplier validation and explicit accounting tests.
+
+No exchange-wide category gate is allowed. Include crypto, equity, commodity, FX and all other categories offered by the selected product in the research universe. Preserve unknown provider classifications as unclassified; do not discard them because the venue category taxonomy is incomplete.
 
 Do not mistake absence of a best bid or ask for an absent research asset. Preserve otherwise valid ticker/history records for research and mark them non-executable until a fresh, two-sided book is available. Execution cannot use a fallback price fabricated from a missing quote.
 
