@@ -46,3 +46,13 @@
 | D-040 | Public market-data artifacts go to market-data branch; immutable paper events remain on state | Isolate public market series from the hash-chained paper account ledger | Accepted |
 | D-041 | Bootstrap up to 365 available daily candles once per active instrument; subsequent runs fetch only missing candles | Reduce repeat API load; preserve new-listing and delisting history | Accepted |
 | D-042 | Polymarket paper ledger is denominated in pUSD and is not silently converted to USDT | Use provider collateral unit and explicit currency attribution | Accepted |
+
+
+| D-043 | MEXC is selected after the ordered Polymarket → MEXC → Bitget screen; a later Bitget curiosity pass does not change the selection | MEXC passed its actual unauthenticated public API preflight first; Bitget was probed separately afterward | Accepted |
+| D-044 | The homogeneous USDT research/account universe includes only active linear perps with cross-margin capability and quoteCoin=settleCoin=USDT | Public MEXC detail response found 1,061 such contracts; other settlement assets cannot be combined into USDT NAV | Accepted |
+| D-045 | Convert MEXC contract-count volume to base-asset units with contractSize before sizing or VWAP execution | Public depth and Kline volume fields are in contracts; confusing contracts with base units corrupts fills and P&L | Accepted |
+| D-046 | Keep unclassified asset categories and preserve tickers with missing best quotes for research, but mark them non-executable | Category labels and current quotes are metadata/operability; missing quotes must not erase an otherwise valid history row or fabricate a fill | Accepted |
+| D-047 | Treat MEXC Day1 bar timestamps as UTC only after verifying representative boundaries and continue timestamp validation | Hosted-runner samples across five category groups aligned to 00:00 UTC | Accepted; ongoing data QA |
+| D-048 | Keep PAPER_STATE_WRITE_ENABLED=false until state branch protection, restricted writers, real publisher and restore tests pass | State branch currently reports unprotected and rulesets endpoint is empty | Blocking |
+| D-049 | Bootstrap up to 365 days in bounded 150-instrument batches; afterward fetch only missing completed daily candles | Reduce API load and make new listings/cursor recovery explicit | Accepted |
+| D-050 | Public five-minute market-data/ranking workflow is separate from forward portfolio-state writes | Data and rankings can be collected without financial-state mutation; market-data branch is public | Accepted |
