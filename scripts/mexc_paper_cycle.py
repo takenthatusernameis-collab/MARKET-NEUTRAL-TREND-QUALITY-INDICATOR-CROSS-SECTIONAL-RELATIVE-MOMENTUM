@@ -990,6 +990,21 @@ def _markdown_report(report: dict[str, Any]) -> str:
                 f"- {name}: {metric['value'] if metric['value'] is not None else 'Unavailable'}"
                 + (f" ({metric['reason']})" if metric.get("reason") else "")
             )
+        equity_curve = portfolio.get("daily_equity_curve", [])
+        lines.extend([
+            "",
+            "## Daily equity curve",
+            "",
+            "| UTC daily bar | NAV (USDT) |",
+            "|---|---:|",
+        ])
+        lines.extend(
+            f"| {datetime.fromtimestamp(row['timestamp_ms'] / 1000, tz=UTC).isoformat()} "
+            f"| {row['nav']} |"
+            for row in equity_curve[-30:]
+        )
+        if not equity_curve:
+            lines.append("No persisted daily equity observations yet.")
     lines.extend([
         "",
         "No exchange orders were submitted. All execution records are simulated.",
