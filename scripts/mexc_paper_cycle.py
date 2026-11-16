@@ -460,8 +460,6 @@ def _close_all(
     instruments_by_id: dict[int, dict[str, Any]],
     now_ms: int,
 ) -> list[dict[str, Any]]:
-    from trend_quality.mexc_portfolio import close_paper_position
-
     details: list[dict[str, Any]] = []
     trial = deepcopy(state)
     for position in list(trial.get("positions", [])):
@@ -546,8 +544,6 @@ def _process_stops(
     latest_completed_bar_ms: int,
     now_ms: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    from trend_quality.mexc_portfolio import close_paper_position
-
     exits: list[dict[str, Any]] = []
     trailing: list[dict[str, Any]] = []
     for position in list(state.get("positions", [])):
