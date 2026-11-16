@@ -26,6 +26,10 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["trend_quality"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
