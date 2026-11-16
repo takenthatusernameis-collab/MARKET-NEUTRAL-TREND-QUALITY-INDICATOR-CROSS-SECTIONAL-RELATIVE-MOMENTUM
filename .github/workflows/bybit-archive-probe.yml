@@ -30,21 +30,24 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 3
     steps:
-      - name: Verify one official archived trade file is downloadable
+      - name: Verify official trade archive, gzip integrity prefix and CSV schema
         shell: bash
         run: |
           python3 - <<'PY'
+          import csv
+          import io
           import json
           import sys
           import urllib.error
           import urllib.request
+          import zlib
 
           url = "https://public.bybit.com/trading/BTCUSDT/BTCUSDT2026-11-15.csv.gz"
           request = urllib.request.Request(
               url,
               headers={
                   "User-Agent": "market-neutral-trend-quality-research/archive-probe",
-                  "Range": "bytes=0-2047",
+                  "Range": "bytes=0-8191",
               },
           )
           try:
@@ -52,7 +55,7 @@ jobs:
                   status = response.status
                   content_type = response.headers.get("Content-Type")
                   content_range = response.headers.get("Content-Range")
-                  sample = response.read(2048)
+                  sample = response.read(8192)
           except urllib.error.HTTPError as exc:
               status = exc.code
               content_type = exc.headers.get("Content-Type")
@@ -67,7 +70,35 @@ jobs:
               }, indent=2))
               sys.exit(1)
 
-          ok = status in (200, 206) and sample.startswith(bytes((31, 139)))
+          decoded = b""
+          header = []
+          sample_row = []
+          try:
+              if sample.startswith(bytes((31, 139))):
+                  decoded = zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(sample)
+                  rows = csv.reader(io.StringIO(decoded.decode("utf-8")))
+                  header = next(rows, [])
+                  sample_row = next(rows, [])
+          except Exception as exc:
+              print(json.dumps({
+                  "result": "DECODE_ERROR",
+                  "url": url,
+                  "error_type": type(exc).__name__,
+                  "error": str(exc)[:500],
+              }, indent=2))
+              sys.exit(1)
+
+          required = {
+              "timestamp", "symbol", "side", "size", "price",
+              "tickDirection", "trdMatchID", "grossValue",
+              "homeNotional", "foreignNotional",
+          }
+          ok = (
+              status in (200, 206)
+              and sample.startswith(bytes((31, 139)))
+              and required.issubset(set(header))
+              and len(sample_row) >= len(required)
+          )
           print(json.dumps({
               "result": "PASS" if ok else "FAIL",
               "url": url,
@@ -75,8 +106,11 @@ jobs:
               "content_type": content_type,
               "content_range": content_range,
               "gzip_magic_valid": sample.startswith(bytes((31, 139))),
-              "sample_bytes": len(sample),
-              "response_excerpt": None if ok else sample[:300].decode("utf-8", errors="replace"),
+              "compressed_sample_bytes": len(sample),
+              "decompressed_sample_bytes": len(decoded),
+              "csv_header": header,
+              "sample_row": sample_row,
+              "required_columns_present": required.issubset(set(header)),
               "credentials_used": False,
               "orders_submitted": 0,
           }, indent=2))
