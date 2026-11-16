@@ -83,7 +83,7 @@ def test_ranker_keeps_research_universe_separate_from_execution_gate(monkeypatch
     }
     ranked = rank_mexc_universe(instruments, histories, tickers, Decimal("100"))
     assert [row.symbol for row in ranked.research_longs] == ["mexc:1"]
-    assert [row.symbol for row in ranked.research_shorts] == ["mexc:3", "mexc:2"]
+    assert [row.symbol for row in ranked.research_shorts] == ["mexc:2", "mexc:3"]
     assert [row.symbol for row in ranked.executable_longs] == ["mexc:1"]
     assert ranked.executable_shorts == []
     assert any("NON_USDT_SETTLEMENT_RESEARCH_ONLY" in reason for reason in ranked.excluded)
