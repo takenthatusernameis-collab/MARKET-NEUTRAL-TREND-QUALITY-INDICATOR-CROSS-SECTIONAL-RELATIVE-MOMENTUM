@@ -31,9 +31,9 @@
 | Component | State |
 |---|---|
 | Specification v2.4 | Documented |
-| Pure indicator module | Implemented; tests pending CI |
-| Cross-sectional ranking | Implemented; tests pending CI |
-| Decimal accounting primitives | Implemented; tests pending CI |
+| Pure indicator module | Implemented; CI tests pass |
+| Cross-sectional ranking | Implemented; CI tests pass |
+| Decimal accounting primitives | Implemented; CI tests pass |
 | Public Bybit client | Implemented; GitHub-hosted public API calls blocked by CloudFront country restriction (US runners) |
 | Funding history retrieval | Implemented as bounded-window prototype; completeness audit pending |
 | Immutable event batch | Implemented locally; Git state-branch publisher not implemented |
@@ -50,7 +50,8 @@
 - The API client is built and can report the bounded denial details. Public market-data integration from the tested standard GitHub-hosted runners is blocked.
 - No proxy, VPN, endpoint rotation, alternative exchange or paid runner has been used.
 - A user-controlled self-hosted runner on a permitted non-US/non-mainland-China network is the remaining plausible no-paid route, but it requires user setup and explicit authorization.
-- CI linting previously reported 15 findings and was reduced to two import-order findings. Those were fixed in the latest source commits; a full green CI result is still pending verification.
+- CI run 43899280626 on current main commit a99774baa59aa35795622abe7a7cfc8f456762c8 completed successfully: Ruff passed and pytest reported 32 passed in 0.06 seconds.
+- Public API smoke runs 43897098694, 43897936443 and 43898832858 failed only at the first Bybit server-time call due to source-country HTTP 403; no API data or performance claims were generated.
 
 No historical performance or forward paper performance is claimed. Full Bybit connectivity, historical coverage, event-batch Git state publication, replay, broker, scheduled paper account, and independent accounting reconciliation remain outstanding.
 
