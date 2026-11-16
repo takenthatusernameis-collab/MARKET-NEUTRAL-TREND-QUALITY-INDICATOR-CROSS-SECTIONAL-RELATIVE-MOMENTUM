@@ -12,7 +12,7 @@
 - Taker fee assumption: 0.10% per fill (not the user's actual fee tier).
 - Historical execution: next eligible minute open plus adverse cost assumption.
 - Hourly workflow scheduled at minute 17; actual delay is measured, not assumed exact.
-- Maximum linear order-book REST depth: 200 levels.
+- Maximum linear order-book REST depth: 1,000 levels; initial request depth is configurable and must be benchmarked.
 - Public order-book snapshots exclude RPI liquidity.
 
 ## Model limitations
