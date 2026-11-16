@@ -126,3 +126,21 @@ No automated portfolio transition may run until complete universe/data coverage,
 - [ ] Run the next acceptance test across every eligible contract and every available asset class; BTC-only endpoint coverage is insufficient.
 
 The new workflow uses public, unauthenticated market-data endpoints only. Public API success is a technical signal, never proof of Romanian user eligibility. HTX is skipped at the jurisdiction gate because its published EU restrictions include Romania. No exchange account, credential, private endpoint or order is used.
+
+
+
+## Phase 0C — Per-instrument cross-margin Perps selection and Polymarket-first implementation
+
+- [x] Correct requirement: the exchange does not need to offer every asset class. Include every active instrument with cross-margin capability, across all categories the provider does offer.
+- [x] Set provider order to Polymarket Perps → MEXC → Bitget; stop at the first technically suitable public API.
+- [x] Add a public Polymarket Perps API adapter, with instrument, bulk ticker/statistics, fee, book, daily-candle and funding reads.
+- [x] Add tests for cross-margin/isolated filtering, new categories, metadata, pagination, fee/funding reads and retry errors.
+- [x] Add ordered provider qualification workflow and a separate market-data branch.
+- [x] Add an incremental market-data store with instrument lifecycle manifest, date-partitioned daily OHLCV and compressed five-minute snapshots.
+- [ ] Pass CI and the public Polymarket API acceptance run; only then mark Polymarket as selected.
+- [ ] Bootstrap up to 365 days of available completed daily candles once per active cross-margin instrument, with checkpoints.
+- [ ] Build the five-minute ticker snapshot cycle and first-after-daily-close idempotent Q/ranking/portfolio transition.
+- [ ] Complete book-based paper entry/exit, funding reconciliation at observed settlement timestamps, fees, ATR stops, pUSD accounting and state-branch event publication.
+- [ ] Do not initialize the forward paper account until all active cross-margin data and accounting gates pass.
+
+The public-data API probe does not use a wallet, API key, private account endpoint or order operation. Five-minute GitHub Actions scheduling is best-effort, not exchange-grade real-time protection. Portfolio ranking uses completed daily candles only.
