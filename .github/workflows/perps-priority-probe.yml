@@ -1,0 +1,54 @@
+name: Perpetual Exchange Priority — Polymarket, MEXC, Bitget
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/trend_quality/polymarket_api.py"
+      - "scripts/probe_polymarket_mexc_bitget.py"
+      - "scripts/probe_perp_priority.py"
+      - "src/trend_quality/exchange_probe.py"
+      - "tests/test_polymarket_api.py"
+      - ".github/workflows/perps-priority-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perps-priority-probe
+  cancel-in-progress: false
+
+jobs:
+  public-qualification:
+    name: Qualify the first suitable public Perps API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install local project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Run static checks and unit tests
+        run: |
+          ruff check .
+          pytest
+      - name: Probe Polymarket, then MEXC, then Bitget
+        id: qualify
+        continue-on-error: true
+        run: |
+          python scripts/probe_polymarket_mexc_bitget.py | tee exchange-priority-report.json
+      - name: Upload ordered exchange qualification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exchange-priority-qualification
+          path: exchange-priority-report.json
+          if-no-files-found: warn
+          retention-days: 30
