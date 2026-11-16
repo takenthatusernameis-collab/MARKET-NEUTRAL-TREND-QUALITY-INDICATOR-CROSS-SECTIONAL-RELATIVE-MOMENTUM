@@ -117,28 +117,46 @@ jobs:
           category_counts = Counter(
               str(row.get("category") or "UNCLASSIFIED") for row in pf
           )
-          non_crypto_categories = {"xStocks", "Equities", "Indices", "Commodities"}
-          crypto_pf = [
-              row for row in pf
-              if isinstance(row.get("category"), str)
-              and row.get("category") not in non_crypto_categories
-              and row.get("category") != "UNCLASSIFIED"
-          ]
+          crypto_categories = {
+              "AI", "Community", "DEX", "DeFi", "DePIN", "Gaming",
+              "Infrastructure", "Layer 1", "Layer 2", "Meme",
+              "Privacy", "Utility", "Web3",
+          }
+          non_crypto_categories = {
+              "Commodities", "Equities", "Indices", "xStocks",
+              "Forex", "Pre-IPO", "Real-world assets", "Stablecoin",
+          }
+          known_categories = crypto_categories | non_crypto_categories
           unclassified_pf = [
               row for row in pf
-              if not isinstance(row.get("category"), str) or not row.get("category")
+              if not isinstance(row.get("category"), str)
+              or row.get("category") not in known_categories
+          ]
+          crypto_category_rows = [
+              row for row in pf if row.get("category") in crypto_categories
+          ]
+          crypto_permission_missing = [
+              row for row in crypto_category_rows
+              if "europa_crypto" not in row.get("platformsPermitted", [])
+          ]
+          crypto_pf = [
+              row for row in crypto_category_rows
+              if "europa_crypto" in row.get("platformsPermitted", [])
           ]
           crypto_category_counts = Counter(
               str(row.get("category")) for row in crypto_pf
           )
+          stablecoin_category_rows = [
+              row for row in pf if row.get("category") == "Stablecoin"
+          ]
           def has_europe_retail_margin(row):
               schedules = row.get("marginSchedules")
               if not isinstance(schedules, dict):
                   return False
-              europe = schedules.get("europa")
-              if not isinstance(europe, dict):
+              europe_crypto = schedules.get("europa_crypto")
+              if not isinstance(europe_crypto, dict):
                   return False
-              retail = europe.get("retail")
+              retail = europe_crypto.get("retail")
               return isinstance(retail, list) and bool(retail)
 
           def has_valid_contract_precision(row):
@@ -289,11 +307,8 @@ jobs:
                   and len(crypto_pf) >= 50
                   and not unclassified_pf
               ),
-              "eea_platform_permissions": bool(pf) and all(
-                  "europa_crypto" in row.get("platformsPermitted", [])
-                  or "europa" in row.get("platformsPermitted", [])
-                  or "payward_digital_solutions" in row.get("platformsPermitted", [])
-                  for row in crypto_pf
+              "eea_crypto_platform_permissions": (
+                  bool(crypto_pf) and not crypto_permission_missing
               ),
               "eea_retail_margin_metadata": eeea_retail_margin_count >= 50,
               "contract_precision_metadata": precision_ready_count >= 50,
@@ -332,12 +347,17 @@ jobs:
               "eea_platform_permitted_pf_usd_count": len(pf),
               "category_counts": dict(sorted(category_counts.items())),
               "crypto_category_counts": dict(sorted(crypto_category_counts.items())),
+              "crypto_strategy_perpetual_count": len(crypto_pf),
+              "crypto_category_missing_europa_crypto_permission_count": len(crypto_permission_missing),
+              "non_directional_stablecoin_contract_count": len(stablecoin_category_rows),
               "unclassified_pf_count": len(unclassified_pf),
+              "unclassified_categories": sorted({
+                  str(row.get("category") or "UNCLASSIFIED")
+                  for row in unclassified_pf
+              }),
               "excluded_non_crypto_category_count": sum(
                   category_counts.get(category, 0) for category in non_crypto_categories
               ),
-              "category_filtered_crypto_pf_count": len(crypto_pf),
-              "previous_heuristic_crypto_count_for_comparison": 196,
               "europa_crypto_permission_count": len(permission_tagged_crypto),
               "europa_general_only_pf_count": sum(
                   "europa" in row.get("platformsPermitted", [])
