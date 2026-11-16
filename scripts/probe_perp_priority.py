@@ -377,7 +377,7 @@ def probe_bitget() -> dict[str, Any]:
 
 
 def probe_okx_fallback() -> dict[str, Any]:
-    base = "https://www.okx.com"
+    base = "https://eea.okx.com"
     info = get_json(base, "/api/v5/public/instruments", {"instType": "SWAP"})
     rows = rows_from(info.get("payload"), "data")
     eligible = [r for r in rows if r.get("state") == "live" and str(r.get("instId", "")).endswith(("-USDT-SWAP", "-USDC-SWAP"))]
@@ -412,9 +412,9 @@ def probe_okx_fallback() -> dict[str, Any]:
             "contract_precision": bool(eligible) and not incomplete,
             "sampled_market_data": bool(samples) and all(all(x["checks"].values()) for x in samples),
         },
-        "cross_margin_status": "OFFICIAL_EEA_DOCS_CONFIRM_PERPETUAL_CROSS_MARGIN; ACCOUNT_MODE_AND_MARGIN_CURRENCY_SCOPE_VARY",
-        "jurisdiction_status": "OKX_EEA_DERIVATIVES_GUIDANCE_EXISTS; INDIVIDUAL_ROMANIA_ACCOUNT_PRODUCT_ELIGIBILITY_REMAINS_TO_BE_CONFIRMED",
-        "24_7_status": "OFFICIAL_EEA_PERPETUAL_GUIDE_DOCUMENTS_24_7_CRYPTO_PERPETUALS",
+        "cross_margin_status": "FUTURES_MODE_SUPPORTS_CROSS_MARGIN_SHARED_BY_SAME_MARGIN_CURRENCY; MULTI_CURRENCY_MODE_REQUIRES_10K_USD_ASSET_VALUE",
+        "jurisdiction_status": "OKX_EEA_X_PERPS_AVAILABLE_TO_ELIGIBLE_TRADERS_IN_ALL_30_EEA_COUNTRIES; REGULAR_NON_EXPIRING_SWAP ACCESS MUST BE VERIFIED PER ACCOUNT",
+        "24_7_status": "EEA_HELP_GUIDE_DOCUMENTS_NON_EXPIRING_CRYPTO_PERPETUALS_24_7; X_PERPS_ARE_SEPARATE_5_YEAR_EXPIRY_CONTRACTS",
     }
 
 
