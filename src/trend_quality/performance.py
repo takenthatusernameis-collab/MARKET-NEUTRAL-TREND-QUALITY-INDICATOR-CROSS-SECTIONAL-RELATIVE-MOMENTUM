@@ -144,7 +144,10 @@ def compute_performance_metrics(
             active_drawdown = False
             if point.nav > high_watermark:
                 high_watermark = point.nav
-                high_watermark_timestamp = point.timestamp_ms
+            # A full recovery closes the old episode and starts the next
+            # drawdown clock at this recovery timestamp, including an exact
+            # touch of the prior high watermark.
+            high_watermark_timestamp = point.timestamp_ms
 
     if active_drawdown:
         current_drawdown_duration = (
