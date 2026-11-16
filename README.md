@@ -16,16 +16,17 @@ The ordered technical search was Polymarket Perps → MEXC → Bitget. MEXC was 
 
 ### MEXC verification
 
-The hosted-runner public API preflight established:
+The hosted-runner public API preflight (run 43977889004) established:
 
-- 1,152 instruments discovered; 1,143 cross-margin perpetuals across all settlement types.
-- **1,061 active cross-margin USDT-settled perpetuals** selected for the homogeneous USDT research account.
-- 1,161 bulk ticker rows returned, with no missing ticker for the 1,061 selected instruments.
-- Instrument precision, sampled order books, daily candles and funding-history reads passed across crypto, equities, commodities, FX and unclassified instruments.
+- 1,152 instruments discovered; **1,143 active cross-margin perpetuals** across all settlement types.
+- **1,061 active USDT/USDT quote-and-settlement contracts** are the subset eligible for the current homogeneous USDT paper account.
+- 1,161 bulk ticker rows returned, with no missing ticker for any of the 1,143 research instruments.
+- Sampled ticker, book, daily-candle and funding-history requests passed for every reported category: commodity, crypto, equity, FX and unclassified.
+- Settlement groups: 1,061 USDT/USDT, 41 USDC/USDC, 31 USD1/USD1 and 10 USD-quoted coin-settled contracts.
 - Sampled daily candles opened at 00:00 UTC.
 - No credentials or private endpoints were used; no orders were submitted.
 
-[Successful MEXC API and daily-candle boundary preflight](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976183941)
+[Successful all-settlement MEXC public API preflight](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43977889004)
 
 Bitget's independent curiosity run found 886 active cross-margin USDT perpetuals and passed its sampled public-data checks. This did not change the ordered selection: MEXC remains selected.
 
@@ -37,7 +38,7 @@ The research ranking includes **every active MEXC linear perpetual with per-inst
 
 The current single-currency paper execution/account subset is **1,061 active USDT-quoted and USDT-settled contracts**. Non-USDT contracts remain in the research Q rankings but are labelled research-only for execution. Do not mix USDC, USD1, BTC or other collateral and quote-currency P&L into USDT NAV without a separately validated point-in-time conversion and settlement model.
 
-MEXC contract volume is denominated in contracts. Convert it using each instrument's contractSize; use volUnit, minVol, maxVol, priceUnit and its fee rates for sizing and paper execution. Public order-book quantities and Kline volume are also in contract units. amount24 and daily amount supply USDT turnover; do not confuse turnover with contract volume. See the [official MEXC Futures API documentation](https://mexcdevelop.github.io/apidocs/contract_v1_en/).
+MEXC contract volume is denominated in contracts. Convert it using each instrument's contractSize only for validated linear USDT execution; use volUnit, minVol, maxVol, priceUnit and its fee rates. Public order-book quantities and Kline volume are also in contract units. amount24 and daily amount are denominated in the instrument's quote currency, not universally USDT; never mix USDC, USD1 or other quote turnover into USDT comparisons. See the [official MEXC Futures API documentation](https://mexcdevelop.github.io/apidocs/contract_v1_en/).
 
 ## Implemented components
 
@@ -53,7 +54,7 @@ Key files: src/trend_quality/mexc_api.py, mexc_paper.py, mexc_portfolio.py, mark
 
 ## Operating state and account safety gate
 
-The five-minute workflow is configured in [.github/workflows/mexc-paper-cycle.yml](.github/workflows/mexc-paper-cycle.yml). It collects public market data, incrementally updates history and publishes Q rankings to the separate market-data branch.
+The five-minute workflow is configured in [.github/workflows/mexc-paper-cycle.yml](.github/workflows/mexc-paper-cycle.yml). It collects public market data, incrementally updates history and publishes Q rankings to the separate market-data branch. The latest verified all-settlement cycle [43977854892](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43977854892) completed successfully: 231,692 daily-candle rows stored, 1,143/1,143 ticker coverage, zero missing latest bars, zero API failures, 750 instruments bootstrapped and 393 still pending. Full-universe history coverage remains incomplete.
 
 **The forward paper account has not been initialized.** The state branch is currently unprotected and the repository has no rulesets. Therefore the workflow explicitly sets PAPER_STATE_WRITE_ENABLED=false. It will not open, close or carry simulated positions, publish financial state events or claim portfolio NAV. The runtime protection check also fails closed.
 
