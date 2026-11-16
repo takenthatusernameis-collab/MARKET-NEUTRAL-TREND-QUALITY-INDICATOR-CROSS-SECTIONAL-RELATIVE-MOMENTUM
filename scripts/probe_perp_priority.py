@@ -380,8 +380,23 @@ def probe_okx_fallback() -> dict[str, Any]:
     base = "https://eea.okx.com"
     info = get_json(base, "/api/v5/public/instruments", {"instType": "SWAP"})
     rows = rows_from(info.get("payload"), "data")
-    eligible = [r for r in rows if r.get("state") == "live" and str(r.get("instId", "")).endswith(("-USDT-SWAP", "-USDC-SWAP"))]
+    all_live_swaps = [
+        r for r in rows
+        if r.get("state") == "live"
+        and str(r.get("instId", "")).endswith(("-USDT-SWAP", "-USDC-SWAP"))
+    ]
+    eligible = [
+        r for r in all_live_swaps
+        if r.get("settleCcy") == "USDT"
+        and r.get("ctType") == "linear"
+        and r.get("ruleType") != "pre_market"
+        and r.get("futureSettlement") is not True
+        and not str(r.get("expTime") or "").strip()
+    ]
     by_class = choose_by_class(eligible, "okx")
+    btc = next((r for r in eligible if r.get("instId") == "BTC-USDT-SWAP"), None)
+    if btc is not None:
+        by_class["crypto"] = btc
     samples = []
     for label, row in by_class.items():
         sym = str(row["instId"])
@@ -401,8 +416,12 @@ def probe_okx_fallback() -> dict[str, Any]:
     return {
         "exchange": "okx_eea_fallback", "base_url": base,
         "credentials_used": False, "private_endpoints_used": False, "orders_submitted": 0,
-        "instrument_http_status": info.get("http_status"), "instrument_count": len(rows),
-        "live_usdt_usdc_swap_count": len(eligible), "asset_class_counts": asset_class_counts(eligible, "okx"),
+        "instrument_http_status": info.get("http_status"),
+        "instrument_count": len(rows),
+        "live_usdt_usdc_swap_count_including_premarket_and_other_settlement": len(all_live_swaps),
+        "live_linear_usdt_non_expiring_swap_count": len(eligible),
+        "excluded_pre_market_or_fixed_expiry_count": len(all_live_swaps) - len(eligible),
+        "asset_class_counts": asset_class_counts(eligible, "okx"),
         "precision_metadata_incomplete_count": len(incomplete),
         "precision_metadata_incomplete_sample": dict(list(incomplete.items())[:10]),
         "sample_contracts": eligible[:8], "sample_endpoint_results_by_class": samples,
