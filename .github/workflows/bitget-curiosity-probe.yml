@@ -1,0 +1,39 @@
+name: Bitget Curiosity — Public API Only
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/bitget_curiosity_probe.py"
+      - "scripts/probe_perp_priority.py"
+      - "src/trend_quality/exchange_probe.py"
+      - ".github/workflows/bitget-curiosity-probe.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bitget-curiosity-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run independent Bitget public-data probe
+        run: python scripts/bitget_curiosity_probe.py | tee bitget-curiosity-report.json
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitget-curiosity-report
+          path: bitget-curiosity-report.json
+          if-no-files-found: warn
+          retention-days: 30
