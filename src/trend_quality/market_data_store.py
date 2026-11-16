@@ -163,13 +163,11 @@ class MarketDataStore:
         self.manifest["last_snapshot_ms"] = int(snapshot_ms)
         return path
 
-    def load_candles(
-        self,
-        instrument_id: int,
-        *,
-        start_timestamp_ms: int | None = None,
-    ) -> list[dict[str, Any]]:
-        rows: list[dict[str, Any]] = []
+    def load_all_candles(
+        self, *, start_timestamp_ms: int | None = None
+    ) -> dict[int, list[dict[str, Any]]]:
+        """Read the stored series in one pass for efficient cross-sectional recalculation."""
+        grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
         for path in sorted(self.candles_dir.glob("*.jsonl.gz")):
             try:
                 with gzip.open(path, "rt", encoding="utf-8") as source:
@@ -177,19 +175,35 @@ class MarketDataStore:
                         if not line.strip():
                             continue
                         item = json.loads(line)
-                        if int(item.get("instrument_id", -1)) != int(instrument_id):
-                            continue
+                        instrument_id = int(item["instrument_id"])
                         timestamp = int(item["timestamp_ms"])
                         if start_timestamp_ms is not None and timestamp < start_timestamp_ms:
                             continue
-                        rows.append(item)
+                        grouped[instrument_id].append(item)
             except (OSError, EOFError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-                raise MarketDataStoreError(f"Invalid candle partition {path}: {exc}") from exc
-        rows.sort(key=lambda item: int(item["timestamp_ms"]))
-        deduped: dict[int, dict[str, Any]] = {}
-        for row in rows:
-            deduped[int(row["timestamp_ms"])] = row
-        return list(deduped.values())
+                raise MarketDataStoreError(
+                    f"Invalid candle partition {path}: {exc}"
+                ) from exc
+        result: dict[int, list[dict[str, Any]]] = {}
+        for instrument_id, rows in grouped.items():
+            by_timestamp = {
+                int(row["timestamp_ms"]): row
+                for row in rows
+            }
+            result[instrument_id] = [
+                by_timestamp[timestamp] for timestamp in sorted(by_timestamp)
+            ]
+        return result
+
+    def load_candles(
+        self,
+        instrument_id: int,
+        *,
+        start_timestamp_ms: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return self.load_all_candles(
+            start_timestamp_ms=start_timestamp_ms
+        ).get(int(instrument_id), [])
 
     def prune_snapshots(self, now_ms: int, retain_days: int = SNAPSHOT_RETENTION_DAYS) -> int:
         if retain_days < 1:
