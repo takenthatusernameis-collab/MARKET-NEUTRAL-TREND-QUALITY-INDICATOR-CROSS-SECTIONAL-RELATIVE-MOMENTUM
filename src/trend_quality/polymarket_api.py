@@ -10,7 +10,6 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from email.utils import parsedate_to_datetime
 from threading import Lock
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -200,10 +199,17 @@ class PolymarketPublicClient:
                 if response.status_code != 429 and response.status_code < 500:
                     raise error
                 last_error = error
-                retry_after = response.headers.get("Retry-After") or response.headers.get("retry-after")
+                retry_after = (
+                    response.headers.get("Retry-After")
+                    or response.headers.get("retry-after")
+                )
                 if attempt < self.retries:
                     try:
-                        delay = min(5.0, max(0.1, float(retry_after))) if retry_after else 0.5 * (2 ** attempt)
+                        delay = (
+                            min(5.0, max(0.1, float(retry_after)))
+                            if retry_after
+                            else 0.5 * (2 ** attempt)
+                        )
                     except ValueError:
                         delay = 0.5 * (2 ** attempt)
                     time.sleep(delay)
@@ -213,7 +219,9 @@ class PolymarketPublicClient:
                 last_error = exc
                 if attempt < self.retries:
                     time.sleep(0.25 * (2 ** attempt))
-        raise PolymarketAPIError(f"Public API request exhausted retries: {last_error}") from last_error
+        raise PolymarketAPIError(
+            f"Public API request exhausted retries: {last_error}"
+        ) from last_error
 
     def instruments(self) -> list[dict[str, Any]]:
         payload = self.get("/v1/info/instruments")
