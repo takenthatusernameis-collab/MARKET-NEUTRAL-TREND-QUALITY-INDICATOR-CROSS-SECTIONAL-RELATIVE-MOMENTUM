@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import decimal
 import unittest
+from importlib import import_module
 
-from trend_quality.performance import (
-    DAY_MS,
-    EquityPoint,
-    compute_performance_metrics,
-    daily_returns,
-    drawdown_series,
-)
+_performance = import_module("trend_quality.performance")
+DAY_MS = _performance.DAY_MS
+EquityPoint = _performance.EquityPoint
+compute_performance_metrics = _performance.compute_performance_metrics
+daily_returns = _performance.daily_returns
+drawdown_series = _performance.drawdown_series
 
 
 BASE_TIME = 1794787200000
