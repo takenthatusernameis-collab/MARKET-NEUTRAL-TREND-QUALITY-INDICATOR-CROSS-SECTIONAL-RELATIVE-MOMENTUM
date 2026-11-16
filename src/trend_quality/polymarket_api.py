@@ -69,7 +69,8 @@ def validate_instrument(instrument: Mapping[str, Any]) -> list[str]:
             errors.append(f"MISSING_{key.upper()}")
     for key in required_integers:
         value = instrument.get(key)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        minimum = 1 if key == "max_leverage" else 0
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
             errors.append(f"INVALID_{key.upper()}")
     for key in (
         "price_bounds", "liquidation_fee", "min_notional",
