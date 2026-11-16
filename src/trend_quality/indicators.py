@@ -178,7 +178,9 @@ def compute_q_series(
             denominator = abs(trend) + noise
             if denominator > 0:
                 b_value = abs(trend) / denominator * 100.0
-            if noise > 0:
+            # A scale-relative floor avoids treating floating-point dust as signal.
+            noise_floor = abs(float(closes[i])) * 1e-12
+            if noise > noise_floor:
                 candidate_q = (trend / noise) * correction_factor
                 if isfinite(candidate_q):
                     q_value = candidate_q
@@ -215,7 +217,14 @@ def wilder_atr(
     for high, low, close in zip(highs, lows, closes, strict=True):
         if not all(isfinite(float(v)) for v in (high, low, close)):
             raise ValueError("OHLC input contains non-finite values")
-        if float(high) < float(low) or float(close) <= 0:
+        if (
+            float(low) <= 0
+            or float(high) <= 0
+            or float(close) <= 0
+            or float(high) < float(low)
+            or float(close) < float(low)
+            or float(close) > float(high)
+        ):
             raise ValueError("invalid OHLC values")
     true_ranges: list[float] = []
     for i, (high, low) in enumerate(zip(highs, lows, strict=True)):
