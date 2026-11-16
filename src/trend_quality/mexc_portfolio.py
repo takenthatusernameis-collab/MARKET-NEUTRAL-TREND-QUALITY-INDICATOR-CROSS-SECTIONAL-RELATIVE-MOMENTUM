@@ -10,10 +10,9 @@ from typing import Any
 
 from .execution import SimulatedFill
 from .performance import EquityPoint, compute_performance_metrics
-from .portfolio import Position, calculate_nav, funding_cashflow, portfolio_exposure
+from .portfolio import Position, funding_cashflow, portfolio_exposure
 
 ZERO = Decimal("0")
-ONE = Decimal("1")
 DEFAULT_INITIAL_CAPITAL = Decimal("100")
 
 
