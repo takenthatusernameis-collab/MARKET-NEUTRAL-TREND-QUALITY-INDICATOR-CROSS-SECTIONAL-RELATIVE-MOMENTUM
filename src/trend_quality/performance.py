@@ -55,7 +55,7 @@ def daily_returns(points: Iterable[EquityPoint]) -> list[float]:
     _validate_equity(ordered)
     return [
         float(current.nav / previous.nav - Decimal("1"))
-        for previous, current in zip(ordered, ordered[1:], strict=True)
+        for previous, current in zip(ordered, ordered[1:])
     ]
 
 
@@ -154,11 +154,10 @@ def compute_performance_metrics(
     }
 
     if elapsed_days >= TRADING_DAYS_PER_YEAR:
-        cagr = float(
-            (points[-1].nav / points[0].nav)
+        cagr = (
+            float(points[-1].nav / points[0].nav)
             ** (TRADING_DAYS_PER_YEAR / elapsed_days)
-            - Decimal("1")
-        )
+        ) - 1.0
         metrics["cagr"] = Metric(cagr, None, observation_count)
     else:
         metrics["cagr"] = _unavailable(
