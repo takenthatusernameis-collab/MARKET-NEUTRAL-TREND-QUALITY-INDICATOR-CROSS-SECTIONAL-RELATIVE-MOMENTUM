@@ -38,3 +38,11 @@
 | D-033 | Require complete metadata and official-spec reconciliation for every retained contract | Any tick/step/minimum/maximum/multiplier/currency mismatch excludes that instrument | Accepted |
 | D-034 | For OKX EEA fallback, distinguish Futures-mode cross margin from multi-currency margin eligibility | Avoid assuming multi-currency mode is available to the 100 USDT research account | Accepted |
 | D-035 | Kraken EEA remains backup with only 69 previously exact-matched contracts retained; 26 mismatches excluded | Earlier probe: 95 candidates, 69 exact official-spec matches and 26 mismatches; full 69-contract endpoint coverage still required | Accepted; validation pending |
+
+| D-036 | The exchange need not offer every asset class; include every active cross-margin contract across the categories it actually offers | User clarification; asset class is an instrument attribute, not an exchange-level pass condition | Accepted |
+| D-037 | Provider priority is Polymarket Perps → MEXC → Bitget; stop at the first public API technical pass | Explicit user order and immediate-first-pass instruction | Accepted |
+| D-038 | Polymarket eligible research instruments require cross-margin capability; isolated-only contracts are excluded | Public Perps instrument metadata exposes isolated_only, close_only and permanent settlement | Accepted |
+| D-039 | Five-minute snapshots; daily ranking/portfolio transition on first successful workflow after a new completed daily candle | User cadence; daily decision idempotency keyed by candle timestamp | Accepted |
+| D-040 | Public market-data artifacts go to market-data branch; immutable paper events remain on state | Isolate public market series from the hash-chained paper account ledger | Accepted |
+| D-041 | Bootstrap up to 365 available daily candles once per active instrument; subsequent runs fetch only missing candles | Reduce repeat API load; preserve new-listing and delisting history | Accepted |
+| D-042 | Polymarket paper ledger is denominated in pUSD and is not silently converted to USDT | Use provider collateral unit and explicit currency attribution | Accepted |
