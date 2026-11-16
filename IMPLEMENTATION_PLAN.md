@@ -2,15 +2,15 @@
 
 ## Current state
 
-The repository is in a validated core-code phase, not a trading-ready phase. No paper account, historical backtest or forward performance is claimed. Latest main CI run 43912962281 is green: Ruff passed and pytest reported 62 passed in 0.13 seconds.
+The repository is in emergency red-team no-go, not a trading-ready phase. No paper account, historical backtest or forward performance is claimed. Latest verified core CI run 43931058486 passed Ruff and 67 tests in 0.25 seconds on commit `a1c0e083893e5566fb2173b22c7afe81b196b4b9`.
 
 ## Phase 0 — Specification and safety
 
 - [x] Verify exact repository, public visibility, default branch and initial empty state.
-- [x] Establish v2.4 implementation specification and decision log.
+- [x] Establish v2.6 implementation specification and decision log with explicit exchange qualification gates.
 - [x] Keep all execution paper-only; do not add private API calls or exchange order submission.
 - [x] Add CI on Python 3.12 with Ruff and pytest.
-- [x] Verify core CI on the current documentation/probe branch: run 43912962281 passed Ruff and 62 tests on commit `73b449593ed32b5dc1d94e4d1c5bc0658533fa54`.
+- [x] Verify red-team repairs: run 43931058486 passed Ruff and 67 tests on commit `a1c0e083893e5566fb2173b22c7afe81b196b4b9`.
 - [x] Keep automatic portfolio workflows disabled.
 - [ ] Complete the data-access gate using a permitted runner/network.
 
@@ -52,8 +52,10 @@ The repository is in a validated core-code phase, not a trading-ready phase. No 
 - [x] Local atomic batch writer and schema validation.
 - [x] Dedicated `state` branch created with append-only policy.
 - [x] GitHub state-branch publisher with mocked API tests, duplicate protection and non-force fast-forward update.
+- [x] Verify every remote event batch and require the appended batch's previous hash to match the unique remote chain tip; reject forks, orphan batches and duplicate genesis roots (mocked tests).
 - [x] Transactional SQLite projection with chain/idempotency checks and integrity verification.
-- [ ] Verify publisher against the actual GitHub API with a narrowly scoped token.
+- [ ] Configure server-side protection/ruleset for `state` (currently unprotected; repository rulesets endpoint returned an empty list).
+- [ ] Verify publisher against the actual GitHub API with a narrowly scoped token after branch protection is enabled.
 - [ ] Implement complete restore/rebuild from state-branch event files after runner loss.
 - [ ] Integrate persistence as a mandatory precondition for any paper state transition.
 
@@ -79,7 +81,7 @@ The repository is in a validated core-code phase, not a trading-ready phase. No 
 ## External data access
 
 ### Live API blocker
-The automatic GitHub multi-cloud standard Linux pool was tested across Ubuntu 22.04, 24.04 and 26.04. All 6/6 calls to the required Global V5 server-time endpoint returned HTTP 403; one runner was AWS `us-west-2`, and it was blocked too. GitHub controls the region and cloud selection; no geographic selector is documented. No VPN, proxy, relay, host rotation, paid service or exchange change is permitted.
+The automatic GitHub multi-cloud standard Linux pool was tested across Ubuntu 22.04, 24.04 and 26.04. All 6/6 calls to the required Global V5 server-time endpoint returned HTTP 403; one runner was AWS `us-west-2`, and it was blocked too. GitHub controls the region and cloud selection; no geographic selector is documented. No VPN, proxy, relay, host rotation or paid service is permitted. The user has explicitly requested replacement-exchange evaluation; this is a provider migration, not an access-control bypass, and it must pass the complete qualification gate before implementation.
 
 ### Historical archive route
 The official Bybit `public.bybit.com/trading` archive is reachable from the same runners. Three separate jobs fetched a valid gzip range from a dated BTCUSDT trade file (HTTP 206). This can be used to build an optional historical-only lane:
@@ -93,6 +95,17 @@ This archive does not establish funding, mark/index data, historical L2 depth, o
 
 ### Release implications
 Historical price research may proceed after the importer and coverage gates are implemented. The live Bybit API gate remains blocked and all forward paper automation remains disabled until a compliant, repeatable public-data route and all accounting/recovery gates pass.
+
+## Emergency red-team and replacement selection
+
+- [x] Correct maximum drawdown duration to use the longest underwater episode; test exact high-water-mark recovery resetting the next episode clock.
+- [x] Anchor every appended event batch to the verified remote chain tip; reject multiple genesis roots, orphans, forks and truncated state trees in mocked integration tests.
+- [x] Replace Crypto.com false-positive candidate probe with a strict readiness gate; all three runner jobs currently reject it.
+- [ ] Configure server-side protection for the public `state` branch and resolve the public-ledger privacy architecture before state initialization.
+- [ ] Evaluate a replacement exchange using official jurisdiction restrictions, a sufficiently broad USDT-settled perpetual universe, funding-history availability, full public market-data APIs, precision metadata and repeatable runner connectivity.
+- [ ] Implement a normalized provider adapter only after a candidate passes every gate. No replacement exchange is approved at present.
+
+Crypto.com is NOT_READY: only six USD-quoted contracts, failed funding-history API code 40004 for the two tested index identifiers, quote-currency mismatch, and unverified collateral/jurisdiction. Its official derivatives restriction list includes Romania. Do not migrate to it.
 
 ## Release gate
 
