@@ -119,3 +119,15 @@ CI evidence is not performance evidence. Report separately: source-data coverage
 The current forward paper account seed is 1 USDT, not the historical 100 USDT planning value. Both the portfolio module default and daily cycle capital constant are 1 USDT. At 50% NAV margin per leg and 2× leverage, the target is approximately 1 USDT notional per leg and 2 USDT combined gross notional. MEXC quantity increments, minimum/maximum contract limits, depth and simulated costs may prevent a pair from opening at this capital level; a flat 1 USDT account is a valid starting state and must not be forced into an undersized order.
 
 The scheduler reads the repository variable PAPER_STATE_WRITE_ENABLED and defaults to false when it is absent. Before changing it to true, configure the state branch as protected with administrator enforcement, force-push disabled, deletion disabled and writer restrictions limited to the intended GitHub Actions app. Add the repository secret STATE_PROTECTION_TOKEN as a fine-grained token with only repository Administration: read permission so the workflow can independently inspect the branch-protection endpoint. The publisher continues to use the workflow GITHUB_TOKEN with Contents: write. A missing/invalid protection token, missing restrictions or failed publisher read-back must keep the account uninitialized.
+
+
+## 9. Two-stage recovery-before-initialization protocol
+
+When the operator has configured branch protection, added STATE_PROTECTION_TOKEN and explicitly enabled PAPER_STATE_WRITE_ENABLED:
+
+1. The first write-capable invocation must publish only a non-financial paper_state_recovery_probe event. The publisher must read back the exact canonical event and verify the complete remote chain before reporting success. No financial state or account balance is created in this invocation.
+2. The next invocation checks out the state branch afresh and locally verifies every event batch and the linear hash chain. It must detect the exact recovery-probe event before account initialization is allowed.
+3. Only after that fresh-checkout recovery succeeds may the first financial event be written. It is typed paper_account_initialized and records initial_capital_usdt=1, starting_cash_usdt=1, forward-paper-only mode, no historical imports and the first valuation/decision timestamp.
+4. Subsequent runs restore the financial event from the protected branch and reconstruct the same account state. A missing probe, broken hash chain, missing account identifier, failed read-back or failed protection check prevents initialization and keeps the workflow fail-closed.
+
+The non-financial probe is part of the append-only public state chain. It is not a trade, position, P&L entry or account initialization.
