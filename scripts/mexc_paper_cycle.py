@@ -38,8 +38,8 @@ from trend_quality.mexc_portfolio import (
     append_equity_snapshot,
     apply_confirmed_funding,
     close_paper_position,
-    initial_portfolio_state,
     increase_paper_position,
+    initial_portfolio_state,
     open_paper_position,
     portfolio_nav,
     reduce_paper_position,
@@ -664,7 +664,7 @@ def _try_pair(
             proposed: list[dict[str, Any]] = []
             fills: list[dict[str, Any]] = []
             valid = True
-            for candidate, instrument, side in (
+            for _candidate, instrument, side in (
                 (long_candidate, long_instrument, "long"),
                 (short_candidate, short_instrument, "short"),
             ):
@@ -1697,7 +1697,7 @@ def _run() -> int:
             pair_rebalance_actions: list[dict[str, Any]] = []
             risk_window_reset: dict[str, Any] | None = None
             if pair is not None:
-                proposed, pair_candidate_fills, _ = pair
+                proposed, _pair_candidate_fills, _ = pair
                 prior_keys = {
                     (int(row["instrument_id"]), str(row["side"]))
                     for row in portfolio.get("positions", [])
