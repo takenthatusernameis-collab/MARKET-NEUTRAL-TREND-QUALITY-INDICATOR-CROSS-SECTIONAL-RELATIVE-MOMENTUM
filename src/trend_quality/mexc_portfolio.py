@@ -284,7 +284,7 @@ def append_equity_snapshot(
     *,
     drawdown_limit: Decimal = DEFAULT_DAILY_DRAWDOWN_LIMIT,
 ) -> dict[str, Any]:
-    """Append a portfolio mark and update the combined-book daily risk watermark."""
+    """Append a mark and update combined-book daily risk using prior-day close as baseline."""
     for value, field in (
         (nav, "nav"),
         (long_notional, "long_notional"),
@@ -297,17 +297,41 @@ def append_equity_snapshot(
         raise ValueError("Invalid equity snapshot timestamp or exposure")
     if drawdown_limit <= ZERO or drawdown_limit >= ONE:
         raise ValueError("drawdown_limit must be in (0, 1)")
+
+    curve = state.setdefault("equity_curve", [])
+    if curve and int(curve[-1]["timestamp_ms"]) > int(timestamp_ms):
+        raise ValueError("Equity-curve timestamps cannot move backwards")
+
     timestamp = datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
     day_key = timestamp.strftime("%Y-%m-%d")
+    day_start_ms = int(
+        timestamp.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        * 1000
+    )
     risk = state.setdefault("daily_risk", {})
     if risk.get("utc_date") != day_key:
+        # The last successful mark before UTC midnight is the daily opening
+        # equity reference. This captures price moves during delayed/missed
+        # first cron invocations instead of resetting the baseline to a later,
+        # potentially already-damaged portfolio valuation.
+        prior_nav = (
+            _decimal(curve[-1]["nav"], "prior equity snapshot NAV")
+            if curve and int(curve[-1]["timestamp_ms"]) < day_start_ms
+            else nav
+        )
         risk = {
             "utc_date": day_key,
-            "starting_nav": str(nav),
-            "starting_timestamp_ms": int(timestamp_ms),
-            "starting_reference": "first_observation_of_utc_day",
-            "peak_nav": str(nav),
-            "peak_timestamp_ms": int(timestamp_ms),
+            "starting_nav": str(prior_nav),
+            "starting_timestamp_ms": day_start_ms,
+            "starting_reference": (
+                "previous_utc_day_last_snapshot"
+                if curve and int(curve[-1]["timestamp_ms"]) < day_start_ms
+                else "first_observation_of_utc_day"
+            ),
+            "peak_nav": str(max(prior_nav, nav)),
+            "peak_timestamp_ms": (
+                int(timestamp_ms) if nav > prior_nav else day_start_ms
+            ),
             "stop_triggered": False,
             "stop_triggered_at_ms": None,
             "stop_reason": None,
@@ -320,7 +344,7 @@ def append_equity_snapshot(
         if nav > peak:
             risk["peak_nav"] = str(nav)
             risk["peak_timestamp_ms"] = int(timestamp_ms)
-            peak = nav
+
     starting_nav = _decimal(risk["starting_nav"], "daily starting NAV")
     peak_nav = _decimal(risk["peak_nav"], "daily peak NAV")
     if starting_nav <= ZERO or peak_nav <= ZERO:
@@ -329,6 +353,7 @@ def append_equity_snapshot(
     else:
         daily_return = nav / starting_nav - ONE
         daily_drawdown = nav / peak_nav - ONE
+
     newly_triggered = False
     if daily_drawdown <= -drawdown_limit and not bool(risk.get("stop_triggered")):
         risk["stop_triggered"] = True
@@ -336,6 +361,7 @@ def append_equity_snapshot(
         risk["stop_reason"] = "COMBINED_PORTFOLIO_DAILY_DRAWDOWN_LIMIT"
         risk["flattened"] = False
         newly_triggered = True
+
     initial_capital = _decimal(state["initial_capital"], "initial capital")
     total_roi = nav / initial_capital - ONE if initial_capital > ZERO else ZERO
     gross_notional = long_notional + short_notional
@@ -348,6 +374,7 @@ def append_equity_snapshot(
         "daily_return_pct": str(daily_return * Decimal("100")),
         "daily_drawdown_pct": str(daily_drawdown * Decimal("100")),
         "daily_starting_nav": str(starting_nav),
+        "daily_starting_reference": risk["starting_reference"],
         "daily_peak_nav": str(peak_nav),
         "long_notional_usdt": str(long_notional),
         "short_notional_usdt": str(short_notional),
@@ -356,16 +383,13 @@ def append_equity_snapshot(
         "emergency_stop_newly_triggered": newly_triggered,
         "emergency_stop_flattened": bool(risk.get("flattened")),
     }
-    curve = state.setdefault("equity_curve", [])
+
     if curve and int(curve[-1]["timestamp_ms"]) == int(timestamp_ms):
         curve[-1] = snapshot
-    elif curve and int(curve[-1]["timestamp_ms"]) > int(timestamp_ms):
-        raise ValueError("Equity-curve timestamps cannot move backwards")
     else:
         curve.append(snapshot)
     state["last_snapshot_ms"] = int(timestamp_ms)
     return snapshot
-
 
 def lifetime_max_drawdown(state: dict[str, Any]) -> Decimal | None:
     """Peak-to-trough NAV drawdown over all stored portfolio snapshots."""
