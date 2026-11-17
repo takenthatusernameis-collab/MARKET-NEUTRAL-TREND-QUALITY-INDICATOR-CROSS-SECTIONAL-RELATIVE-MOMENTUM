@@ -650,3 +650,68 @@ Before completion independently reconstruct several trades from raw data and the
 Do not call the complete system finished until full universe retrieval, available daily history, validated Q, rankings, chronological replay, separate forward paper account, realistic stop timing, verified funding, reconciled NAV, durable event storage, recovery, tests, workflows and main-branch reports are demonstrated.
 
 No live trading. No Testnet. No private endpoints. No credentials. No paid infrastructure. No false fills. No incomplete-universe claims. No hidden adjustments. No unsupported performance claims.
+
+
+
+## 19. 2026-11-17 — AUTHORITATIVE FIVE-MINUTE / DAILY-CLOSE / COMBINED-RISK OVERRIDE
+
+**This section is the latest user-authorized operating specification and supersedes any conflicting scheduling, target-exposure, monitoring, rebalancing or stop-loss instructions in older sections of this historical directive.** In particular, do not implement an hourly decision loop or run ordinary strategy decisions on every five-minute invocation.
+
+### 19.1 One five-minute scheduler; two mutually exclusive modes
+
+Keep exactly one scheduled GitHub Actions workflow with cron */5 * * * *. Each invocation reads the latest completed MEXC UTC daily candle and a durable daily-workflow watermark.
+
+- The first invocation that observes a newly completed UTC daily candle enters DAILY_CLOSE_RESEARCH_AND_DECISION mode. It performs the heavy work once for that candle: restore/check state; refresh metadata and eligible universe; perform one bounded resumable history batch; validate candles and coverage; calculate daily Q/B/ATR values; rank the research and execution universes; process confirmed funding; evaluate risk; and, only with a fully open persistence gate and complete market data, make ordinary daily position/exit/rebalance decisions.
+- Every other invocation enters FIVE_MINUTE_PORTFOLIO_SNAPSHOT mode. It marks existing positions, calculates NAV/ROI/equity-curve/daily-return/daily-drawdown/lifetime-MDD/exposures, applies confirmed funding cashflows exactly once, checks the emergency stop, retries any incomplete emergency flatten and persists a valuation/risk event only when the paper-state gate is open.
+- Snapshot mode must not refresh the full instrument universe, backfill daily candles, recalculate Q, rerank candidates, make normal entry/exit decisions, trail ATR stops or rebalance. The only position-closing action permitted in this mode is completion/retry of an already-triggered emergency full-book flatten.
+- The daily-workflow watermark must be committed only after the heavy workflow reaches its durable completion point. A repeated cron run for the same completed candle must fall into snapshot-only mode. A data bootstrap that remains incomplete must resume one bounded batch on a later daily-close cycle; it must not force repeated heavy work during the same day.
+- Do not fabricate historical fills to catch up missed decisions using current books. Report missed intervals and make any new ordinary decision at the actual eligible daily invocation using current public data and current paper-fill books.
+
+### 19.2 Exposure and leverage authority
+
+Use 100 USDT initial paper capital. The portfolio has two legs:
+
+- Long margin allocation: 50% of current NAV.
+- Short margin allocation: 50% of current NAV.
+- Default leverage: 2× on each leg.
+- Target long notional: approximately 1× NAV.
+- Target short notional: approximately 1× NAV.
+- Combined target gross notional: approximately 2× NAV.
+
+Size quantity as NAV × leg-margin-allocation × leverage ÷ reference price, then round down to MEXC contract quantity increments and apply all instrument maximum leverage, minimum quantity, maximum quantity, book depth and impact constraints. Do not confuse a 50% margin allocation with a 50% notional target. Retain the 100% USDT quote/settlement execution gate; do not mix alternative quote or settlement currencies into USDT NAV.
+
+### 19.3 Combined portfolio daily emergency stop
+
+The emergency stop is based on **combined portfolio NAV**, never on independent per-leg percentages. NAV must include cash, realized and unrealized P&L, commissions/fees and confirmed funding.
+
+Use a UTC-day risk state with:
+- Daily return relative to the previous UTC day's last persisted NAV observation when one exists; use the first UTC-day observation only when no prior-day mark exists.
+- Daily drawdown relative to the highest observed NAV in the current UTC day, with the previous UTC day's final NAV serving as the new day's opening high-water reference where available.
+
+When combined portfolio daily drawdown reaches or exceeds 25% (current NAV / daily peak NAV - 1 <= -0.25), immediately latch an emergency full-book flatten, block ordinary entry/rebalance decisions, simulate closing both legs using current public MEXC order-book depth, and account for closing fees and slippage. Persist trigger time/NAV/reason, closing fills/costs, retry count and flattened status.
+
+If either simulated leg cannot be fully closed, preserve an emergency_liquidation_pending latch. Retry it on each subsequent five-minute invocation, including after UTC rollover and when a mark quote is missing. Missing marks prevent a fabricated NAV/threshold calculation, but they must not suppress a previously latched emergency exit if current public order-book depth still permits a simulated close. Do not reopen until the book is flat and a later eligible daily-close decision cycle is reached.
+
+The 25% control is a **daily** risk threshold, not a lifetime MDD ceiling. Lifetime MDD may exceed 25% over the research campaign. Five-minute detection is sampled and best-effort, so the final simulated liquidation can occur beyond the nominal threshold. Explicitly report gaps, latency, stale/missing marks, actual detection time and execution shortfall. Never describe this simulation as an exchange-side/native stop.
+
+### 19.4 State safety and forward-paper activation gate
+
+Keep PAPER_STATE_WRITE_ENABLED=false until the state branch has independently verified server-side protection against force-push and deletion, restricted writers, and a successful immutable event-publisher/recovery test. The runtime state-protection check remains mandatory. Do not bypass the gate, infer that account code being implemented means the account is active, or silently initialize a forward account.
+
+No live orders, Testnet orders, private account/order/position endpoints, exchange credentials, wallet access or exchange-side stop placement are allowed. No financial performance claims until the forward paper account has actually persisted observations. This repository is public, so any future state written to its branches is public and permanent.
+
+### 19.5 Required tests and reporting
+
+Tests must cover:
+- 50% NAV margin per leg at 2×, giving 1× NAV target notional per leg and 2× combined gross exposure.
+- Combined long+short losses breach the stop even if neither leg individually loses 25%.
+- Lifetime MDD can exceed 25% without triggering the daily stop by itself.
+- UTC-day reset, previous-day last-NAV baseline after a delayed first cron, and first-observation fallback.
+- A daily candle causes at most one heavy workflow/ordinary decision; repeated five-minute invocations are snapshot-only.
+- Five-minute snapshot mode never recalculates Q or performs ordinary rebalance/trailing decisions.
+- Snapshot and daily event idempotency; state-chain verification; missing/stale mark handling; funding and fee exactly-once accounting.
+- Emergency flatten retries across failure, process restart and UTC rollover; missing marks must not suppress a latched emergency close.
+- Live endpoints/orders/credentials remain unreachable from the paper workflow.
+
+Reports must distinguish source-data completeness, test validation, state-write readiness, initialized forward account status and actual persisted performance evidence. Unit tests or successful public-data cycles are not profitability evidence.
+
