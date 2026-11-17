@@ -256,6 +256,56 @@ class GitHubStatePublisher:
             )
         return current_hash
 
+
+    def _verify_remote_batch(
+        self,
+        repo_path: str,
+        branch_path: str,
+        encoded_path: str,
+        content: str,
+        batch_hash: str,
+    ) -> None:
+        """Verify exact remote contents and full event-chain membership after a write/replay."""
+        try:
+            verified_ref = self._request(
+                "GET",
+                f"{repo_path}/git/ref/heads/{branch_path}",
+            )
+            verified_commit_sha = str(verified_ref["object"]["sha"])
+            verified_commit = self._request(
+                "GET",
+                f"{repo_path}/git/commits/{verified_commit_sha}",
+            )
+            verified_tree_sha = str(verified_commit["tree"]["sha"])
+            self._latest_batch_hash(
+                repo_path,
+                verified_tree_sha,
+                required_batch_hash=batch_hash,
+            )
+            stored = self._request(
+                "GET",
+                f"{repo_path}/contents/{encoded_path}?ref={quote(self.branch, safe='')}",
+            )
+            if stored.get("encoding") != "base64" or not isinstance(
+                stored.get("content"), str
+            ):
+                raise GitHubStateError(
+                    "Published event read-back has an unexpected content encoding"
+                )
+            stored_content = base64.b64decode(
+                stored["content"], validate=False
+            ).decode("utf-8")
+            if stored_content != content:
+                raise GitHubStateError(
+                    "Published event read-back differs from canonical batch content"
+                )
+        except GitHubStateError:
+            raise
+        except (KeyError, TypeError, ValueError, UnicodeDecodeError) as exc:
+            raise GitHubStateError(
+                f"Published event read-back verification failed: {type(exc).__name__}"
+            ) from exc
+
     def publish_batch(self, batch: dict[str, Any]) -> PublishResult:
         """Commit a batch as a new immutable file and advance branch fast-forward.
 
@@ -295,6 +345,13 @@ class GitHubStatePublisher:
                 raise GitHubStateError(
                     f"Immutable event path already exists with different content: {file_path}"
                 )
+            self._verify_remote_batch(
+                repo_path,
+                branch_path,
+                encoded_path,
+                content,
+                str(batch["batch_hash"]),
+            )
             return PublishResult(
                 path=file_path,
                 batch_hash=str(batch["batch_hash"]),
@@ -379,46 +436,14 @@ class GitHubStatePublisher:
                 status_code=exc.status_code,
             ) from exc
 
-        # Read-after-write verification: do not report success until the exact
-        # canonical event is visible from the remote branch and the complete
-        # branch event chain still verifies, including this batch.
-        try:
-            verified_ref = self._request(
-                "GET",
-                f"{repo_path}/git/ref/heads/{branch_path}",
-            )
-            verified_commit_sha = str(verified_ref["object"]["sha"])
-            verified_commit = self._request(
-                "GET",
-                f"{repo_path}/git/commits/{verified_commit_sha}",
-            )
-            verified_tree_sha = str(verified_commit["tree"]["sha"])
-            self._latest_batch_hash(
-                repo_path,
-                verified_tree_sha,
-                required_batch_hash=str(batch["batch_hash"]),
-            )
-            stored = self._request(
-                "GET",
-                f"{repo_path}/contents/{encoded_path}?ref={quote(self.branch, safe='')}",
-            )
-            if stored.get("encoding") != "base64" or not isinstance(stored.get("content"), str):
-                raise GitHubStateError(
-                    "Published event read-back has an unexpected content encoding"
-                )
-            stored_content = base64.b64decode(
-                stored["content"], validate=False
-            ).decode("utf-8")
-            if stored_content != content:
-                raise GitHubStateError(
-                    "Published event read-back differs from canonical batch content"
-                )
-        except GitHubStateError:
-            raise
-        except (KeyError, TypeError, ValueError, UnicodeDecodeError) as exc:
-            raise GitHubStateError(
-                f"Published event read-back verification failed: {type(exc).__name__}"
-            ) from exc
+        # Confirm exact canonical contents and full-chain membership.
+        self._verify_remote_batch(
+            repo_path,
+            branch_path,
+            encoded_path,
+            content,
+            str(batch["batch_hash"]),
+        )
 
         return PublishResult(
             path=file_path,
