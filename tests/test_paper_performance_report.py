@@ -335,3 +335,57 @@ def test_report_is_informative_before_account_initialization(tmp_path: Path) -> 
     report = render_performance_report(tmp_path)
     assert "not yet initialized" in report
     assert "No account performance is inferred" in report
+
+
+
+def test_report_renders_metrics_and_open_positions_after_svg_refactor(tmp_path: Path) -> None:
+    start = 1_800_000_000_000
+    positions = [
+        {
+            "instrument_id": 1595,
+            "symbol": "VSTOCK_USDT",
+            "side": "long",
+            "quantity": "0.02",
+            "entry_price": "426.35",
+            "last_mark_price": "419.00",
+            "entry_timestamp_ms": start,
+            "entry_fee": "0.0017",
+        },
+        {
+            "instrument_id": 1899,
+            "symbol": "BILL_USDT",
+            "side": "short",
+            "quantity": "2500",
+            "entry_price": "0.003974",
+            "last_mark_price": "0.003950",
+            "entry_timestamp_ms": start,
+            "entry_fee": "0",
+        },
+    ]
+    state = _state(
+        positions=positions,
+        equity=[
+            {"timestamp_ms": start, "nav": "100", "roi_pct": "0"},
+            {"timestamp_ms": start + 60_000, "nav": "99.9", "roi_pct": "-0.1"},
+        ],
+        risk_start=start,
+        risk_nav="100",
+    )
+    _write_event(
+        tmp_path,
+        run_id="open-position-render-regression",
+        timestamp=start,
+        previous_hash=None,
+        state=state,
+        details={"fills": positions},
+    )
+
+    report = render_performance_report(tmp_path)
+
+    assert "Closed-trade win rate" in report
+    assert "Sortino ratio" in report
+    assert "Unavailable" in report
+    assert "## Open positions" in report
+    assert "| VSTOCK_USDT | long | 0.02 | 426.35 | 419.00 |" in report
+    assert "| BILL_USDT | short | 2500 | 0.003974 | 0.003950 |" in report
+    assert "Full mark-to-market equity history" in report
