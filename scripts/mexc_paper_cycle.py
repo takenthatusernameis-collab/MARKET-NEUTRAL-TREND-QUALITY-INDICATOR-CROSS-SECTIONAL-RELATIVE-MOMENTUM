@@ -31,7 +31,6 @@ from trend_quality.mexc_paper import (
     simulate_mexc_fill,
     size_mexc_leg,
 )
-from trend_quality.ranking import Candidate
 from trend_quality.mexc_portfolio import (
     account_report,
     append_daily_equity,
@@ -44,6 +43,7 @@ from trend_quality.mexc_portfolio import (
     stop_is_triggered,
     update_trailing_stop,
 )
+from trend_quality.ranking import Candidate
 
 DAY_MS = 86_400_000
 BOOTSTRAP_DAYS = 365
