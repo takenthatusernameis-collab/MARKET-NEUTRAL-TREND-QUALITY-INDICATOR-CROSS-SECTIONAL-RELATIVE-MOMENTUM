@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-17T19:38:12.012000+00:00",
+  "last_run_utc": "2026-11-17T19:53:44.215000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-10usdt-v2",
     "cash": "9.99879972500",
@@ -372,13 +372,32 @@
         "short_notional_usdt": "9.837500",
         "timestamp_ms": 1794944292012,
         "utc_date": "2026-11-17"
+      },
+      {
+        "daily_drawdown_pct": "-1.250236223543636114304018790",
+        "daily_peak_nav": "10.02969460",
+        "daily_return_pct": "-0.95700275000",
+        "daily_starting_nav": "10",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "drawdown_window_reference": "first_observation_of_utc_day",
+        "drawdown_window_starting_nav": "10",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.842886474237834114011528463",
+        "long_notional_usdt": "8.3750",
+        "nav": "9.90429972500",
+        "roi_pct": "-0.95700275000",
+        "short_notional_usdt": "9.877500",
+        "timestamp_ms": 1794945224215,
+        "utc_date": "2026-11-17"
       }
     ],
     "fees_paid": "0.00170540",
     "initial_capital": "10",
     "last_decision_attempt_daily_bar_ms": 1794787200000,
     "last_processed_daily_bar_ms": 1794787200000,
-    "last_snapshot_ms": 1794944292012,
+    "last_snapshot_ms": 1794945224215,
     "pending_entry_signal": null,
     "positions": [
       {
@@ -390,7 +409,7 @@
         "initial_margin_usdt": "4.2635",
         "instrument_id": 1595,
         "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "419.51",
+        "last_mark_price": "418.75",
         "leverage": "2",
         "lowest_since_entry": "426.35",
         "quantity": "0.02",
@@ -408,7 +427,7 @@
         "initial_margin_usdt": "4.967500",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1794888000000,
-        "last_mark_price": "0.003935",
+        "last_mark_price": "0.003951",
         "leverage": "2",
         "lowest_since_entry": "0.003974",
         "quantity": "2500",
@@ -426,9 +445,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "f8e23373b132396abfbb88d1e174fc06d8a57d5b308ad16b5d7e305846b9373f",
-    "commit_sha": "0f9a621f904df029fbd095171d5ed5c65ef05bcb",
+    "batch_hash": "937496b7644cb658d40f87ab30b5de6b6e60974357b4fd955a0cafa8e541623c",
+    "commit_sha": "a883b665c75c639780690e7563ef7de23011bd0b",
     "created": true,
-    "path": "events/2026/11/snapshot-1794944292012.json"
+    "path": "events/2026/11/snapshot-1794945224215.json"
   }
 }
