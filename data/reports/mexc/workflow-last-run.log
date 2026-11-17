@@ -1,23 +1,8 @@
 {
-  "credentials_used": false,
-  "initial_capital_usdt": "1",
-  "mode": "STATE_PERSISTENCE_PROBE",
-  "orders_submitted": 0,
-  "paper_account_initialized": false,
-  "paper_decision_status": "PUBLISH_READBACK_VERIFIED_AWAITING_FRESH_CHECKOUT",
-  "paper_simulation_enabled": false,
-  "paper_state_write_requested": true,
-  "private_endpoints_used": false,
+  "status": "FAILED",
+  "error": "EventJournalError: Binary float is not allowed in durable events: event.payload.details.research_long_top[0].b",
   "provider": "mexc",
-  "run_utc": "2026-11-17T00:39:35.010219+00:00",
-  "state_recovery_probe": {
-    "batch_hash": "ad7ff8e50fcf462f8851e81512cb6d487debad9cfc3cb289d5bad2cade7256fc",
-    "commit_sha": "6bdb7f080e557010109aea995e5173c171ca63eb",
-    "created": true,
-    "fresh_checkout_recovery_required": true,
-    "path": "events/2026/11/state-probe-1794875970712.json",
-    "remote_readback_verified": true
-  },
-  "state_write_mode": "UNPROTECTED_SINGLE_WRITER_APPEND_ONLY",
-  "wallet_used": false
+  "orders_submitted": 0,
+  "credentials_used": false,
+  "private_endpoints_used": false
 }
