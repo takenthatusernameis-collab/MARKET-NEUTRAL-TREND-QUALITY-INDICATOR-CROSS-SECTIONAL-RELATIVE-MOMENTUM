@@ -88,3 +88,6 @@ See [STATUS](STATUS.md), [master implementation directive](IMPLEMENTATION_PROMPT
 ## Forward-paper seed and activation
 
 The configured forward seed is 1 USDT. At 50% NAV margin per leg and 2x leverage, the nominal target is 1 USDT notional per leg; exchange minimums may leave the account flat. The account remains uninitialized until the state branch is server-side protected and the durable publisher/recovery test passes. The MEXC workflow's PAPER_STATE_WRITE_ENABLED repository variable defaults to false. The workflow's STATE_PROTECTION_TOKEN secret is a fine-grained, repository-limited token used only for Administration: read protection verification. See OPERATING_MODEL.md.
+
+
+Protection and activation steps are documented in [STATE_PROTECTION_SETUP.md](STATE_PROTECTION_SETUP.md). The first writer-enabled run only emits a non-financial recovery probe; a fresh checkout must verify it before the 1 USDT financial initialization event can be created.
