@@ -974,8 +974,9 @@ def _run() -> int:
             os.environ.get("GITHUB_TOKEN", ""),
         )
     writer_enabled = writer_requested and state_protected
+    account_initialization_due = previous_state is None and writer_enabled
     portfolio = previous_state
-    if portfolio is None and writer_enabled:
+    if account_initialization_due:
         portfolio = initial_portfolio_state(INITIAL_CAPITAL)
     elif portfolio is not None and portfolio.get("currency") != "USDT":
         raise RuntimeError("Existing paper account currency is not USDT")
@@ -1295,18 +1296,32 @@ def _run() -> int:
                     else "WITHIN_DAILY_LIMIT"
                 ),
             }
-            key = (
-                f"daily-{latest_bar_ms}"
-                if paper_decision_status in {
-                    "PAIR_HELD", "PAIR_OPENED_OR_REPLACED", "FLAT_NO_EXECUTABLE_PAIR"
+            if account_initialization_due:
+                report_details["account_initialization"] = {
+                    "initial_capital_usdt": str(INITIAL_CAPITAL),
+                    "starting_cash_usdt": str(INITIAL_CAPITAL),
+                    "account_mode": "FORWARD_PAPER_ONLY",
+                    "historical_equity_imported": False,
+                    "historical_trades_imported": False,
                 }
-                else f"risk-{server_ms}"
-            )
+                key = f"account-init-{server_ms}"
+                event_type = "paper_account_initialized"
+            else:
+                key = (
+                    f"daily-{latest_bar_ms}"
+                    if paper_decision_status in {
+                        "PAIR_HELD", "PAIR_OPENED_OR_REPLACED", "FLAT_NO_EXECUTABLE_PAIR"
+                    }
+                    else f"risk-{server_ms}"
+                )
+                event_type = (
+                    "daily_portfolio_decision"
+                    if key.startswith("daily-") else "paper_risk_update"
+                )
             state_event = _publish_event(
                 portfolio,
                 report_details,
-                "daily_portfolio_decision"
-                if key.startswith("daily-") else "paper_risk_update",
+                event_type,
                 key,
                 server_ms,
                 previous_hash,
@@ -1338,6 +1353,10 @@ def _run() -> int:
         "research_refresh_performed": True,
         "q_rankings_recalculated": True,
         "ordinary_strategy_decisions": bool(writer_enabled),
+        "paper_account_initialized_this_cycle": account_initialization_due,
+        "paper_account_initial_capital_usdt": (
+            str(INITIAL_CAPITAL) if account_initialization_due else None
+        ),
         "instrument_count_all": len(client.contract_details()),
         "active_cross_margin_perpetual_count": len(instruments),
         "active_cross_usdt_perpetual_count": sum(
