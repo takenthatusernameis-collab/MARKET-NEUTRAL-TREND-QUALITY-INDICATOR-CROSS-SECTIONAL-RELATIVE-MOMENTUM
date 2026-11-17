@@ -349,8 +349,8 @@ def test_daily_pair_rebalance_trades_only_required_position_deltas() -> None:
     assert [row["action"] for row in resize_details] == ["INCREASED", "REDUCED"]
     positions = {row["instrument_id"]: row for row in state["positions"]}
     assert set(positions) == {101, 202}
-    assert positions[101]["quantity"] == "1.0000"
-    assert positions[202]["quantity"] == "1.0000"
+    assert Decimal(positions[101]["quantity"]) == Decimal("1")
+    assert Decimal(positions[202]["quantity"]) == Decimal("1")
     assert positions[101]["entry_timestamp_ms"] == original_entry_times[101]
     assert positions[202]["entry_timestamp_ms"] == original_entry_times[202]
     assert state["closed_trade_net_pnls"] == []
