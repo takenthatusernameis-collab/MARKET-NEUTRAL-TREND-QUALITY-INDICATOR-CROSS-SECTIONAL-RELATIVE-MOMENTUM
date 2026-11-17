@@ -2,6 +2,15 @@
 
 A paper-only research system for the Sepiashvili Trend-Quality Indicator (Q), ranking active cross-margin perpetual contracts and eventually maintaining one long and one short. The indicator engine is exchange-neutral; the selected market-data adapter is **MEXC Futures, USDT-settled cross-margin perpetuals**.
 
+## ▶ START PAPER SIMULATION MANUALLY
+
+<badge>Paper only</badge> **[Open the MEXC paper workflow in GitHub Actions](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)**
+
+On that page, select **▶ START PAPER SIMULATION — MEXC (PAPER ONLY)**, choose branch **main**, select **Run workflow**, then confirm with the green **Run workflow** button. This manually starts the same paper-only cycle used by the five-minute scheduler. The workflow also remains scheduled every five minutes; the manual button is an immediate on-demand run, not a separate strategy.
+
+No exchange order is ever sent. The execution records are simulated from public MEXC market data.
+
+
 ## Current provider selection
 
 **Selected provider: MEXC Futures**
@@ -55,11 +64,11 @@ Key files: src/trend_quality/mexc_api.py, mexc_paper.py, mexc_portfolio.py, mark
 
 ## Operating state and account safety gate
 
-The single five-minute workflow in [.github/workflows/mexc-paper-cycle.yml](.github/workflows/mexc-paper-cycle.yml) now has two explicit modes, selected by the latest completed UTC daily candle. The first invocation after a new daily close performs the full market-data refresh, one bounded bootstrap/incremental batch, Q rankings and (only when the paper-state gate is open) the daily portfolio decision. Other five-minute invocations are portfolio-monitoring snapshots only: no universe refresh, Q recalculation, ATR decision or ordinary rebalance. The authoritative specification is [OPERATING_MODEL.md](OPERATING_MODEL.md).
+The single five-minute workflow in [.github/workflows/mexc-paper-cycle.yml](.github/workflows/mexc-paper-cycle.yml) has two operating modes. The first invocation after a new completed UTC daily candle refreshes the market data, updates history, recalculates Q rankings and makes the daily strategy decision. If that decision has a valid frozen executable long/short shortlist but the initial simulated pair cannot execute, subsequent five-minute invocations retry up to five shortlist pairs using fresh public tickers and order books; they do not recalculate Q. The pending signal expires when a new daily candle closes. Once a pair is open, five-minute invocations monitor risk and equity only. See [OPERATING_MODEL.md](OPERATING_MODEL.md).
 
 **Latest full daily-close MEXC run:** [43984343892](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984343892) completed successfully with 1,143 active cross-margin perpetuals, 273,160 stored daily-candle rows, 93 instruments completed in the final bootstrap batch, zero bootstrap instruments remaining, zero missing tickers, zero missing latest completed bars and zero reported API failures. The history-coverage gate passed. Q rankings were recalculated. The routine follow-up snapshot run [43984739626](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984739626) reported PORTFOLIO_SNAPSHOT_ONLY, daily_decision_due=false and q_rankings_recalculated=false. These are public-data workflow checks, not portfolio-performance evidence.
 
-**The 1 USDT forward paper account is initialized and has been independently restored from the event branch.** It is currently flat because no pair passed all minimum-size and execution constraints at this capital level. The MEXC workflow enables paper-state writing by default; set the repository Actions variable `PAPER_STATE_WRITE_ENABLED=false` to pause it. The ledger is paper-only and no real exchange orders or private endpoints are used.
+**Active forward generation: 10 USDT paper-only.** On 2026-11-17, the new generation passed its recovery-probe/fresh-checkout gate, initialized with 10 USDT and opened a simulated VSTOCK_USDT long / BILL_USDT short pair. The initial report showed NAV 9.99529460 USDT after simulated entry fees and mark-to-market; these are the first observations, not evidence of profitability. The previous 1 USDT account generation remains in the append-only event history as an archived generation; it was not deleted or mixed into the new ledger. The MEXC workflow enables paper-state writing by default; set repository Actions variable `PAPER_STATE_WRITE_ENABLED=false` to pause writes.
 
 The 25% emergency stop is a combined portfolio daily drawdown stop, measured from the highest observed NAV in the UTC day; it closes both simulated legs. It does not cap lifetime MDD. Default leverage is 2× on 50% NAV margin per leg (1× NAV notional each, 2× combined gross). Five-minute monitoring is sampled and cannot guarantee detection at the exact threshold between invocations.
 
@@ -87,6 +96,6 @@ See [STATUS](STATUS.md), [master implementation directive](IMPLEMENTATION_PROMPT
 
 ## Forward-paper seed and activation
 
-The initialized forward seed is 1 USDT. At 50% NAV margin per leg and 2× leverage, the nominal target is 1 USDT notional per leg; MEXC minimum contract sizes currently leave the account flat. The state branch is intentionally unprotected, so no administrator route or `STATE_PROTECTION_TOKEN` is required. The MEXC workflow and retired manual Polymarket diagnostic share repository-wide concurrency group `paper-state-branch-single-writer`. The publisher still validates the full hash chain, rejects forks and conflicting writes, uses fast-forward-only commits and verifies exact remote read-back. Because the branch is unprotected, repository users with write access could still rewrite or delete history outside the publisher; this residual risk is documented in OPERATING_MODEL.md.
+The active forward seed is 10 USDT. At 50% NAV margin per leg and 2× leverage, the nominal target is 10 USDT notional per leg. A live-instrument diagnostic of 1,061 eligible USDT perpetuals found median minimum order notional of 0.2878 USDT; 778 contracts satisfied their minimum quantity/step at a 1 USDT per-leg target, versus 1,045 at 10 USDT. Thus minimum size is not above 1 USDT for most contracts, but 10 USDT provided materially broader lot-size coverage and the first qualifying pair has now opened in the new paper generation. The state branch is intentionally unprotected, so no administrator route or `STATE_PROTECTION_TOKEN` is required. The MEXC workflow and retired manual Polymarket diagnostic share repository-wide concurrency group `paper-state-branch-single-writer`. The publisher still validates the full hash chain, rejects forks and conflicting writes, uses fast-forward-only commits and verifies exact remote read-back. Because the branch is unprotected, repository users with write access could still rewrite or delete history outside the publisher; this residual risk is documented in OPERATING_MODEL.md.
 
 See the [paper-state operating guide](STATE_PROTECTION_SETUP.md) for the writer switch, recovery handshake and integrity limitations.
