@@ -45,7 +45,7 @@ The forward account is denominated entirely in USDT.
 
 | Parameter | Setting |
 |---|---:|
-| Initial paper capital | 100 USDT |
+| Initial paper capital | 1 USDT |
 | Long margin allocation | 50% of NAV |
 | Short margin allocation | 50% of NAV |
 | Default leverage | 2× per leg |
@@ -96,7 +96,7 @@ For a missing/stale position mark, do not fabricate a NAV observation or pretend
 
 ## 6. Persistence and non-live boundary
 
-PAPER_STATE_WRITE_ENABLED must remain false unless the state branch has independently verified server-side protection against force-push/deletion, restricted writers, and a successful publisher/recovery test. The runtime protection check is also mandatory. Do not bypass either gate to make the paper account appear active.
+PAPER_STATE_WRITE_ENABLED must remain false unless the state branch has independently verified server-side protection against force-push/deletion, restricted writers, and a successful publisher/recovery test. The runtime protection check is also mandatory. The workflow defaults this setting to false and reads an explicit repository Actions variable named PAPER_STATE_WRITE_ENABLED; do not set it to true until protection and recovery verification pass. The workflow also requires an Actions secret named STATE_PROTECTION_TOKEN containing a fine-grained token limited to this repository with Administration: read permission, used only to inspect protection settings. The separate GITHUB_TOKEN retains Contents: write for append-only event publishing. Do not bypass either gate to make the paper account appear active.
 
 The repository remains public. State written to its branches is public and permanent. Never add API credentials or private endpoints.
 
@@ -112,3 +112,10 @@ Prohibited in this research workflow:
 The test suite must prove: 2× margin-aware sizing; 50/50 margin allocation; combined-leg losses trigger the whole-book stop; a lifetime MDD greater than 25% does not itself stop the account; daily risk resets at UTC rollover; delayed first cron uses the previous day's last NAV; five-minute snapshots do not recalculate Q or rebalance; duplicate daily candle/snapshot events are idempotent; pending emergency flatten survives restart/rollover and is retried; missing marks are disclosed without fabricating NAV; funding/fees are reconciled exactly once; event-chain corruption fails closed.
 
 CI evidence is not performance evidence. Report separately: source-data coverage, unit/integration test results, state-write readiness, forward account initialization, actual persisted portfolio observations, and any independently audited performance.
+
+
+## 8. 1 USDT seed and activation controls
+
+The current forward paper account seed is 1 USDT, not the historical 100 USDT planning value. Both the portfolio module default and daily cycle capital constant are 1 USDT. At 50% NAV margin per leg and 2× leverage, the target is approximately 1 USDT notional per leg and 2 USDT combined gross notional. MEXC quantity increments, minimum/maximum contract limits, depth and simulated costs may prevent a pair from opening at this capital level; a flat 1 USDT account is a valid starting state and must not be forced into an undersized order.
+
+The scheduler reads the repository variable PAPER_STATE_WRITE_ENABLED and defaults to false when it is absent. Before changing it to true, configure the state branch as protected with administrator enforcement, force-push disabled, deletion disabled and writer restrictions limited to the intended GitHub Actions app. Add the repository secret STATE_PROTECTION_TOKEN as a fine-grained token with only repository Administration: read permission so the workflow can independently inspect the branch-protection endpoint. The publisher continues to use the workflow GITHUB_TOKEN with Contents: write. A missing/invalid protection token, missing restrictions or failed publisher read-back must keep the account uninitialized.
