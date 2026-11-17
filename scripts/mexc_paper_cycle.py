@@ -175,7 +175,7 @@ def _ranking_report_rows(
             "cycle_age": candidate.cycle_age,
         }
         if include_b:
-            row["b"] = candidate.b
+            row["b"] = str(candidate.b)
         rows.append(row)
     return rows
 

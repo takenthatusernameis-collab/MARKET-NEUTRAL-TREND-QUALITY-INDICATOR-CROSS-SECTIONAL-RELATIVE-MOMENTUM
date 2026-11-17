@@ -44,7 +44,7 @@ def test_ranking_report_uses_exchange_ticker_not_internal_key() -> None:
         "q": "5.45",
         "direction": "long",
         "cycle_age": 40,
-        "b": 84.5,
+        "b": "84.5",
     }]
 
 
