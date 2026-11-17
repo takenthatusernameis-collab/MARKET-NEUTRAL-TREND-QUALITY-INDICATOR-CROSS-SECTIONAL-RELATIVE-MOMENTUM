@@ -136,3 +136,30 @@ def test_one_usdt_account_sizes_each_leg_to_one_usdt_notional_at_two_x() -> None
     )
     assert quantity == Decimal("0.0100")
     assert quantity * Decimal("100") == Decimal("1")
+
+
+
+def test_ten_usdt_seed_clears_a_ten_unit_contract_minimum_that_blocks_one_usdt() -> None:
+    rules = {
+        **instrument(77, "MIN_SIZE_USDT"),
+        "contract_size": "1",
+        "quantity_step_contracts": "1",
+        "min_contracts": "10",
+    }
+    one_usdt_quantity = size_mexc_leg(
+        rules,
+        Decimal("1"),
+        Decimal("0.5"),
+        allocation_fraction=Decimal("0.5"),
+        leverage=Decimal("2"),
+    )
+    ten_usdt_quantity = size_mexc_leg(
+        rules,
+        Decimal("10"),
+        Decimal("0.5"),
+        allocation_fraction=Decimal("0.5"),
+        leverage=Decimal("2"),
+    )
+    assert one_usdt_quantity == Decimal("0")
+    assert ten_usdt_quantity == Decimal("20")
+    assert ten_usdt_quantity * Decimal("0.5") == Decimal("10")
