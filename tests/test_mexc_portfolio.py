@@ -373,6 +373,7 @@ def test_successful_daily_rebalance_resets_drawdown_baseline_but_not_lifetime_cu
     assert reset["starting_nav"] == "85"
     assert reset["peak_nav"] == "85"
     assert reset["starting_reference"] == "daily_portfolio_rebalance"
+    assert reset["calendar_day_starting_nav"] == "100"
     assert reset["stop_triggered"] is False
 
     after_reset = append_equity_snapshot(
@@ -380,6 +381,9 @@ def test_successful_daily_rebalance_resets_drawdown_baseline_but_not_lifetime_cu
         Decimal("90"), Decimal("100"),
     )
     assert after_reset["daily_drawdown_pct"] == "-25.00"
+    assert after_reset["drawdown_window_starting_nav"] == "85"
+    assert after_reset["daily_starting_nav"] == "100"
+    assert after_reset["daily_return_pct"] == "-36.25"
     assert after_reset["emergency_stop_newly_triggered"]
     assert lifetime_max_drawdown(state) == Decimal("-0.3625")
 
