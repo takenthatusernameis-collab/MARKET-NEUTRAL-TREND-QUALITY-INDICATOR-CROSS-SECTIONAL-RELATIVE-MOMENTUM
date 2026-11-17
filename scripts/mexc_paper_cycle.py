@@ -353,6 +353,10 @@ def _load_state(
                 and event.get("event_type") == "paper_state_recovery_probe"
                 and isinstance(details, dict)
                 and details.get("protocol") == "PUBLISH_READBACK_THEN_FRESH_CHECKOUT"
+                and details.get("financial_state_created") is False
+                and details.get("account_initialized") is False
+                and details.get("orders_submitted") == 0
+                and "portfolio_state" not in payload
             ):
                 recovery_probe_verified = True
             if event.get("account_id") == ACCOUNT_ID:

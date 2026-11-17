@@ -138,6 +138,7 @@ def test_recovery_probe_requires_fresh_checkout_and_does_not_initialize_account(
                 "protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT",
                 "financial_state_created": False,
                 "account_initialized": False,
+                "orders_submitted": 0,
             }
         },
     }
@@ -173,4 +174,68 @@ def test_recovery_probe_not_inferred_from_unrelated_state_event(tmp_path) -> Non
     portfolio, previous_hash, recovered = cycle._load_state(tmp_path)
     assert portfolio is None
     assert previous_hash == batch["batch_hash"]
+    assert recovered is False
+
+
+def test_recovery_probe_with_financial_claim_does_not_unlock_initialization(tmp_path) -> None:
+    from trend_quality.event_journal import build_event_batch, write_batch_atomic
+
+    cycle = load_cycle_module()
+    event = {
+        "event_id": "state-probe-invalid",
+        "idempotency_key": "state-probe-invalid",
+        "account_id": cycle.ACCOUNT_ID,
+        "strategy_id": cycle.STRATEGY_ID,
+        "occurred_at_ms": 1_800_000_000_000,
+        "event_type": "paper_state_recovery_probe",
+        "payload": {
+            "details": {
+                "protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT",
+                "financial_state_created": True,
+                "account_initialized": False,
+                "orders_submitted": 0,
+            }
+        },
+    }
+    batch = build_event_batch(
+        "state-probe-invalid",
+        1_800_000_000_000,
+        [event],
+    )
+    write_batch_atomic(tmp_path, batch)
+
+    portfolio, _previous_hash, recovered = cycle._load_state(tmp_path)
+    assert portfolio is None
+    assert recovered is False
+
+
+def test_recovery_probe_with_orders_does_not_unlock_initialization(tmp_path) -> None:
+    from trend_quality.event_journal import build_event_batch, write_batch_atomic
+
+    cycle = load_cycle_module()
+    event = {
+        "event_id": "state-probe-orders",
+        "idempotency_key": "state-probe-orders",
+        "account_id": cycle.ACCOUNT_ID,
+        "strategy_id": cycle.STRATEGY_ID,
+        "occurred_at_ms": 1_800_000_000_000,
+        "event_type": "paper_state_recovery_probe",
+        "payload": {
+            "details": {
+                "protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT",
+                "financial_state_created": False,
+                "account_initialized": False,
+                "orders_submitted": 1,
+            }
+        },
+    }
+    batch = build_event_batch(
+        "state-probe-orders",
+        1_800_000_000_000,
+        [event],
+    )
+    write_batch_atomic(tmp_path, batch)
+
+    portfolio, _previous_hash, recovered = cycle._load_state(tmp_path)
+    assert portfolio is None
     assert recovered is False
