@@ -906,11 +906,17 @@ def _snapshot_only_cycle(
                     retry_instruments, client.tickers()
                 )
                 if retry_missing:
+                    pending_entry["attempt_count"] = (
+                        int(pending_entry.get("attempt_count", 0)) + 1
+                    )
+                    pending_entry["last_attempt_ms"] = server_ms
                     entry_retry_report = {
                         "status": "RETRY_BLOCKED_MISSING_TICKER",
                         "missing_instrument_ids": retry_missing,
                         "daily_bar_timestamp_ms": latest_bar_ms,
+                        "attempt_count": pending_entry["attempt_count"],
                     }
+                    state_changed = True
                 else:
                     retry_history = store.load_all_candles(
                         start_timestamp_ms=max(0, server_ms - BOOTSTRAP_DAYS * DAY_MS)
@@ -1003,7 +1009,7 @@ def _snapshot_only_cycle(
             funding_events, unresolved_funding = _process_funding(
                 client, store, portfolio, server_ms
             )
-            state_changed = bool(funding_events)
+            state_changed = bool(state_changed or funding_events)
 
         risk = portfolio.setdefault("daily_risk", {})
         pending_flatten = bool(
