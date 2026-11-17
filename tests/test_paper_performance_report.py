@@ -193,6 +193,68 @@ def test_report_calculates_per_session_and_lifetime_drawdowns_and_trade_history(
     assert "RISK WINDOW RESET" in report
 
 
+
+def test_report_embeds_a_readable_svg_equity_curve(tmp_path: Path) -> None:
+    start = 1_800_000_000_000
+    state = _state(
+        positions=[],
+        equity=[
+            {"timestamp_ms": start, "nav": "100", "roi_pct": "0"},
+            {"timestamp_ms": start + 60_000, "nav": "103", "roi_pct": "3"},
+            {"timestamp_ms": start + 120_000, "nav": "98", "roi_pct": "-2"},
+        ],
+        risk_start=start,
+        risk_nav="100",
+    )
+    _write_event(
+        tmp_path,
+        run_id="svg-chart",
+        timestamp=start,
+        previous_hash=None,
+        state=state,
+        details={},
+    )
+    svg_path = tmp_path / "equity_curve.svg"
+    report = render_performance_report(
+        tmp_path,
+        {"outcome": "success"},
+        equity_svg_path=svg_path,
+    )
+
+    svg = svg_path.read_text(encoding="utf-8")
+    assert "![Trend-Quality paper portfolio equity curve](equity_curve.svg)" in report
+    assert "Sparkline:" not in report
+    assert "<svg " in svg
+    assert "<polyline " in svg
+    assert "Initial capital: 100.0000 USDT" in svg
+    assert "Start: 100.0000 USDT" in svg
+    assert "Latest: 98.0000 USDT" in svg
+    assert "3 persisted NAV observations" in svg
+    assert "stroke-dasharray" in svg
+
+
+def test_uninitialized_report_writes_a_waiting_svg_chart(tmp_path: Path) -> None:
+    stamp = 1_800_000_000_000
+    probe = {
+        "event_id": "svg-probe",
+        "idempotency_key": "svg-probe",
+        "account_id": ACCOUNT_ID,
+        "strategy_id": STRATEGY_ID,
+        "occurred_at_ms": stamp,
+        "event_type": "paper_state_recovery_probe",
+        "payload": {"details": {"financial_state_created": False}},
+    }
+    batch = build_event_batch("svg-probe", stamp, [probe])
+    write_batch_atomic(tmp_path, batch)
+    svg_path = tmp_path / "equity_curve.svg"
+
+    render_performance_report(tmp_path, equity_svg_path=svg_path)
+
+    svg = svg_path.read_text(encoding="utf-8")
+    assert "Waiting for the first paper equity observation" in svg
+    assert "<svg " in svg
+
+
 def test_report_rejects_a_tampered_event_batch(tmp_path: Path) -> None:
     start = 1_800_000_000_000
     state = _state(
