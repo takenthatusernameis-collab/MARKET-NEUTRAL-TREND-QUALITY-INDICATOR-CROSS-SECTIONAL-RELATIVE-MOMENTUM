@@ -661,6 +661,7 @@ def _branch_files_missing(state_dir: Path) -> bool:
 
 
 
+
 def _snapshot_only_cycle(
     *,
     client: MEXCPublicClient,
@@ -674,7 +675,7 @@ def _snapshot_only_cycle(
     server_ms: int,
     market_data_dir: Path,
 ) -> int:
-    """Run the five-minute analytics-only path; never recalculate Q or rebalance."""
+    """Five-minute portfolio valuation/risk path; no ordinary strategy decisions."""
     ticker_by_id: dict[int, dict[str, Any]] = {}
     position_instruments: list[dict[str, Any]] = []
     missing_symbols: list[str] = []
@@ -684,6 +685,8 @@ def _snapshot_only_cycle(
     funding_events: list[dict[str, Any]] = []
     unresolved_funding = 0
     risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
+    state_changed = False
+
     if portfolio is not None:
         positions = list(portfolio.get("positions", []))
         if positions:
@@ -701,15 +704,52 @@ def _snapshot_only_cycle(
                     missing_symbols.append(symbol)
                     continue
                 ticker_by_id[int(position["instrument_id"])] = ticker
-                instrument = store.manifest["instruments"].get(str(position["instrument_id"]))
-                if instrument is not None:
+                instrument = store.manifest["instruments"].get(
+                    str(position["instrument_id"])
+                )
+                if instrument is None:
+                    missing_symbols.append(symbol)
+                else:
                     position_instruments.append(instrument)
+
+        # Funding is a confirmed cash-flow event, not an ordinary strategy decision.
         if writer_enabled:
             funding_events, unresolved_funding = _process_funding(
                 client, store, portfolio, server_ms
             )
+            state_changed = bool(funding_events)
+
+        risk = portfolio.setdefault("daily_risk", {})
+        pending_flatten = bool(
+            risk.get("stop_triggered")
+            or portfolio.get("emergency_liquidation_pending")
+        )
         if missing_symbols:
             risk_status = "UNAVAILABLE_STALE_OR_MISSING_POSITION_MARK"
+            # Never defer an already-triggered emergency exit merely because a
+            # mark is unavailable. The closing order-book simulator is independent.
+            if writer_enabled and pending_flatten and portfolio.get("positions"):
+                portfolio["emergency_liquidation_pending"] = True
+                try:
+                    instruments_by_id = {
+                        int(key): value
+                        for key, value in store.manifest["instruments"].items()
+                    }
+                    _close_all(client, portfolio, instruments_by_id, server_ms)
+                    portfolio["daily_risk"]["flattened"] = True
+                    portfolio["daily_risk"]["flatten_error"] = None
+                    portfolio["emergency_liquidation_pending"] = False
+                    risk_status = "EMERGENCY_BOOK_FLATTENED_WITH_MARK_GAP"
+                except Exception as exc:
+                    portfolio["daily_risk"]["flattened"] = False
+                    portfolio["daily_risk"]["flatten_attempts"] = int(
+                        portfolio["daily_risk"].get("flatten_attempts", 0)
+                    ) + 1
+                    portfolio["daily_risk"]["flatten_error"] = (
+                        f"{type(exc).__name__}: {str(exc)[:200]}"
+                    )
+                    risk_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
+                state_changed = True
         elif not writer_enabled:
             risk_status = "READ_ONLY_ONLY_STATE_WRITE_GATE_CLOSED"
         else:
@@ -718,19 +758,27 @@ def _snapshot_only_cycle(
             short_notional = Decimal("0")
             for position in portfolio.get("positions", []):
                 iid = int(position["instrument_id"])
-                ticker = ticker_by_id.get(iid, {})
-                mark = dec(ticker.get("mark_price", position.get("last_mark_price")))
+                mark = dec(
+                    ticker_by_id.get(iid, {}).get(
+                        "mark_price", position.get("last_mark_price")
+                    )
+                )
                 notional = dec(position["quantity"]) * mark
                 if position["side"] == "long":
                     long_notional += notional
                 else:
                     short_notional += notional
+
             snapshot = append_equity_snapshot(
                 portfolio, server_ms, nav, long_notional, short_notional
             )
+            state_changed = True
             risk = portfolio["daily_risk"]
             if risk.get("stop_triggered"):
-                portfolio["emergency_liquidation_pending"] = bool(portfolio.get("positions"))
+                portfolio["emergency_liquidation_pending"] = bool(
+                    portfolio.get("positions")
+                )
+
             if (
                 risk.get("stop_triggered")
                 or portfolio.get("emergency_liquidation_pending")
@@ -761,16 +809,15 @@ def _snapshot_only_cycle(
                 risk_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
             else:
                 risk_status = "MONITORING_ONLY_NO_STRATEGY_DECISIONS"
-            portfolio_report = account_report(portfolio, ticker_by_id)
+
+        if writer_enabled and state_changed:
             details = {
                 "provider": "mexc",
-                "funding_events": funding_events,
-                "unresolved_funding_count": unresolved_funding,
                 "workflow_mode": "FIVE_MINUTE_PORTFOLIO_SNAPSHOT",
                 "portfolio_snapshot": snapshot,
                 "emergency_risk_status": risk_status,
-        "funding_events": funding_events,
-        "unresolved_funding_count": unresolved_funding,
+                "funding_events": funding_events,
+                "unresolved_funding_count": unresolved_funding,
                 "missing_position_marks": missing_symbols,
                 "ordinary_strategy_decisions": False,
                 "live_orders_submitted": 0,
@@ -791,14 +838,23 @@ def _snapshot_only_cycle(
                 ).isoformat(),
                 "state_event": state_event,
             })
-    else:
-        portfolio_report = None
 
-    if portfolio is not None and (not writer_enabled or missing_symbols):
-        try:
-            portfolio_report = account_report(portfolio, ticker_by_id)
-        except Exception:
-            portfolio_report = None
+        if writer_enabled and not missing_symbols:
+            try:
+                portfolio_report = account_report(portfolio, ticker_by_id)
+            except Exception as exc:
+                portfolio_report = {
+                    "status": "PORTFOLIO_REPORT_UNAVAILABLE",
+                    "reason": f"{type(exc).__name__}: {str(exc)[:200]}",
+                    "currency": "USDT",
+                    "position_count": len(portfolio.get("positions", [])),
+                }
+        elif not writer_enabled:
+            try:
+                portfolio_report = account_report(portfolio, ticker_by_id)
+            except Exception:
+                portfolio_report = None
+
     if position_instruments and ticker_by_id:
         store.save_snapshot(
             server_ms, _snapshot_rows(position_instruments, ticker_by_id, server_ms)
@@ -835,8 +891,9 @@ def _snapshot_only_cycle(
         "execution_short_top": [],
         "excluded_or_unranked_sample": [],
         "portfolio": portfolio_report,
-        "portfolio_daily_risk_snapshot": locals().get("daily_risk_snapshot"),
         "portfolio_snapshot": snapshot,
+        "funding_events": funding_events,
+        "unresolved_funding_count": unresolved_funding,
         "emergency_risk_status": risk_status,
         "state_event": state_event,
         "orders_submitted": 0,
@@ -1002,8 +1059,8 @@ def _run() -> int:
             client, store, portfolio, server_ms
         )
         nav_before_decisions = portfolio_nav(portfolio, ticker_by_id)
-        long_notional_before = ZERO
-        short_notional_before = ZERO
+        long_notional_before = Decimal("0")
+        short_notional_before = Decimal("0")
         for position in portfolio.get("positions", []):
             mark = dec(ticker_by_id.get(int(position["instrument_id"]), {}).get(
                 "mark_price", position.get("last_mark_price")
