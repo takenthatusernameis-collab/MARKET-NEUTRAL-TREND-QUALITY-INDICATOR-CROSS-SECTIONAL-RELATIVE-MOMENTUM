@@ -249,8 +249,10 @@ def test_identical_existing_batch_is_an_idempotent_noop() -> None:
     result = publisher.publish_batch(batch)
     assert not result.created
     assert result.commit_sha is None
-    assert len(fake.calls) == 1
-    assert fake.calls[0][0] == "GET"
+    assert all(call[0] == "GET" for call in fake.calls)
+    assert any("/git/ref/heads/state" in path for _method, path, _payload in fake.calls)
+    assert any("/git/trees/" in path for _method, path, _payload in fake.calls)
+    assert any("/contents/" in path for _method, path, _payload in fake.calls)
 
 
 def test_different_content_at_existing_immutable_path_is_rejected() -> None:
