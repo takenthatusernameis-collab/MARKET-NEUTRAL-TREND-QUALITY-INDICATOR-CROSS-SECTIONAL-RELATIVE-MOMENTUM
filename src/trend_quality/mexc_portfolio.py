@@ -492,6 +492,12 @@ def append_equity_snapshot(
                 if curve and int(curve[-1]["timestamp_ms"]) < day_start_ms
                 else "first_observation_of_utc_day"
             ),
+            "calendar_day_starting_nav": str(prior_nav),
+            "calendar_day_starting_reference": (
+                "previous_utc_day_last_snapshot"
+                if curve and int(curve[-1]["timestamp_ms"]) < day_start_ms
+                else "first_observation_of_utc_day"
+            ),
             "peak_nav": str(max(prior_nav, nav)),
             "peak_timestamp_ms": (
                 int(timestamp_ms) if nav > prior_nav else day_start_ms
@@ -509,13 +515,21 @@ def append_equity_snapshot(
             risk["peak_nav"] = str(nav)
             risk["peak_timestamp_ms"] = int(timestamp_ms)
 
-    starting_nav = _decimal(risk["starting_nav"], "daily starting NAV")
+    risk_window_starting_nav = _decimal(
+        risk["starting_nav"], "drawdown-window starting NAV"
+    )
+    calendar_starting_nav = _decimal(
+        risk.get("calendar_day_starting_nav", risk["starting_nav"]),
+        "calendar-day starting NAV",
+    )
     peak_nav = _decimal(risk["peak_nav"], "daily peak NAV")
-    if starting_nav <= ZERO or peak_nav <= ZERO:
+    if calendar_starting_nav <= ZERO or peak_nav <= ZERO:
         daily_return = Decimal("-1")
         daily_drawdown = Decimal("-1")
     else:
-        daily_return = nav / starting_nav - ONE
+        # Calendar-day return remains anchored to UTC rollover even when a
+        # successful daily rebalance restarts the drawdown risk window later.
+        daily_return = nav / calendar_starting_nav - ONE
         daily_drawdown = nav / peak_nav - ONE
 
     newly_triggered = False
@@ -537,8 +551,12 @@ def append_equity_snapshot(
         "roi_pct": str(total_roi * Decimal("100")),
         "daily_return_pct": str(daily_return * Decimal("100")),
         "daily_drawdown_pct": str(daily_drawdown * Decimal("100")),
-        "daily_starting_nav": str(starting_nav),
-        "daily_starting_reference": risk["starting_reference"],
+        "daily_starting_nav": str(calendar_starting_nav),
+        "daily_starting_reference": risk.get(
+            "calendar_day_starting_reference", risk["starting_reference"]
+        ),
+        "drawdown_window_starting_nav": str(risk_window_starting_nav),
+        "drawdown_window_reference": risk["starting_reference"],
         "daily_peak_nav": str(peak_nav),
         "long_notional_usdt": str(long_notional),
         "short_notional_usdt": str(short_notional),
@@ -574,13 +592,24 @@ def reset_daily_risk_window(
     if risk.get("stop_triggered") or state.get("emergency_liquidation_pending"):
         raise ValueError("Cannot reset a latched emergency drawdown/flatten state")
     timestamp = datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
-    risk = {
+    existing_calendar_nav = risk.get(
+        "calendar_day_starting_nav", risk.get("starting_nav", nav)
+    )
+    existing_calendar_reference = risk.get(
+        "calendar_day_starting_reference",
+        risk.get("starting_reference", "first_observation_of_utc_day"),
+    )
+    risk.update({
         "utc_date": timestamp.strftime("%Y-%m-%d"),
+        # Drawdown controls restart from the post-rebalance equity.
         "starting_nav": str(nav),
         "starting_timestamp_ms": int(timestamp_ms),
         "starting_reference": reference,
         "peak_nav": str(nav),
         "peak_timestamp_ms": int(timestamp_ms),
+        # Daily-return reporting continues to reference the UTC-day open.
+        "calendar_day_starting_nav": str(existing_calendar_nav),
+        "calendar_day_starting_reference": existing_calendar_reference,
         "stop_triggered": False,
         "stop_triggered_at_ms": None,
         "stop_reason": None,
@@ -588,7 +617,7 @@ def reset_daily_risk_window(
         "flatten_attempts": 0,
         "risk_window_reset_at_ms": int(timestamp_ms),
         "risk_window_reset_reason": reference,
-    }
+    })
     state["daily_risk"] = risk
     return dict(risk)
 
