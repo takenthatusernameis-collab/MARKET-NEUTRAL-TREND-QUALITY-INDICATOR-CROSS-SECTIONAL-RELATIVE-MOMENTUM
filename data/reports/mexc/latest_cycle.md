@@ -1,6 +1,6 @@
 # MEXC Trend-Quality Paper Research
 
-- Run (UTC): 2026-11-17T00:18:30.190000+00:00
+- Run (UTC): 2026-11-17T00:19:57.818000+00:00
 - Active cross-margin USDT perpetuals: not refreshed in snapshot mode
 - Bootstrap remaining: not refreshed in snapshot mode
 - History coverage gate: not checked in snapshot mode
