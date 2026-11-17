@@ -31,6 +31,7 @@ from trend_quality.mexc_paper import (
 from trend_quality.mexc_portfolio import (
     account_report,
     append_daily_equity,
+    append_equity_snapshot,
     apply_confirmed_funding,
     close_paper_position,
     initial_portfolio_state,
@@ -658,6 +659,180 @@ def _branch_files_missing(state_dir: Path) -> bool:
     return not any((state_dir / "events").glob("**/*.json"))
 
 
+
+
+def _snapshot_only_cycle(
+    *,
+    client: MEXCPublicClient,
+    store: MarketDataStore,
+    portfolio: dict[str, Any] | None,
+    writer_enabled: bool,
+    writer_requested: bool,
+    state_protection_reason: str,
+    previous_hash: str | None,
+    latest_bar_ms: int,
+    server_ms: int,
+    market_data_dir: Path,
+) -> int:
+    """Run the five-minute analytics-only path; never recalculate Q or rebalance."""
+    ticker_by_id: dict[int, dict[str, Any]] = {}
+    position_instruments: list[dict[str, Any]] = []
+    missing_symbols: list[str] = []
+    snapshot: dict[str, Any] | None = None
+    state_event: dict[str, Any] | None = None
+    risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
+    if portfolio is not None:
+        positions = list(portfolio.get("positions", []))
+        if positions:
+            ticker_rows = client.tickers()
+            ticker_by_symbol = {str(row["symbol"]): row for row in ticker_rows}
+            for position in positions:
+                symbol = str(position["symbol"])
+                ticker = ticker_by_symbol.get(symbol)
+                if ticker is None:
+                    missing_symbols.append(symbol)
+                    continue
+                age = server_ms - int(ticker["timestamp_ms"])
+                mark = dec(ticker.get("mark_price"))
+                if age < 0 or age > 300_000 or mark <= 0:
+                    missing_symbols.append(symbol)
+                    continue
+                ticker_by_id[int(position["instrument_id"])] = ticker
+                instrument = store.manifest["instruments"].get(str(position["instrument_id"]))
+                if instrument is not None:
+                    position_instruments.append(instrument)
+        if missing_symbols:
+            risk_status = "UNAVAILABLE_STALE_OR_MISSING_POSITION_MARK"
+        elif not writer_enabled:
+            risk_status = "READ_ONLY_ONLY_STATE_WRITE_GATE_CLOSED"
+        else:
+            nav = portfolio_nav(portfolio, ticker_by_id)
+            long_notional = ZERO
+            short_notional = ZERO
+            for position in portfolio.get("positions", []):
+                iid = int(position["instrument_id"])
+                ticker = ticker_by_id.get(iid, {})
+                mark = dec(ticker.get("mark_price", position.get("last_mark_price")))
+                notional = dec(position["quantity"]) * mark
+                if position["side"] == "long":
+                    long_notional += notional
+                else:
+                    short_notional += notional
+            snapshot = append_equity_snapshot(
+                portfolio, server_ms, nav, long_notional, short_notional
+            )
+            risk = portfolio["daily_risk"]
+            if risk.get("stop_triggered") and portfolio.get("positions"):
+                try:
+                    instruments_by_id = {
+                        int(key): value
+                        for key, value in store.manifest["instruments"].items()
+                    }
+                    _close_all(client, portfolio, instruments_by_id, server_ms)
+                    risk["flattened"] = True
+                    risk["flatten_error"] = None
+                    risk_status = "EMERGENCY_BOOK_FLATTENED"
+                except Exception as exc:
+                    risk["flattened"] = False
+                    risk["flatten_attempts"] = int(risk.get("flatten_attempts", 0)) + 1
+                    risk["flatten_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                    risk_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
+            elif risk.get("stop_triggered"):
+                risk["flattened"] = True
+                risk_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
+            else:
+                risk_status = "MONITORING_ONLY_NO_STRATEGY_DECISIONS"
+            portfolio_report = account_report(portfolio, ticker_by_id)
+            details = {
+                "provider": "mexc",
+                "workflow_mode": "FIVE_MINUTE_PORTFOLIO_SNAPSHOT",
+                "portfolio_snapshot": snapshot,
+                "emergency_risk_status": risk_status,
+                "missing_position_marks": missing_symbols,
+                "ordinary_strategy_decisions": False,
+                "live_orders_submitted": 0,
+            }
+            state_event = _publish_event(
+                portfolio,
+                details,
+                "paper_portfolio_snapshot",
+                f"snapshot-{server_ms}",
+                server_ms,
+                previous_hash,
+            )
+            store.save_projection({
+                "schema_version": 1,
+                "portfolio_state": portfolio,
+                "last_run_utc": datetime.fromtimestamp(
+                    server_ms / 1000, tz=UTC
+                ).isoformat(),
+                "state_event": state_event,
+            })
+    else:
+        portfolio_report = None
+
+    if portfolio is not None and not writer_enabled:
+        try:
+            portfolio_report = account_report(portfolio, ticker_by_id)
+        except Exception:
+            portfolio_report = None
+    if position_instruments and ticker_by_id:
+        store.save_snapshot(
+            server_ms, _snapshot_rows(position_instruments, ticker_by_id, server_ms)
+        )
+    store.manifest["last_snapshot_ms"] = server_ms
+    store.save_manifest(server_ms)
+    store.prune_snapshots(server_ms)
+
+    report = {
+        "run_utc": datetime.fromtimestamp(server_ms / 1000, tz=UTC).isoformat(),
+        "provider": "mexc",
+        "mode": "PORTFOLIO_SNAPSHOT_ONLY",
+        "workflow_mode": "FIVE_MINUTE_PORTFOLIO_SNAPSHOT",
+        "latest_completed_daily_bar_ms": latest_bar_ms,
+        "daily_decision_due": False,
+        "research_refresh_performed": False,
+        "q_rankings_recalculated": False,
+        "ordinary_strategy_decisions": False,
+        "paper_state_write_requested": writer_requested,
+        "paper_simulation_enabled": writer_enabled,
+        "state_branch_protection": state_protection_reason,
+        "paper_decision_status": risk_status,
+        "ticker_coverage": len(ticker_by_id),
+        "missing_ticker_count": len(missing_symbols),
+        "missing_position_marks": missing_symbols,
+        "active_cross_usdt_perpetual_count": len(position_instruments),
+        "bootstrap_remaining": "not refreshed in snapshot mode",
+        "history_coverage_pass": "not checked in snapshot mode",
+        "missing_latest_bar_count": 0,
+        "api_failure_count": 0,
+        "research_long_top": [],
+        "research_short_top": [],
+        "execution_long_top": [],
+        "execution_short_top": [],
+        "excluded_or_unranked_sample": [],
+        "portfolio": portfolio_report,
+        "portfolio_daily_risk_snapshot": locals().get("daily_risk_snapshot"),
+        "portfolio_snapshot": snapshot,
+        "emergency_risk_status": risk_status,
+        "state_event": state_event,
+        "orders_submitted": 0,
+        "credentials_used": False,
+        "private_endpoints_used": False,
+        "wallet_used": False,
+    }
+    report_dir = market_data_dir / "data" / "reports" / "mexc"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "latest_cycle.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True, default=str) + "\n",
+        encoding="utf-8",
+    )
+    (report_dir / "latest_cycle.md").write_text(
+        _markdown_report(report), encoding="utf-8"
+    )
+    print(json.dumps(report, indent=2, sort_keys=True, default=str))
+    return 0
+
 def _run() -> int:
     market_data_dir = Path(os.environ.get("MARKET_DATA_DIR", "market-data"))
     state_dir = Path(os.environ.get("PAPER_STATE_DIR", "state"))
@@ -673,6 +848,55 @@ def _run() -> int:
     store = MarketDataStore(market_data_dir, provider="mexc")
     client = MEXCPublicClient()
     server_ms = client.server_time_ms()
+    latest_bar_ms = _last_completed_daily_bar(server_ms)
+
+    # Inspect the persistent state before any universe/history/ranking requests.
+    previous_state, previous_hash = _load_state(state_dir)
+    writer_requested = os.environ.get("PAPER_STATE_WRITE_ENABLED", "").lower() == "true"
+    state_protected = False
+    state_protection_reason = "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION"
+    if writer_requested:
+        state_protected, state_protection_reason = _state_branch_protection(
+            os.environ.get("GITHUB_REPOSITORY", ""),
+            os.environ.get("GITHUB_TOKEN", ""),
+        )
+    writer_enabled = writer_requested and state_protected
+    portfolio = previous_state
+    if portfolio is None and writer_enabled:
+        portfolio = initial_portfolio_state(INITIAL_CAPITAL)
+    elif portfolio is not None and portfolio.get("currency") != "USDT":
+        raise RuntimeError("Existing paper account currency is not USDT")
+
+    research_bar = store.manifest.get("last_research_daily_bar_ms")
+    if research_bar is None:
+        research_bar = store.manifest.get("last_processed_daily_bar_ms")
+    research_due = (
+        research_bar is None
+        or latest_bar_ms > int(research_bar)
+        or not bool(store.manifest.get("bootstrap_complete"))
+    )
+    account_due = bool(
+        writer_enabled
+        and portfolio is not None
+        and (
+            portfolio.get("last_processed_daily_bar_ms") is None
+            or latest_bar_ms > int(portfolio["last_processed_daily_bar_ms"])
+        )
+    )
+    if not research_due and not account_due:
+        return _snapshot_only_cycle(
+            client=client,
+            store=store,
+            portfolio=portfolio,
+            writer_enabled=writer_enabled,
+            writer_requested=writer_requested,
+            state_protection_reason=state_protection_reason,
+            previous_hash=previous_hash,
+            latest_bar_ms=latest_bar_ms,
+            server_ms=server_ms,
+            market_data_dir=market_data_dir,
+        )
+
     instruments = client.instruments()
     ticker_rows = client.tickers()
     ticker_by_id, missing_tickers = _ticker_maps(instruments, ticker_rows)
@@ -722,24 +946,6 @@ def _run() -> int:
         ticker_by_id,
         INITIAL_CAPITAL,
     )
-    previous_state, previous_hash = _load_state(state_dir)
-    writer_requested = os.environ.get("PAPER_STATE_WRITE_ENABLED", "").lower() == "true"
-    state_protected = False
-    state_protection_reason = "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION"
-    if writer_requested:
-        state_protected, state_protection_reason = _state_branch_protection(
-            os.environ.get("GITHUB_REPOSITORY", ""),
-            os.environ.get("GITHUB_TOKEN", ""),
-        )
-    writer_enabled = writer_requested and state_protected
-
-    portfolio = previous_state
-    if portfolio is None and writer_enabled:
-        portfolio = initial_portfolio_state(INITIAL_CAPITAL)
-    elif portfolio is not None:
-        if portfolio.get("currency") != "USDT":
-            raise RuntimeError("Existing paper account currency is not USDT")
-
     paper_decision_status = (
         "BLOCKED_STATE_WRITE_GATE"
         if not writer_enabled
@@ -763,18 +969,56 @@ def _run() -> int:
         funding_events, unresolved_funding = _process_funding(
             client, store, portfolio, server_ms
         )
-        stop_exits, trailing_updates = _process_stops(
-            client,
-            portfolio,
-            instrument_by_id,
-            ticker_by_id,
-            history,
-            latest_bar_ms,
-            server_ms,
+        nav_before_decisions = portfolio_nav(portfolio, ticker_by_id)
+        long_notional_before = ZERO
+        short_notional_before = ZERO
+        for position in portfolio.get("positions", []):
+            mark = dec(ticker_by_id.get(int(position["instrument_id"]), {}).get(
+                "mark_price", position.get("last_mark_price")
+            ))
+            notional = dec(position["quantity"]) * mark
+            if position["side"] == "long":
+                long_notional_before += notional
+            else:
+                short_notional_before += notional
+        daily_risk_snapshot = append_equity_snapshot(
+            portfolio, server_ms, nav_before_decisions,
+            long_notional_before, short_notional_before,
         )
-        state_changed = bool(funding_events or stop_exits or trailing_updates)
+        state_changed = True
+        if portfolio["daily_risk"].get("stop_triggered") and portfolio.get("positions"):
+            try:
+                stop_exits.extend(_close_all(
+                    client, portfolio, instrument_by_id, server_ms
+                ))
+                portfolio["daily_risk"]["flattened"] = True
+                portfolio["daily_risk"]["flatten_error"] = None
+                paper_decision_status = "EMERGENCY_BOOK_FLATTENED"
+            except Exception as exc:
+                portfolio["daily_risk"]["flattened"] = False
+                portfolio["daily_risk"]["flatten_attempts"] = int(
+                    portfolio["daily_risk"].get("flatten_attempts", 0)
+                ) + 1
+                portfolio["daily_risk"]["flatten_error"] = (
+                    f"{type(exc).__name__}: {str(exc)[:200]}"
+                )
+                paper_decision_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
+        elif portfolio.get("daily_risk", {}).get("stop_triggered"):
+            portfolio["daily_risk"]["flattened"] = True
+            paper_decision_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
+        else:
+            stop_exits, trailing_updates = _process_stops(
+                client,
+                portfolio,
+                instrument_by_id,
+                ticker_by_id,
+                history,
+                latest_bar_ms,
+                server_ms,
+            )
+            state_changed = bool(state_changed or funding_events or stop_exits or trailing_updates)
 
-        if new_daily_bar:
+        if new_daily_bar and not portfolio.get("daily_risk", {}).get("stop_triggered"):
             pair = (
                 _try_pair(
                     client,
@@ -867,6 +1111,8 @@ def _run() -> int:
                 ),
                 "history_coverage_pass": history_coverage_pass,
                 "unresolved_funding_count": unresolved_funding,
+                "portfolio_daily_risk_snapshot": daily_risk_snapshot,
+                "emergency_risk_status": paper_decision_status if str(paper_decision_status).startswith("EMERGENCY_") else "WITHIN_DAILY_LIMIT",
             }
             key = (
                 f"daily-{latest_bar_ms}"
@@ -905,7 +1151,12 @@ def _run() -> int:
     report = {
         "run_utc": datetime.now(UTC).isoformat(),
         "provider": "mexc",
-        "mode": "PUBLIC_DATA_AND_Q_RANKING_PAPER_ONLY",
+        "mode": "DAILY_CLOSE_RESEARCH_AND_DECISION",
+        "workflow_mode": "DAILY_CLOSE_RESEARCH_AND_DECISION",
+        "daily_decision_due": True,
+        "research_refresh_performed": True,
+        "q_rankings_recalculated": True,
+        "ordinary_strategy_decisions": bool(writer_enabled),
         "instrument_count_all": len(client.contract_details()),
         "active_cross_margin_perpetual_count": len(instruments),
         "active_cross_usdt_perpetual_count": sum(
@@ -973,6 +1224,8 @@ def _run() -> int:
         encoding="utf-8",
     )
     store.manifest["selected_provider"] = "mexc"
+    if history_coverage_pass:
+        store.manifest["last_research_daily_bar_ms"] = latest_bar_ms
     store.manifest["last_processed_daily_bar_ms"] = (
         store.manifest.get("last_processed_daily_bar_ms")
     )
