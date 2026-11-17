@@ -72,7 +72,7 @@ The single five-minute workflow in [.github/workflows/mexc-paper-cycle.yml](.git
 
 The 25% emergency stop is a combined portfolio daily drawdown stop, measured from the highest observed NAV in the UTC day; it closes both simulated legs. It does not cap lifetime MDD. Default leverage is 2× on 50% NAV margin per leg (1× NAV notional each, 2× combined gross). Five-minute monitoring is sampled and cannot guarantee detection at the exact threshold between invocations.
 
-CI on [run 43984752103](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984752103) passed Ruff and 141 tests. This is implementation validation only. Historical replay is not implemented, and no realized forward equity curve, trade count, return, CAGR, Sharpe, drawdown or profitability claim is available until the paper account has passed its persistence gate and accumulated actual observations.
+Historical replay is not implemented. The new $10 account has two open simulated positions and zero closed trades; it has only just begun collecting forward observations. Daily performance statistics remain gated by insufficient history, so no meaningful CAGR, Sharpe, Sortino, drawdown history or profitability claim is available.
 
 ## Safety boundary
 
