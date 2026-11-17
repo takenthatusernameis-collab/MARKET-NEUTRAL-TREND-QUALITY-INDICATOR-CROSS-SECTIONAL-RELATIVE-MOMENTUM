@@ -75,7 +75,7 @@ Every eligible completed daily candle is a fresh sizing checkpoint, even when th
 - MEXC lot increments, minimum quantity, current book depth and impact limits remain binding. When the required adjustment is below the venue's minimum executable quantity, or the current book cannot fill it, leave that leg unchanged and report the constraint. Never round the delta up or force a full close merely to make the exposure numbers look equal. Any remaining imbalance caused by venue precision/minimums must remain visible in the report.
 - The workflow reports the action and signed quantity delta for every leg under `rebalance_actions`, alongside the simulated fills and costs.
 
-After a successful daily pair decision/rebalance—including a decision that retains the same pair with no executable quantity change—the 25% drawdown window is reset to the post-rebalance NAV and peak NAV, with the reset timestamp recorded. This treats the maintained pair as a fresh daily trade window. The pre-rebalance equity/risk snapshot is evaluated **before** this reset. If that check has already triggered the emergency stop, or an emergency flatten remains pending, the daily rebalance is blocked and the reset helper refuses to clear the latch. A later five-minute retry that opens a previously pending daily signal likewise starts the new risk window at its post-fill NAV.
+After a successful daily pair decision/rebalance—including a decision that retains the same pair with no executable quantity change—the 25% drawdown window is reset to the post-rebalance NAV and peak NAV, with the reset timestamp recorded. This treats the maintained pair as a fresh daily trade window. The separate UTC-day return baseline is preserved, so a delayed decision/rebalance cannot erase the day's earlier performance. The pre-rebalance equity/risk snapshot is evaluated **before** this reset. If that check has already triggered the emergency stop, or an emergency flatten remains pending, the daily rebalance is blocked and the reset helper refuses to clear the latch. A later five-minute retry that opens a previously pending daily signal likewise starts the new risk window at its post-fill NAV.
 
 
 ## 3. Combined portfolio emergency stop
@@ -84,10 +84,10 @@ The emergency limit is evaluated on combined account equity, not independently o
 
 NAV includes cash, realized P&L, unrealized P&L, entry/exit fees and confirmed funding cashflows. The implementation therefore naturally catches cases where both legs lose less than 25% individually but their combined losses cause the portfolio threshold to be breached.
 
-The daily risk state is UTC-dated and has two distinct measures:
+The risk state is UTC-dated and keeps the reporting and protection references separate:
 
-- **Daily return:** current portfolio NAV relative to the previous UTC day's last successful NAV snapshot. If there is no prior-day snapshot, the first observation of the UTC day is used as the initial baseline.
-- **Daily drawdown stop:** current NAV relative to the highest observed NAV in the current UTC day, including the prior-day closing NAV as the opening reference.
+- **Daily return:** current portfolio NAV relative to the previous UTC day's last successful NAV snapshot. If there is no prior-day snapshot, the first observation of the UTC day is used as the initial baseline. This calendar-day return reference is not changed by an intraday rebalance.
+- **Daily drawdown stop:** current NAV relative to the highest observed NAV since the latest drawdown-window start. At UTC rollover the window starts from the prior-day close (or first observation if no prior snapshot exists). After a successful daily pair rebalance it restarts from post-rebalance NAV, while the calendar-day return reference remains unchanged.
 
 When daily drawdown reaches or exceeds a 25% loss (NAV / daily peak NAV - 1 <= -0.25):
 
