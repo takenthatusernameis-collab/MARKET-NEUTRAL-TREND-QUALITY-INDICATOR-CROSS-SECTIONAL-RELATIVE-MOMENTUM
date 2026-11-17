@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-17T03:53:17.041000+00:00",
+  "last_run_utc": "2026-11-17T03:55:04.087000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-10usdt-v2",
     "cash": "9.99829460",
@@ -277,13 +277,32 @@
         "short_notional_usdt": "10.120000",
         "timestamp_ms": 1794887597041,
         "utc_date": "2026-11-17"
+      },
+      {
+        "daily_drawdown_pct": "-2.176536860853170943011564880",
+        "daily_peak_nav": "10.02969460",
+        "daily_return_pct": "-1.88605400",
+        "daily_starting_nav": "10",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "drawdown_window_reference": "first_observation_of_utc_day",
+        "drawdown_window_starting_nav": "10",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.896784377625582401914606513",
+        "long_notional_usdt": "8.5076",
+        "nav": "9.81139460",
+        "roi_pct": "-1.88605400",
+        "short_notional_usdt": "10.102500",
+        "timestamp_ms": 1794887704087,
+        "utc_date": "2026-11-17"
       }
     ],
     "fees_paid": "0.00170540",
     "initial_capital": "10",
     "last_decision_attempt_daily_bar_ms": 1794787200000,
     "last_processed_daily_bar_ms": 1794787200000,
-    "last_snapshot_ms": 1794887597041,
+    "last_snapshot_ms": 1794887704087,
     "pending_entry_signal": null,
     "positions": [
       {
@@ -295,7 +314,7 @@
         "initial_margin_usdt": "4.2635",
         "instrument_id": 1595,
         "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "425.37",
+        "last_mark_price": "425.38",
         "leverage": "2",
         "lowest_since_entry": "426.35",
         "quantity": "0.02",
@@ -313,7 +332,7 @@
         "initial_margin_usdt": "4.967500",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "0.004048",
+        "last_mark_price": "0.004041",
         "leverage": "2",
         "lowest_since_entry": "0.003974",
         "quantity": "2500",
@@ -331,9 +350,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "f53bb1e2fee630e9436702b463e3553c152f71663aefee157efae106916745a3",
-    "commit_sha": "aa2f4638d1c40988e127c2993257e816066d7168",
+    "batch_hash": "3423126393b12f592a758aab0b50a5502f8d674d8d228c7ab68d51bbccd871f1",
+    "commit_sha": "569d7377251f7c2dd305082abd9cf6d444092e79",
     "created": true,
-    "path": "events/2026/11/snapshot-1794887597041.json"
+    "path": "events/2026/11/snapshot-1794887704087.json"
   }
 }
