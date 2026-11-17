@@ -3,9 +3,9 @@
 **Report date:** 2026-11-17  
 **Selected provider:** MEXC Futures public API — technical data qualification passed  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
-**Forward paper account:** ACTIVE GENERATION — 10 USDT seed; VSTOCK_USDT long + BILL_USDT short simulated; independent post-initialization restore pending  
+**Forward paper account:** ACTIVE GENERATION — 10 USDT seed; VSTOCK_USDT long + BILL_USDT short simulated; independently restored from verified event chain  
 **Historical replay:** not implemented  
-**Latest verified portfolio NAV:** 9.99529460 USDT at the initial $10 generation report, after simulated entry fees and mark-to-market  
+**Latest verified portfolio NAV:** 9.99139460 USDT at independent restore snapshot (cash 9.99829460 USDT; two simulated positions open)  
 **Performance claims:** none
 
 ## Provider selection and evidence
@@ -225,7 +225,7 @@ On the GitHub Actions page, choose branch `main`, select **Run workflow**, then 
 - **First simulated pair opened:** long `VSTOCK_USDT` (0.02 base units at 426.35) and short `BILL_USDT` (2,500 base units at 0.003974). Both fills are simulated from public MEXC order-book depth.
 - Reported starting cash after entry fee: **9.99829460 USDT**. Initial marked NAV: **9.99529460 USDT**. Entry fee: **0.00170540 USDT**. Two open positions. No live orders, credentials, private endpoints or wallet access.
 - The run reported full data coverage across 1,143 cross-margin perpetuals, 1,061 USDT-execution-eligible instruments, 273,160 daily-candle rows, zero missing tickers, zero missing latest bars and zero reported API failures.
-- `paper_account_recovery_status=INITIALIZED_THIS_CYCLE` and `paper_account_restored_from_state_branch=false` in the initialization report. A subsequent independent run must verify that the newly initialized account restores from the state event chain before we claim independent restoration.
+- The initialization report first showed `paper_account_recovery_status=INITIALIZED_THIS_CYCLE`. Follow-up run [43993684041](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43993684041) checked out the state branch independently, reported `paper_account_recovery_status=RESTORED_FROM_VERIFIED_EVENT_CHAIN`, and appended snapshot `events/2026/11/snapshot-1794877922711.json` (batch hash `71400ed314111845d556825d1ef09c1cef034110caa55b81d21a91ba746f2eb6`). The restored report showed cash 9.99829460 USDT, NAV 9.99139460 USDT, unrealized P&L -0.00690000 USDT, and two open simulated positions.
 
 ### Is $1 generally below MEXC minimum order size?
 
