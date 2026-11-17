@@ -122,3 +122,17 @@ def test_mexc_paper_fill_uses_contract_multiplier_and_taker_fee() -> None:
     assert fill.notional == Decimal("50.005")
     assert fill.fee == Decimal("0.010001")
     assert fill.shortfall_bps < Decimal("10")
+
+
+
+def test_one_usdt_account_sizes_each_leg_to_one_usdt_notional_at_two_x() -> None:
+    rules = instrument(1, "TEST_USDT")
+    quantity = size_mexc_leg(
+        rules,
+        Decimal("1"),
+        Decimal("100"),
+        allocation_fraction=Decimal("0.5"),
+        leverage=Decimal("2"),
+    )
+    assert quantity == Decimal("0.0100")
+    assert quantity * Decimal("100") == Decimal("1")
