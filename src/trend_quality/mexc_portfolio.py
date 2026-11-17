@@ -15,7 +15,7 @@ from .portfolio import Position, funding_cashflow, portfolio_exposure
 
 ZERO = Decimal("0")
 ONE = Decimal("1")
-DEFAULT_INITIAL_CAPITAL = Decimal("100")
+DEFAULT_INITIAL_CAPITAL = Decimal("1")
 DEFAULT_DAILY_DRAWDOWN_LIMIT = Decimal("0.25")
 DEFAULT_LEVERAGE = Decimal("2")
 
