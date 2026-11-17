@@ -116,6 +116,8 @@ def _history_row(
         if item.get("quantity_delta") is not None
         else item.get("quantity")
         if item.get("quantity") is not None
+        else item.get("quantity_base")
+        if item.get("quantity_base") is not None
         else item.get("filled_quantity")
         if item.get("filled_quantity") is not None
         else item.get("new_quantity")
@@ -262,7 +264,9 @@ def _collect_history(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 if isinstance(position, dict) and position.get("instrument_id") is not None:
                     after[_position_key(position)] = position
 
-        transitions: list[tuple[tuple[int, str], str, dict[str, Any] | None, dict[str, Any] | None]] = []
+        transitions: list[
+            tuple[tuple[int, str], str, dict[str, Any] | None, dict[str, Any] | None]
+        ] = []
         for key in sorted(set(prior) | set(after)):
             old = prior.get(key)
             new = after.get(key)
@@ -278,7 +282,7 @@ def _collect_history(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 elif new_qty < old_qty:
                     transitions.append((key, "REDUCED", old, new))
 
-        for key, action, old, new in transitions:
+        for _key, action, old, new in transitions:
             symbol = (new or old or {}).get("symbol")
             match = next(
                 (
@@ -454,7 +458,8 @@ def _metric(metrics: dict[str, Any], name: str, kind: str = "ratio") -> str:
 
 def _open_positions(positions: list[dict[str, Any]]) -> list[str]:
     rows = [
-        "| Symbol | Side | Quantity | Entry | Mark | Notional (USDT) | Unrealized P&L (USDT) | Entry UTC |",
+        "| Symbol | Side | Quantity | Entry | Mark | Notional (USDT) | "
+        "Unrealized P&L (USDT) | Entry UTC |",
         "|---|---|---:|---:|---:|---:|---:|---|",
     ]
     for position in positions:
@@ -604,26 +609,39 @@ def render_performance_report(
         f"| Net exposure | {net:.4f}× NAV |",
         f"| Long / short notional | {_money(long_notional)} / {_money(short_notional)} USDT |",
         "",
-        f"Latest portfolio valuation: {_utc(equity[-1]['timestamp_ms'] if equity else latest_event['occurred_at_ms'])}.",
+        "Latest portfolio valuation: "
+        f"{_utc(equity[-1]['timestamp_ms'] if equity else latest_event['occurred_at_ms'])}.",
         f"Latest saved account event: {_utc(latest_event.get('occurred_at_ms'))}.",
         "",
         "## Risk and performance metrics",
         "",
         "| Metric | Result | Basis / sample gate |",
         "|---|---:|---|",
-        f"| Sortino ratio | {_metric(metrics, 'sortino')} | Daily NAV returns; minimum 20 returns and 5 negative returns |",
+        f"| Sortino ratio | {_metric(metrics, 'sortino')} | "
+        "Daily NAV returns; minimum 20 returns and 5 negative returns |",
         f"| Sharpe ratio | {_metric(metrics, 'sharpe')} | Daily NAV returns; minimum 30 returns |",
         f"| CAGR | {_metric(metrics, 'cagr', 'percent')} | At least 365 elapsed calendar days |",
         f"| Calmar ratio | {_metric(metrics, 'calmar')} | CAGR divided by daily-equity drawdown |",
-        f"| Annualized daily volatility | {_metric(metrics, 'annualized_daily_volatility', 'percent')} | Minimum 30 daily returns |",
-        f"| Daily-equity maximum drawdown | {_metric(metrics, 'maximum_drawdown', 'percent')} | Daily UTC equity series |",
-        f"| Maximum drawdown duration | {_metric(metrics, 'maximum_drawdown_duration_days', 'days')} | Daily UTC equity series |",
-        f"| Recovery period after maximum drawdown | {_metric(metrics, 'recovery_period_days', 'days')} | Requires recovery to the prior peak |",
-        f"| Closed-trade expectancy | {_metric(metrics, 'expectancy_net_pnl')} USDT | Fully closed position trades only |",
-        f"| Profit factor | {_metric(metrics, 'profit_factor', 'factor')} | Fully closed position trades only |",
-        f"| Current risk-window drawdown | {_percent(current_dd)} | Versus current risk-window peak {_money(peak)} USDT |",
+        f"| Annualized daily volatility | "
+        f"{_metric(metrics, 'annualized_daily_volatility', 'percent')} | "
+        "Minimum 30 daily returns |",
+        f"| Daily-equity maximum drawdown | "
+        f"{_metric(metrics, 'maximum_drawdown', 'percent')} | Daily UTC equity series |",
+        f"| Maximum drawdown duration | "
+        f"{_metric(metrics, 'maximum_drawdown_duration_days', 'days')} | "
+        "Daily UTC equity series |",
+        f"| Recovery period after maximum drawdown | "
+        f"{_metric(metrics, 'recovery_period_days', 'days')} | "
+        "Requires recovery to the prior peak |",
+        f"| Closed-trade expectancy | {_metric(metrics, 'expectancy_net_pnl')} USDT | "
+        "Fully closed position trades only |",
+        f"| Profit factor | {_metric(metrics, 'profit_factor', 'factor')} | "
+        "Fully closed position trades only |",
+        f"| Current risk-window drawdown | {_percent(current_dd)} | "
+        f"Versus current risk-window peak {_money(peak)} USDT |",
         "",
-        f"**Lifetime / cross-session maximum drawdown:** {_percent(cross['max_drawdown'])}.",
+        "**Lifetime / cross-session maximum drawdown:** "
+        f"{_percent(cross['max_drawdown'])}.",
         f"**Worst individual risk-session maximum drawdown:** {_percent(worst_session)}.",
         "",
         "Risk-session drawdown resets only at a successful new-pair entry, daily rebalance "
@@ -632,7 +650,8 @@ def render_performance_report(
         "",
         "### Maximum drawdown by risk session",
         "",
-        "| Session | Start (UTC) | Starting NAV | Latest NAV | Session return | Maximum drawdown | Marks |",
+        "| Session | Start (UTC) | Starting NAV | Latest NAV | Session return | "
+        "Maximum drawdown | Marks |",
         "|---:|---|---:|---:|---:|---:|---:|",
     ]
     for index, (start, baseline, stats) in enumerate(sessions, start=1):
@@ -662,7 +681,8 @@ def render_performance_report(
         "",
         f"Observed NAV range: {_money(min(curve_values)) if curve_values else '—'} to "
         f"{_money(max(curve_values)) if curve_values else '—'} USDT.",
-        f"Daily-equity observations: {len(daily)}; daily metric status: {performance.get('status', 'unavailable')} "
+        f"Daily-equity observations: {len(daily)}; "
+        f"daily metric status: {performance.get('status', 'unavailable')} "
         f"({performance.get('observations', 0)} daily return observations).",
         "",
         "### Daily equity observations",
@@ -679,7 +699,8 @@ def render_performance_report(
         "",
         "### Full mark-to-market equity history",
         "",
-        "| Timestamp (UTC) | NAV (USDT) | ROI from initial capital | Risk-window drawdown | Long notional | Short notional |",
+        "| Timestamp (UTC) | NAV (USDT) | ROI from initial capital | "
+        "Risk-window drawdown | Long notional | Short notional |",
         "|---|---:|---:|---:|---:|---:|",
     ])
     for row in equity:
@@ -701,7 +722,8 @@ def render_performance_report(
         "position changes are used as a backstop; where an event did not preserve an exact "
         "fill price or P&L, the note identifies the row as derived rather than inventing details.",
         "",
-        "| Timestamp (UTC) | Action | Symbol | Side | Quantity / Δ | Price | Fees (USDT) | Net P&L (USDT) | Funding (USDT) | Source / note |",
+        "| Timestamp (UTC) | Action | Symbol | Side | Quantity / Δ | Price | "
+        "Fees (USDT) | Net P&L (USDT) | Funding (USDT) | Source / note |",
         "|---|---|---|---:|---:|---:|---:|---:|---:|---|",
     ])
     for row in history:
@@ -713,7 +735,10 @@ def render_performance_report(
             f"| {_cell(pnl)} | {_cell(row.get('funding'))} | {_cell(row.get('note'))} |"
         )
     if not history:
-        lines.append("| No position or funding activity recorded yet | — | — | — | — | — | — | — | — |")
+        lines.append(
+            "| No position or funding activity recorded yet | — | — | "
+            "— | — | — | — | — | — |"
+        )
 
     lines.extend([
         "",
@@ -725,8 +750,10 @@ def render_performance_report(
         f"Latest global event-batch hash: {latest_batch_hash}.",
         "All batches were hash-verified and the complete parent-hash chain was checked "
         "for a single genesis, missing parents, duplicate identifiers and forks.",
-        "The archived $1 account generation is excluded; only the active $10 USDT account is reported.",
-        "Paper simulation only: no live orders, private exchange endpoints, credentials or wallet access.",
+        "The archived $1 account generation is excluded; only the active "
+        "$10 USDT account is reported.",
+        "Paper simulation only: no live orders, private exchange endpoints, "
+        "credentials or wallet access.",
         "Metrics remain unavailable until their documented sample gates are satisfied.",
         "",
     ])
