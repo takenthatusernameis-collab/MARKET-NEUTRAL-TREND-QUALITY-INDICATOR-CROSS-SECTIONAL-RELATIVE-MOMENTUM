@@ -7,11 +7,13 @@ from typing import Any
 
 from trend_quality.indicators import QObservation
 from trend_quality.mexc_paper import (
+    MEXCRankings,
     mexc_book_levels,
     rank_mexc_universe,
     simulate_mexc_fill,
     size_mexc_leg,
 )
+from trend_quality.ranking import Candidate
 
 
 def instrument(instrument_id: int, symbol: str) -> dict[str, Any]:
@@ -176,9 +178,6 @@ def test_frozen_daily_entry_shortlist_round_trips_for_five_minute_retries() -> N
     assert spec is not None and spec.loader is not None
     cycle = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cycle)
-
-    from trend_quality.mexc_paper import MEXCRankings
-    from trend_quality.ranking import Candidate
 
     long_instrument = instrument(101, "LONG_USDT")
     short_instrument = instrument(202, "SHORT_USDT")
