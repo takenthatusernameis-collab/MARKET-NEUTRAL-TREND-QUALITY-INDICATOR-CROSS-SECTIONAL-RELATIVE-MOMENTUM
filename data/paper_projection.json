@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-17T01:23:50.444000+00:00",
+  "last_run_utc": "2026-11-17T01:26:57.853000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-10usdt-v2",
     "cash": "9.99829460",
@@ -144,13 +144,32 @@
         "short_notional_usdt": "9.920000",
         "timestamp_ms": 1794878630444,
         "utc_date": "2026-11-17"
+      },
+      {
+        "daily_drawdown_pct": "-0.0039949285979420564769847300",
+        "daily_peak_nav": "10.01269460",
+        "daily_return_pct": "0.12294600",
+        "daily_starting_nav": "10",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "drawdown_window_reference": "first_observation_of_utc_day",
+        "drawdown_window_starting_nav": "10",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.842334922905684377285502566",
+        "long_notional_usdt": "8.526",
+        "nav": "10.01229460",
+        "roi_pct": "0.12294600",
+        "short_notional_usdt": "9.920000",
+        "timestamp_ms": 1794878817853,
+        "utc_date": "2026-11-17"
       }
     ],
     "fees_paid": "0.00170540",
     "initial_capital": "10",
     "last_decision_attempt_daily_bar_ms": 1794787200000,
     "last_processed_daily_bar_ms": 1794787200000,
-    "last_snapshot_ms": 1794878630444,
+    "last_snapshot_ms": 1794878817853,
     "pending_entry_signal": null,
     "positions": [
       {
@@ -162,7 +181,7 @@
         "initial_margin_usdt": "4.2635",
         "instrument_id": 1595,
         "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "426.32",
+        "last_mark_price": "426.3",
         "leverage": "2",
         "lowest_since_entry": "426.35",
         "quantity": "0.02",
@@ -198,9 +217,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "ccd96a20f0351c54a8edf6defba73c48ae8084b7805d8ce10ac734121124b67a",
-    "commit_sha": "8b90ea6ea7f4db755432bef67f74e369a8c5a691",
+    "batch_hash": "d6ed6334e31902a4fb9db09ab0c2dd36c0af86f6b16ed460932cb19a91699b2e",
+    "commit_sha": "25fab99784a1d50f648fdf9777dac92639dc72aa",
     "created": true,
-    "path": "events/2026/11/snapshot-1794878630444.json"
+    "path": "events/2026/11/snapshot-1794878817853.json"
   }
 }
