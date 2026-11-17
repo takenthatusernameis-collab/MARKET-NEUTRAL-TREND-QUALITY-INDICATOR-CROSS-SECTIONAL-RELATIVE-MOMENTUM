@@ -50,7 +50,7 @@ Before considering the writer flag:
 3. Verify the actual branch-protection API response from the workflow's token.
 4. Run a real append, duplicate/idempotency and conflict test.
 5. Rebuild the paper state from immutable events and verify chain integrity.
-6. Only after full market-data, execution, accounting and stop/funding tests pass, consider initializing the 100 USDT account.
+6. Only after full market-data, execution, accounting and stop/funding tests pass, consider initializing the 1 USDT account.
 
 The repository is public. Every state and market-data artifact is public and permanent. Never commit personal identifiers, secrets or private account information.
 
