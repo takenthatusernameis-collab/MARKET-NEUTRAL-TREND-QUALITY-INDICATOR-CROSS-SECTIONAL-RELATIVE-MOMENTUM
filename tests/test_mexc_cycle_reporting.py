@@ -199,3 +199,58 @@ def test_state_branch_protection_fails_closed_when_force_push_is_allowed(monkeyp
         False,
         "STATE_BRANCH_FORCE_PUSH_PROHIBITION_NOT_CONFIRMED",
     )
+
+
+
+def test_recovery_probe_requires_fresh_checkout_and_does_not_initialize_account(tmp_path) -> None:
+    from trend_quality.event_journal import build_event_batch, write_batch_atomic
+
+    cycle = load_cycle_module()
+    event = {
+        "event_id": "state-probe-1",
+        "idempotency_key": "state-probe-1",
+        "account_id": cycle.ACCOUNT_ID,
+        "strategy_id": cycle.STRATEGY_ID,
+        "occurred_at_ms": 1_800_000_000_000,
+        "event_type": "paper_state_recovery_probe",
+        "payload": {
+            "details": {
+                "protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT",
+                "financial_state_created": False,
+                "account_initialized": False,
+            }
+        },
+    }
+    batch = build_event_batch(
+        "state-probe-1",
+        1_800_000_000_000,
+        [event],
+    )
+    write_batch_atomic(tmp_path, batch)
+
+    portfolio, previous_hash, recovered = cycle._load_state(tmp_path)
+    assert portfolio is None
+    assert previous_hash == batch["batch_hash"]
+    assert recovered is True
+
+
+def test_recovery_probe_not_inferred_from_unrelated_state_event(tmp_path) -> None:
+    from trend_quality.event_journal import build_event_batch, write_batch_atomic
+
+    cycle = load_cycle_module()
+    event = {
+        "event_id": "risk-event-1",
+        "idempotency_key": "risk-event-1",
+        "account_id": cycle.ACCOUNT_ID,
+        "strategy_id": cycle.STRATEGY_ID,
+        "occurred_at_ms": 1_800_000_000_000,
+        "event_type": "paper_risk_update",
+        "payload": {"details": {"protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT"}},
+    }
+    batch = build_event_batch("risk-event-1", 1_800_000_000_000, [event])
+    write_batch_atomic(tmp_path, batch)
+
+    portfolio, previous_hash, recovered = cycle._load_state(tmp_path)
+    assert portfolio is None
+    assert previous_hash == batch["batch_hash"]
+    assert recovered is False
