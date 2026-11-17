@@ -46,7 +46,7 @@ BOOTSTRAP_DAYS = 365
 DEFAULT_BOOTSTRAP_BATCH_SIZE = 150
 MAX_SHORTFALL_BPS = Decimal("10")
 STOP_ATR_MULTIPLE = Decimal("3")
-INITIAL_CAPITAL = Decimal("100")
+INITIAL_CAPITAL = Decimal("1")
 ACCOUNT_ID = "mexc-usdt-forward"
 STRATEGY_ID = "trend-quality-daily-cross-sectional-v1"
 
@@ -350,40 +350,51 @@ def _state_branch_protection(
     repository: str,
     token: str,
 ) -> tuple[bool, str]:
-    """Require branch protection, force-push/deletion blocks and writer restrictions."""
+    """Fail closed unless a separate admin-read token verifies the full protection."""
     if not repository or not token:
         return False, "MISSING_GITHUB_REPOSITORY_OR_TOKEN"
-    url = f"https://api.github.com/repos/{repository}/branches/state"
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "mexc-paper-state-protection-check/1.0",
-        },
-        method="GET",
-    )
-    try:
+    protection_token = os.environ.get("STATE_PROTECTION_TOKEN", "").strip()
+    if not protection_token:
+        return False, "STATE_PROTECTION_ADMIN_READ_TOKEN_MISSING"
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "mexc-paper-state-protection-check/1.0",
+    }
+
+    def fetch_json(url: str, bearer: str) -> dict[str, Any]:
+        request = urllib.request.Request(
+            url,
+            headers={**headers, "Authorization": f"Bearer {bearer}"},
+            method="GET",
+        )
         with urllib.request.urlopen(request, timeout=12) as response:
-            value = json.loads(response.read(1_000_000).decode("utf-8"))
+            payload = json.loads(response.read(1_000_000).decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("GitHub protection response is not an object")
+        return payload
+
+    base_url = f"https://api.github.com/repos/{repository}"
+    try:
+        branch = fetch_json(f"{base_url}/branches/state", token)
+        if branch.get("protected") is not True:
+            return False, "STATE_BRANCH_NOT_PROTECTED"
+        protection = fetch_json(
+            f"{base_url}/branches/state/protection",
+            protection_token,
+        )
     except urllib.error.HTTPError as exc:
-        return False, f"STATE_BRANCH_CHECK_HTTP_{exc.code}"
+        return False, f"STATE_BRANCH_PROTECTION_CHECK_HTTP_{exc.code}"
     except Exception as exc:
-        return False, f"STATE_BRANCH_CHECK_FAILED:{type(exc).__name__}"
-    if not isinstance(value, dict) or value.get("protected") is not True:
-        return False, "STATE_BRANCH_NOT_PROTECTED"
-    protection = value.get("protection")
-    if not isinstance(protection, dict) or protection.get("enabled") is not True:
-        return False, "STATE_BRANCH_PROTECTION_NOT_ENABLED"
-    force_pushes = protection.get("allow_force_pushes") or {}
-    deletions = protection.get("allow_deletions") or {}
-    if force_pushes.get("enabled") is True:
-        return False, "STATE_BRANCH_FORCE_PUSHES_ALLOWED"
-    if deletions.get("enabled") is True:
-        return False, "STATE_BRANCH_DELETION_ALLOWED"
+        return False, f"STATE_BRANCH_PROTECTION_CHECK_FAILED:{type(exc).__name__}"
+
     if (protection.get("enforce_admins") or {}).get("enabled") is not True:
         return False, "STATE_BRANCH_PROTECTION_NOT_ENFORCED_FOR_ADMINS"
+    if (protection.get("allow_force_pushes") or {}).get("enabled") is not False:
+        return False, "STATE_BRANCH_FORCE_PUSH_PROHIBITION_NOT_CONFIRMED"
+    if (protection.get("allow_deletions") or {}).get("enabled") is not False:
+        return False, "STATE_BRANCH_DELETION_PROHIBITION_NOT_CONFIRMED"
     restrictions = protection.get("restrictions")
     if not isinstance(restrictions, dict) or not any(
         restrictions.get(key) for key in ("users", "teams", "apps")
