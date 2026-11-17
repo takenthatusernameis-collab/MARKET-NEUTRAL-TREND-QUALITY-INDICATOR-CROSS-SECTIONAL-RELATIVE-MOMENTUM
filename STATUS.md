@@ -3,9 +3,9 @@
 **Report date:** 2026-11-17  
 **Selected provider:** MEXC Futures public API — technical data qualification passed  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
-**Forward paper account:** INITIALIZED — 1 USDT, paper-only, flat; latest state restored from verified event chain  
+**Forward paper account:** ACTIVE GENERATION — 10 USDT seed; VSTOCK_USDT long + BILL_USDT short simulated; independent post-initialization restore pending  
 **Historical replay:** not implemented  
-**Verified portfolio NAV:** 1 USDT at latest restored snapshot; flat with zero positions  
+**Latest verified portfolio NAV:** 9.99529460 USDT at the initial $10 generation report, after simulated entry fees and mark-to-market  
 **Performance claims:** none
 
 ## Provider selection and evidence
@@ -36,7 +36,7 @@ Romanian derivatives-product/account eligibility has not been independently conf
 | Correction factor | 1.0 | Provisional |
 | ATR | Wilder 14 | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial paper capital | 1 USDT | Initialized 2026-11-17; account currently flat |
+| Initial paper capital | 10 USDT | New v2 generation initialized 2026-11-17; one simulated long/short pair open |
 | Long / short allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
 
 ## Implemented on main
@@ -202,3 +202,57 @@ Verified end-to-end sequence on the live GitHub repository:
 **Latest CI:** [run 43991147484](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43991147484) — Ruff passed; 153 tests passed.
 
 The state branch remains intentionally unprotected. The accepted residual risk is privileged manual history rewrite/deletion outside the application publisher. The single-writer workflow lock, hash-chain validation, fast-forward-only updates, exact read-back and fresh-checkout restore checks remain enabled. No live orders, private MEXC endpoints, exchange credentials or wallet access were used.
+
+
+
+## 2026-11-17 — Active $10 generation, manual launcher and five-minute entry retries
+
+**This section is the current operating state and supersedes older readiness / $1 account status statements above.**
+
+### Manual start cue
+
+<badge>Paper only</badge> **[▶ START PAPER SIMULATION — MEXC (PAPER ONLY)](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)**
+
+On the GitHub Actions page, choose branch `main`, select **Run workflow**, then select **Run workflow** again to start the same paper cycle immediately. The workflow is also scheduled every five minutes. Manual dispatch does not change the strategy, create a separate account or submit exchange orders.
+
+### New account generation
+
+- Active account ID: `mexc-usdt-forward-10usdt-v2`
+- Strategy generation: `trend-quality-daily-cross-sectional-v2-10usdt`
+- Initial capital and starting cash: **10.000000 USDT**
+- Recovery probe: run [43993530651](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43993530651), which published the new generation's non-financial probe.
+- Fresh-checkout recovery and initialization: run [43993542045](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43993542045). It verified the preceding probe and appended `events/2026/11/account-init-1794877891864.json`, batch hash `45974be192090b0a88017bd2009076e20e4b471319b4bba1fbd6cb1ad138e9dd`.
+- **First simulated pair opened:** long `VSTOCK_USDT` (0.02 base units at 426.35) and short `BILL_USDT` (2,500 base units at 0.003974). Both fills are simulated from public MEXC order-book depth.
+- Reported starting cash after entry fee: **9.99829460 USDT**. Initial marked NAV: **9.99529460 USDT**. Entry fee: **0.00170540 USDT**. Two open positions. No live orders, credentials, private endpoints or wallet access.
+- The run reported full data coverage across 1,143 cross-margin perpetuals, 1,061 USDT-execution-eligible instruments, 273,160 daily-candle rows, zero missing tickers, zero missing latest bars and zero reported API failures.
+- `paper_account_recovery_status=INITIALIZED_THIS_CYCLE` and `paper_account_restored_from_state_branch=false` in the initialization report. A subsequent independent run must verify that the newly initialized account restores from the state event chain before we claim independent restoration.
+
+### Is $1 generally below MEXC minimum order size?
+
+A live public-data diagnostic evaluated the minimum contract quantity/step times current mid-price for all **1,061** USDT-eligible instruments:
+
+| Measure | Result |
+|---|---:|
+| Median minimum order notional | 0.2878 USDT |
+| 75th percentile | 1.0955 USDT |
+| 90th percentile | 2.82715 USDT |
+| Contracts whose minimum notional is above 1 USDT | 283 / 1,061 |
+| Contracts whose minimum notional is above 10 USDT | 16 / 1,061 |
+| Contracts meeting minimum quantity and lot step at 1 USDT per leg | 778 / 1,061 |
+| Contracts meeting minimum quantity and lot step at 10 USDT per leg | 1,045 / 1,061 |
+
+**Interpretation:** minimum notional is not above 1 USDT for most of the universe. The $10 change was a conservative expansion after the $1 account's actual daily decision returned `FLAT_NO_EXECUTABLE_PAIR`; the live diagnostic shows broader contract coverage at $10, and the first pair has now opened. It does not prove that $1 could never execute. Turnover, book depth, taker fees, impact and the need for a valid long/short combination remain separate gates.
+
+The old `mexc-usdt-forward` $1 account is retained as an archived generation in the append-only `state` event history. It was not deleted or merged into the $10 ledger. New $10 events use a distinct account and strategy ID.
+
+### Entry retry behaviour
+
+- One completed UTC daily candle creates the Q ranking and a frozen executable shortlist.
+- If the initial attempt does not produce a pair but both executable sides exist, the shortlist is retried on five-minute invocations, checking at most five candidate pairs per retry with fresh public tickers and order books.
+- Retries do not recalculate Q or reuse stale execution books. The pending shortlist expires at the next completed daily candle.
+- Once a pair is open, routine five-minute cycles monitor equity/risk and do not initiate a new ordinary rebalance.
+- If no valid executable long/short shortlist exists at the daily decision, there is no pending retry; the system waits for the next completed daily candle.
+
+### Evidence and limitations
+
+The first $10 initialization cycle reports one daily equity observation, so CAGR, Sharpe, Sortino, meaningful drawdown history and profitability remain unavailable. The initial unrealized mark and fees are not performance evidence. The state branch remains intentionally unprotected; publisher-side chain checks and single-writer coordination remain active, but a repository writer/admin can still rewrite or delete history outside the publisher.
