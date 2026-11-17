@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from trend_quality.indicators import QObservation
@@ -167,10 +169,13 @@ def test_ten_usdt_seed_clears_a_ten_unit_contract_minimum_that_blocks_one_usdt()
 
 
 def test_frozen_daily_entry_shortlist_round_trips_for_five_minute_retries() -> None:
-    from scripts.mexc_paper_cycle import (
-        _pending_entry_signal,
-        _restore_pending_rankings,
+    script_path = (
+        Path(__file__).resolve().parents[1] / "scripts" / "mexc_paper_cycle.py"
     )
+    spec = importlib.util.spec_from_file_location("mexc_paper_cycle", script_path)
+    assert spec is not None and spec.loader is not None
+    cycle = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cycle)
 
     from trend_quality.mexc_paper import MEXCRankings
     from trend_quality.ranking import Candidate
@@ -193,14 +198,14 @@ def test_frozen_daily_entry_shortlist_round_trips_for_five_minute_retries() -> N
         excluded=[],
     )
 
-    pending = _pending_entry_signal(rankings, 1_800_000_000_000)
+    pending = cycle._pending_entry_signal(rankings, 1_800_000_000_000)
     assert pending is not None
     assert pending["daily_bar_timestamp_ms"] == 1_800_000_000_000
     assert pending["attempt_count"] == 0
     assert pending["executable_longs"][0]["q"] == "3.5"
     assert pending["executable_shorts"][0]["q"] == "-4.2"
 
-    restored = _restore_pending_rankings(
+    restored = cycle._restore_pending_rankings(
         pending,
         {"101": long_instrument, "202": short_instrument},
     )
