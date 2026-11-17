@@ -167,7 +167,7 @@ The public-data API probe does not use a wallet, API key, private account endpoi
 - [ ] Complete full-universe data-quality/freshness verification and independent Q ranking reconstruction.
 - [ ] Configure server-side protection and restricted writers for state branch; current branch is unprotected and no rulesets exist.
 - [ ] Test real event publisher, idempotency/conflict behavior and full restore from immutable state events.
-- [ ] Only after every gate passes, initialize the separate 100 USDT forward paper account.
+- [ ] Only after every gate passes, initialize the separate 1 USDT forward paper account.
 - [ ] Implement chronological historical replay, survivorship-aware universe reconstruction and cost/funding/stop-delay sensitivity.
 - [ ] Generate verified equity and drawdown charts and human-readable performance report from persisted NAV data.
 
