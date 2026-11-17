@@ -3,7 +3,7 @@
 **Report date:** 2026-11-17  
 **Selected provider:** MEXC Futures public API — technical data qualification passed  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
-**Forward paper account:** NOT INITIALIZED — unprotected single-writer recovery handshake pending  
+**Forward paper account:** INITIALIZED — 1 USDT, paper-only, flat; latest state restored from verified event chain  
 **Historical replay:** not implemented  
 **Verified portfolio NAV:** not available  
 **Performance claims:** none
@@ -36,7 +36,7 @@ Romanian derivatives-product/account eligibility has not been independently conf
 | Correction factor | 1.0 | Provisional |
 | ATR | Wilder 14 | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial paper capital | 1 USDT | Configured default; account not initialized |
+| Initial paper capital | 1 USDT | Initialized 2026-11-17; account currently flat |
 | Long / short allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
 
 ## Implemented on main
@@ -174,3 +174,31 @@ The repository no longer requires state-branch protection, a repository ruleset,
 - No live orders, private MEXC endpoints, credentials or wallet access are used.
 
 CI and the first workflow recovery-probe run must be checked after this commit before the account is reported as initialized.
+
+
+## 2026-11-17 — Forward paper account initialized and independently restored
+
+**Final state: INITIALIZED, 1 USDT cash/NAV, flat, paper-only.**
+
+Verified end-to-end sequence on the live GitHub repository:
+
+1. **Recovery probe** — MEXC run [43989363042](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43989363042) created `events/2026/11/state-probe-1794875970712.json`. The publisher verified exact remote read-back and the complete chain. The probe records no financial state, no initialized account and zero orders.
+2. **Fresh-checkout recovery and initialization** — MEXC run [43990948665](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43990948665) checked out the state branch afresh, verified the probe, then appended `paper_account_initialized` at `events/2026/11/account-init-1794876688471.json`. Starting cash and initial capital are exactly 1 USDT; no historical trades/equity were imported.
+3. **Independent account restore** — follow-up MEXC run [43991147324](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43991147324) reported `paper_account_restored_from_state_branch=true` and `paper_account_recovery_status=RESTORED_FROM_VERIFIED_EVENT_CHAIN`. It reconstructed cash=1 USDT and NAV=1 USDT, then appended `events/2026/11/snapshot-1794876766509.json`.
+
+**Verified ledger chain:** probe hash `ad7ff8e50fcf462f8851e81512cb6d487debad9cfc3cb289d5bad2cade7256fc` → initialization hash `6334d2b5c3c98f893c2895bb7e975ac61e5453ea089c22a2584353f52b1cbd9f` → snapshot hash `87476f8ffe9c951305323e078aa6b6a9f6c8821df05657b2486f4563e2c1bbb0`. Both parent-hash links were verified.
+
+### Initial operating statistics
+
+- Cash: **1.000000 USDT**
+- NAV: **1.000000 USDT**
+- Positions: **0**; gross/net exposure: **0**
+- Closed trades: **0**; fees: **0**; confirmed funding: **0**
+- Orders submitted: **0**
+- History coverage at initialization: passed across 1,143 active cross-margin perps, including 1,061 USDT-eligible instruments; 273,160 daily-candle rows; zero missing tickers, missing latest bars or reported API failures.
+- Entry decision: `FLAT_NO_EXECUTABLE_PAIR`; no valid pair met all execution constraints with a 1 USDT account. It stayed flat rather than forcing undersized simulated trades.
+- Performance metrics: **not yet meaningful**. Only one daily equity observation exists; CAGR, Sharpe and other sample-dependent statistics remain unavailable. Actual forward evidence starts at the initialization timestamp, not from historical backfill.
+
+**Latest CI:** [run 43991147484](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43991147484) — Ruff passed; 153 tests passed.
+
+The state branch remains intentionally unprotected. The accepted residual risk is privileged manual history rewrite/deletion outside the application publisher. The single-writer workflow lock, hash-chain validation, fast-forward-only updates, exact read-back and fresh-checkout restore checks remain enabled. No live orders, private MEXC endpoints, exchange credentials or wallet access were used.

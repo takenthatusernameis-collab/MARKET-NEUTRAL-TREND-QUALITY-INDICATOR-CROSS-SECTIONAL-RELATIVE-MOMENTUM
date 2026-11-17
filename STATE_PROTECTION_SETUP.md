@@ -2,6 +2,8 @@
 
 **Status (2026-11-17):** the administrator-only branch-protection setup described by the original version of this file is retired. The MEXC forward-paper workflow no longer depends on repository Administration permissions, a protected branch, a ruleset or a `STATE_PROTECTION_TOKEN` secret.
 
+**Live account status:** initialized with 1 USDT and independently restored from the hash-chained `state` branch. The account is currently flat (zero positions, zero orders). The recovery probe, initialization event and subsequent valuation snapshot form a verified linear event chain. See [STATUS.md](STATUS.md) for run IDs, hashes and current metrics.
+
 ## Current operating configuration
 
 - The MEXC workflow is the scheduled forward-paper account writer and defaults `PAPER_STATE_WRITE_ENABLED` to true.

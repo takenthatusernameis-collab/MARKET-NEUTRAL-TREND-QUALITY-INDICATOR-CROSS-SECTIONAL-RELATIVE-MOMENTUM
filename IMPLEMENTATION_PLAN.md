@@ -58,7 +58,7 @@ The repository is in emergency red-team no-go, not a trading-ready phase. No pap
 - [x] Serialize MEXC and the retired manual Polymarket state publishers with one non-cancelling repository-wide concurrency group.
 - [x] Verify remote event-chain topology, exact canonical read-back, idempotent replay and non-forced fast-forward conflict handling in the publisher.
 - [x] Restore local event batches by `previous_batch_hash` links rather than exchange timestamps; reject forks, orphan batches and duplicate identifiers.
-- [ ] Verify the first live GitHub probe write/read-back and following fresh-checkout recovery on the actual state branch.
+- [x] Verify the first live GitHub probe write/read-back and following fresh-checkout recovery on the actual state branch (probe run 43989363042; recovery/init run 43990948665).
 - [ ] Implement complete restore/rebuild from state-branch event files after runner loss.
 - [ ] Integrate persistence as a mandatory precondition for any paper state transition.
 
@@ -169,9 +169,9 @@ The public-data API probe does not use a wallet, API key, private account endpoi
 - [x] Verify successful market-data branch commits after correcting the branch's ignored data directory. Runs 43976810498 and 43977234937 both completed, committed public candles/snapshots/reports and uploaded artifacts; progress advanced from 150 to 300 bootstrapped instruments.
 - [ ] Complete full-universe data-quality/freshness verification and independent Q ranking reconstruction.
 - [x] Configure a shared single-writer concurrency group across every workflow that can append to the state branch.
-- [ ] Verify the real publisher/read-back and fresh-checkout recovery cycle on the live GitHub state branch.
-- [ ] Initialize and then independently restore the separate 1 USDT forward paper account after the recovery probe passes.
+- [x] Verify the real publisher/read-back and fresh-checkout recovery cycle on the live GitHub state branch (run 43990948665; exact read-back, linked hashes and later account restore confirmed).
+- [x] Initialize and independently restore the separate 1 USDT forward paper account after the recovery probe passes (initialization run 43990948665; follow-up restore run 43991147324).
 - [ ] Implement chronological historical replay, survivorship-aware universe reconstruction and cost/funding/stop-delay sensitivity.
 - [ ] Generate verified equity and drawdown charts and human-readable performance report from persisted NAV data.
 
-MEXC is the current selected public-data provider. This phase overrides earlier historical Polymarket-first/Bybit-first plan entries. The account writer is enabled by default in the MEXC workflow; the first run is probe-only and financial initialization remains blocked until a later fresh checkout verifies the recovery probe. The branch is intentionally unprotected, with residual privileged-rewrite risk documented in OPERATING_MODEL.md.
+MEXC is the current selected public-data provider. This phase overrides earlier historical Polymarket-first/Bybit-first plan entries. The account writer is enabled by default in the MEXC workflow. The live recovery probe, 1 USDT account initialization and subsequent account restore have all been verified. The account is currently flat pending a pair that meets execution constraints at 1 USDT; no profitability claim or meaningful performance statistics are available yet. The branch is intentionally unprotected, with residual privileged-rewrite risk documented in OPERATING_MODEL.md.
