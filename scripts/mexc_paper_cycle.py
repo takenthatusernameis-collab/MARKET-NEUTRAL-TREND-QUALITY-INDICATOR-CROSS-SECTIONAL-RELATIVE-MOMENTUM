@@ -437,7 +437,10 @@ def _publish_recovery_probe(
         "payload": {
             "details": {
                 "protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT",
-                "purpose": "Verify GitHub append-only publisher read-back before financial initialization",
+                "purpose": (
+                    "Verify GitHub append-only publisher read-back "
+                    "before financial initialization"
+                ),
                 "financial_state_created": False,
                 "account_initialized": False,
                 "orders_submitted": 0,
