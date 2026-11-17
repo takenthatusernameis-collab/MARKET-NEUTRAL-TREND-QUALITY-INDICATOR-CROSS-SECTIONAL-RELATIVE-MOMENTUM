@@ -323,7 +323,10 @@ def _bootstrap_or_increment(
     )
     return completed_count, remaining, api_failures
 
-def _load_state(state_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
+def _load_state(
+    state_dir: Path,
+) -> tuple[dict[str, Any] | None, str | None, bool]:
+    """Verify the persisted chain and report whether a prior-run recovery probe exists."""
     paths = sorted((state_dir / "events").glob("**/*.json"))
     batches: list[dict[str, Any]] = []
     for path in paths:
@@ -334,16 +337,26 @@ def _load_state(state_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
     batches.sort(key=lambda row: int(row["created_at_ms"]))
     previous_hash: str | None = None
     portfolio: dict[str, Any] | None = None
+    recovery_probe_verified = False
     for batch in batches:
         if batch.get("previous_batch_hash") != previous_hash:
             raise RuntimeError("Paper state branch contains a broken event-batch chain")
         previous_hash = str(batch["batch_hash"])
         for event in batch["events"]:
+            payload = event.get("payload", {})
+            details = payload.get("details", {}) if isinstance(payload, dict) else {}
+            if (
+                event.get("account_id") == ACCOUNT_ID
+                and event.get("event_type") == "paper_state_recovery_probe"
+                and isinstance(details, dict)
+                and details.get("protocol") == "PUBLISH_READBACK_THEN_FRESH_CHECKOUT"
+            ):
+                recovery_probe_verified = True
             if event.get("account_id") == ACCOUNT_ID:
-                state = event.get("payload", {}).get("portfolio_state")
-                if isinstance(state, dict):
+                state = payload.get("portfolio_state") if isinstance(payload, dict) else None
+                if isinstance(state, dict) and state.get("account_id") == ACCOUNT_ID:
                     portfolio = state
-    return portfolio, previous_hash
+    return portfolio, previous_hash, recovery_probe_verified
 
 
 def _state_branch_protection(
@@ -401,6 +414,52 @@ def _state_branch_protection(
     ):
         return False, "STATE_BRANCH_WRITER_RESTRICTIONS_MISSING"
     return True, "STATE_BRANCH_PROTECTION_AND_WRITER_RESTRICTIONS_CONFIRMED"
+
+
+def _publish_recovery_probe(
+    now_ms: int,
+    previous_hash: str | None,
+) -> dict[str, Any]:
+    """Append a non-financial probe; publisher returns only after remote read-back."""
+    token = os.environ.get("GITHUB_TOKEN", "")
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    if not token or not repository:
+        raise RuntimeError("Missing GitHub publisher configuration for state probe")
+    stamp = int(now_ms)
+    key = f"state-probe-{stamp}"
+    event = {
+        "event_id": key,
+        "idempotency_key": key,
+        "account_id": ACCOUNT_ID,
+        "strategy_id": STRATEGY_ID,
+        "occurred_at_ms": stamp,
+        "event_type": "paper_state_recovery_probe",
+        "payload": {
+            "details": {
+                "protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT",
+                "purpose": "Verify GitHub append-only publisher read-back before financial initialization",
+                "financial_state_created": False,
+                "account_initialized": False,
+                "orders_submitted": 0,
+            }
+        },
+    }
+    batch = build_event_batch(
+        run_id=key,
+        created_at_ms=stamp,
+        events=[event],
+        previous_batch_hash=previous_hash,
+    )
+    publisher = GitHubStatePublisher(repository, token, branch="state")
+    result = publisher.publish_batch(batch)
+    return {
+        "path": result.path,
+        "batch_hash": result.batch_hash,
+        "created": result.created,
+        "commit_sha": result.commit_sha,
+        "remote_readback_verified": True,
+        "fresh_checkout_recovery_required": True,
+    }
 
 def _publish_event(
     state: dict[str, Any],
@@ -964,7 +1023,7 @@ def _run() -> int:
     latest_bar_ms = _last_completed_daily_bar(server_ms)
 
     # Inspect the persistent state before any universe/history/ranking requests.
-    previous_state, previous_hash = _load_state(state_dir)
+    previous_state, previous_hash, recovery_probe_verified = _load_state(state_dir)
     writer_requested = os.environ.get("PAPER_STATE_WRITE_ENABLED", "").lower() == "true"
     state_protected = False
     state_protection_reason = "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION"
@@ -974,7 +1033,46 @@ def _run() -> int:
             os.environ.get("GITHUB_TOKEN", ""),
         )
     writer_enabled = writer_requested and state_protected
-    account_initialization_due = previous_state is None and writer_enabled
+    if writer_enabled and previous_state is None and not recovery_probe_verified:
+        probe_result = _publish_recovery_probe(server_ms, previous_hash)
+        store.manifest["last_state_recovery_probe_ms"] = server_ms
+        store.save_manifest(server_ms)
+        report = {
+            "run_utc": datetime.now(UTC).isoformat(),
+            "provider": "mexc",
+            "mode": "STATE_PERSISTENCE_PROBE",
+            "paper_decision_status": "PUBLISH_READBACK_VERIFIED_AWAITING_FRESH_CHECKOUT",
+            "paper_state_write_requested": True,
+            "paper_simulation_enabled": False,
+            "paper_account_initialized": False,
+            "initial_capital_usdt": str(INITIAL_CAPITAL),
+            "state_branch_protection": state_protection_reason,
+            "state_recovery_probe": probe_result,
+            "orders_submitted": 0,
+            "credentials_used": False,
+            "private_endpoints_used": False,
+            "wallet_used": False,
+        }
+        report_dir = market_data_dir / "data" / "reports" / "mexc"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        (report_dir / "latest_cycle.json").write_text(
+            json.dumps(report, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
+        )
+        (report_dir / "latest_cycle.md").write_text(
+            "# MEXC State Persistence Probe\n\n"
+            "- Status: publisher write/read-back succeeded\n"
+            "- Financial account initialized: no\n"
+            "- Orders submitted: 0\n"
+            "- Next invocation must verify this event from a fresh state-branch checkout\n",
+            encoding="utf-8",
+        )
+        print(json.dumps(report, indent=2, sort_keys=True, default=str))
+        return 0
+
+    account_initialization_due = (
+        previous_state is None and writer_enabled and recovery_probe_verified
+    )
     portfolio = previous_state
     if account_initialization_due:
         portfolio = initial_portfolio_state(INITIAL_CAPITAL)
@@ -1353,6 +1451,7 @@ def _run() -> int:
         "research_refresh_performed": True,
         "q_rankings_recalculated": True,
         "ordinary_strategy_decisions": bool(writer_enabled),
+        "state_recovery_probe_verified_from_prior_checkout": recovery_probe_verified,
         "paper_account_initialized_this_cycle": account_initialization_due,
         "paper_account_initial_capital_usdt": (
             str(INITIAL_CAPITAL) if account_initialization_due else None
