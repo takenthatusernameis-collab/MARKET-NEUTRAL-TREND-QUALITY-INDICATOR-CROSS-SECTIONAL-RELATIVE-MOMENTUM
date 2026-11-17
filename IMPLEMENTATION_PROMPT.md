@@ -5,7 +5,7 @@ Repository: `takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-C
 Target: `main`  
 Provider search order was Polymarket Perps → MEXC → Bitget. The first-pass result selected MEXC: Polymarket did not pass fee/book coverage, while MEXC passed the real public-data preflight. Bitget was checked separately for curiosity and passed a sample screen, but it does not displace MEXC. MEXC is the selected research provider until a separately authorized and evidence-based provider change. Bybit is retained only as a historical/previously blocked adapter.  
 Execution: local paper simulation only; no live orders, Testnet, credentials or private endpoints.  
-Initial paper capital: 100 USDT for the MEXC USDT-settled paper account. Never mix USDC, USD1, coin-margined or other settlement balances into USDT NAV. Historical Polymarket-specific rules remain in this document only for a future provider migration and do not govern the selected MEXC cycle. Target gross exposure: 1.0x NAV, 50% long and 50% short.
+Initial paper capital: 1 USDT for the MEXC USDT-settled forward paper account. Never mix USDC, USD1, coin-margined or other settlement balances into USDT NAV. Historical Polymarket-specific rules remain in this document only for a future provider migration and do not govern the selected MEXC cycle. Target gross exposure: 2.0x NAV, 1.0x NAV notional long and 1.0x NAV notional short (50% NAV margin per leg at 2x leverage).
 
 Primary source: David Sepiashvili, [Trend-Quality Indicator](https://www.prorealcode.com/wp-content/uploads/2019/03/24-Q-Indicator.pdf).
 
@@ -669,7 +669,7 @@ Keep exactly one scheduled GitHub Actions workflow with cron */5 * * * *. Each i
 
 ### 19.2 Exposure and leverage authority
 
-Use 100 USDT initial paper capital. The portfolio has two legs:
+Use 1 USDT initial paper capital. The portfolio has two legs:
 
 - Long margin allocation: 50% of current NAV.
 - Short margin allocation: 50% of current NAV.
@@ -715,3 +715,17 @@ Tests must cover:
 
 Reports must distinguish source-data completeness, test validation, state-write readiness, initialized forward account status and actual persisted performance evidence. Unit tests or successful public-data cycles are not profitability evidence.
 
+
+
+## 20. 2026-11-17 — 1 USDT FORWARD SEED AND PROTECTION TOKEN OVERRIDE
+
+This section supersedes all historical 100 USDT seed-capital values above.
+
+- The forward account's initial capital and starting cash are 1 USDT.
+- Preserve 50% NAV margin per leg at 2x leverage: target approximately 1 USDT notional on each side and 2 USDT combined gross notional.
+- Round quantities down and respect MEXC minimum/maximum order sizes, contract multipliers, depth, fees and shortfall caps. If the 1 USDT NAV cannot satisfy minimum order constraints on both legs, remain flat; never increase exposure to force an entry.
+- The MEXC workflow defaults PAPER_STATE_WRITE_ENABLED to false and reads the explicit repository Actions variable of the same name. Missing variable means disabled.
+- The workflow uses the STATE_PROTECTION_TOKEN repository Actions secret solely to inspect branch protection. It must be a fine-grained token limited to this repository with Administration: read permission. The regular workflow GITHUB_TOKEN remains the separate append-only publisher credential with Contents: write.
+- Before enabling the repository variable, configure the state branch's server-side protection: administrator enforcement; no force pushes; no branch deletion; and restricted writers limited to the intended GitHub Actions app. The runtime gate must verify the actual /branches/state/protection response, not infer the detailed settings from the branch summary.
+- A successful event write is not enough: publisher success requires post-write read-back of exact canonical contents and fresh verification of the full remote event chain. A repeated exact batch must remain idempotent. The first financial batch must be the 1 USDT account-initialization event and must not include any historical trades or equity.
+- Do not initialize the account, set the variable true, or make financial ledger writes until server-side branch protection and a real publisher/recovery round trip are verified.
