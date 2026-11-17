@@ -3,7 +3,9 @@
 **Effective date:** 2026-11-17  
 **Provider:** MEXC Futures public market data  
 **Account mode:** USDT-settled paper simulation only  
-**Scheduler:** one GitHub Actions cron, every five minutes (*/5 * * * *)
+**Active account generation:** 10 USDT seed — `mexc-usdt-forward-10usdt-v2`  
+**Scheduler:** one GitHub Actions cron, every five minutes (*/5 * * * *)  
+**Manual launcher:** [▶ START PAPER SIMULATION — MEXC (PAPER ONLY)](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
 
 This document is the authoritative operating contract for the MEXC forward-paper workflow. It supersedes older instructions that imply a five-minute strategy-decision loop, hourly strategy decisions, or independent per-leg 25% drawdown stops.
 
@@ -37,15 +39,19 @@ Every invocation that does not observe a new daily candle performs a monitoring-
 - Retry a previously triggered but incomplete emergency flatten.
 - Publish the portfolio valuation/risk event when the paper-state persistence gate is open.
 
-This mode must **not** refresh the full research universe, backfill candles, recalculate Q rankings, alter ordinary target positions, initiate a normal rebalance, or run ordinary ATR/trailing-stop decisions. A monitoring run may close positions only to complete an already-triggered emergency flatten.
+This mode does not refresh the full research universe, backfill candles, recalculate Q rankings, or run ordinary ATR/trailing-stop decisions. It has one narrowly scoped exception when the portfolio is flat: if the latest daily decision persisted a valid executable long and short shortlist but its first simulated pair attempt failed, the five-minute invocation may retry that frozen shortlist. It fetches fresh public tickers and order books, checks at most five candidate pairs per invocation, and persists the attempt/result. It does not recalculate Q, does not create a new signal, and does not reuse an old order book. The pending shortlist expires when a new completed UTC daily candle is observed. If the original daily decision had no executable long/short shortlist at all, no retry is scheduled; the system waits for the next daily decision. Once a pair is open, snapshot mode returns to monitoring-only. A monitoring run may also close positions only to complete an already-triggered emergency flatten.
+
+### Manual on-demand start
+
+Open the [GitHub Actions paper workflow](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml), select **▶ START PAPER SIMULATION — MEXC (PAPER ONLY)**, choose branch `main`, and select **Run workflow**. This invokes the same cycle immediately; it does not bypass the data, ranking, execution, persistence or risk gates. The automatic five-minute schedule remains enabled.
 
 ## 2. Portfolio construction and leverage
 
-The forward account is denominated entirely in USDT.
+The active forward account is denominated entirely in USDT. The current generation ID is `mexc-usdt-forward-10usdt-v2`; its strategy generation is `trend-quality-daily-cross-sectional-v2-10usdt`. The prior 1 USDT account remains an archived, separate account in the append-only state history and is not merged into this account.
 
 | Parameter | Setting |
 |---|---:|
-| Initial paper capital | 1 USDT |
+| Initial paper capital | 10 USDT |
 | Long margin allocation | 50% of NAV |
 | Short margin allocation | 50% of NAV |
 | Default leverage | 2× per leg |
@@ -96,7 +102,7 @@ For a missing/stale position mark, do not fabricate a NAV observation or pretend
 
 ## 6. Persistence and non-live boundary
 
-The `state` branch is intentionally unprotected in this paper-only mode; no repository-administrator setup or `STATE_PROTECTION_TOKEN` is required. The MEXC workflow defaults `PAPER_STATE_WRITE_ENABLED` to true, while the repository Actions variable can be set to the literal string `false` as an emergency write-disable switch. Every workflow capable of appending to the shared `state` branch uses the same repository-wide `paper-state-branch-single-writer` concurrency group with `cancel-in-progress: false`; only one writer workflow can be active at a time. The MEXC and retired manual Polymarket workflows share that lock. The publisher independently verifies the complete remote chain before append, rejects multiple genesis roots, forks, orphaned or disconnected batches and duplicate event/run/idempotency identifiers, advances the ref with a non-forced fast-forward update, and after both new writes and idempotent replays verifies exact canonical file contents and membership in the complete remote chain. Any API failure or competing ref update fails closed; it must never force-push or claim that an uncommitted event is durable. Local restore follows `previous_batch_hash` links, not exchange timestamps. The first writer run appends only a non-financial recovery probe; a fresh checkout on a later run must verify it before the 1 USDT account-initialization event can be created. The workflow's `GITHUB_TOKEN` retains Contents: write for publishing. Because the branch is unprotected, an authorized repository writer can still manually rewrite or delete history outside this publisher; hash-chain validation detects malformed/incomplete state when observed but cannot prevent a privileged rewrite. The branch and its events are public and permanent.
+The `state` branch is intentionally unprotected in this paper-only mode; no repository-administrator setup or `STATE_PROTECTION_TOKEN` is required. The MEXC workflow defaults `PAPER_STATE_WRITE_ENABLED` to true, while the repository Actions variable can be set to the literal string `false` as an emergency write-disable switch. Every workflow capable of appending to the shared `state` branch uses the same repository-wide `paper-state-branch-single-writer` concurrency group with `cancel-in-progress: false`; only one writer workflow can be active at a time. The MEXC and retired manual Polymarket workflows share that lock. The publisher independently verifies the complete remote chain before append, rejects multiple genesis roots, forks, orphaned or disconnected batches and duplicate event/run/idempotency identifiers, advances the ref with a non-forced fast-forward update, and after both new writes and idempotent replays verifies exact canonical file contents and membership in the complete remote chain. Any API failure or competing ref update fails closed; it must never force-push or claim that an uncommitted event is durable. Local restore follows `previous_batch_hash` links, not exchange timestamps. The first writer run for a new account generation appends only a non-financial recovery probe; a fresh checkout on a later run must verify it before that generation's 10 USDT account-initialization event can be created. The workflow's `GITHUB_TOKEN` retains Contents: write for publishing. Because the branch is unprotected, an authorized repository writer can still manually rewrite or delete history outside this publisher; hash-chain validation detects malformed/incomplete state when observed but cannot prevent a privileged rewrite. The branch and its events are public and permanent.
 
 The repository remains public. State written to its branches is public and permanent. Never add API credentials or private endpoints.
 
@@ -114,11 +120,11 @@ The test suite must prove: 2× margin-aware sizing; 50/50 margin allocation; com
 CI evidence is not performance evidence. Report separately: source-data coverage, unit/integration test results, state-write readiness, forward account initialization, actual persisted portfolio observations, and any independently audited performance.
 
 
-## 8. 1 USDT seed and activation controls
+## 8. 10 USDT seed and activation controls
 
-The current forward paper account seed is 1 USDT, not the historical 100 USDT planning value. Both the portfolio module default and daily cycle capital constant are 1 USDT. At 50% NAV margin per leg and 2× leverage, the target is approximately 1 USDT notional per leg and 2 USDT combined gross notional. MEXC quantity increments, minimum/maximum contract limits, depth and simulated costs may prevent a pair from opening at this capital level; a flat 1 USDT account is a valid starting state and must not be forced into an undersized order.
+The active forward paper account seed is 10 USDT. Both the portfolio module default and daily cycle capital constant are 10 USDT. At 50% NAV margin per leg and 2× leverage, the target is approximately 10 USDT notional per leg and 20 USDT combined gross notional. MEXC quantity increments, minimum/maximum contract limits, depth and simulated costs remain binding; the simulator must never round a requested trade up merely to meet a venue minimum. A live diagnostic over 1,061 active USDT-eligible perpetuals measured a median minimum contract notional of 0.2878 USDT, with 778 contracts meeting minimum quantity and step at a 1 USDT per-leg target and 1,045 at a 10 USDT target. Thus minimum orders are not generally above 1 USDT; the new 10 USDT generation was selected after the prior 1 USDT account's real decision returned FLAT_NO_EXECUTABLE_PAIR, to increase lot-size coverage. This is an execution-feasibility choice, not proof of profitability.
 
-The scheduler defaults `PAPER_STATE_WRITE_ENABLED` to true. Set the repository Actions variable to the literal string `false` to pause paper-state writes; remove the variable or set it to `true` to run the enabled mode. No branch-protection rule, ruleset or Administration token is needed. The publisher uses the workflow `GITHUB_TOKEN` with Contents: write. The account remains uninitialized until a non-financial probe has been published/read back and a later fresh checkout has restored and verified it. Failed read-back, broken chain, or a non-fast-forward conflict keeps the workflow fail-closed.
+The scheduler defaults `PAPER_STATE_WRITE_ENABLED` to true. Set the repository Actions variable to the literal string `false` to pause paper-state writes; remove the variable or set it to `true` to run the enabled mode. No branch-protection rule, ruleset or Administration token is needed. The publisher uses the workflow `GITHUB_TOKEN` with Contents: write. The $10 generation is initialized after its own non-financial probe was published/read back and verified from a later fresh checkout. Its first successful initialization cycle opened a simulated VSTOCK_USDT long / BILL_USDT short pair. A subsequent independent restore check is still required before the new generation is described as independently restored. Failed read-back, broken chain, or a non-fast-forward conflict keeps the workflow fail-closed.
 
 
 ## 9. Two-stage recovery-before-initialization protocol
@@ -127,7 +133,7 @@ When the workflow runs with paper-state writing enabled (the default unless the 
 
 1. The first write-capable invocation must publish only a non-financial paper_state_recovery_probe event. The publisher must read back the exact canonical event and verify the complete remote chain before reporting success. No financial state or account balance is created in this invocation.
 2. The next invocation checks out the state branch afresh and locally verifies every event batch and the linear hash chain. It must detect the exact recovery-probe event before account initialization is allowed.
-3. Only after that fresh-checkout recovery succeeds may the first financial event be written. It is typed paper_account_initialized and records initial_capital_usdt=1, starting_cash_usdt=1, forward-paper-only mode, no historical imports and the first valuation/decision timestamp.
+3. Only after that fresh-checkout recovery succeeds may the first financial event be written. It is typed paper_account_initialized and records initial_capital_usdt=10, starting_cash_usdt=10, forward-paper-only mode, no historical imports and the first valuation/decision timestamp.
 4. Subsequent runs restore the financial event from the state branch and reconstruct the same account state. A missing probe, broken hash chain, missing account identifier, failed read-back or non-fast-forward conflict prevents initialization or further transitions and keeps the workflow fail-closed.
 
 The non-financial probe is part of the append-only public state chain. It is not a trade, position, P&L entry or account initialization.
