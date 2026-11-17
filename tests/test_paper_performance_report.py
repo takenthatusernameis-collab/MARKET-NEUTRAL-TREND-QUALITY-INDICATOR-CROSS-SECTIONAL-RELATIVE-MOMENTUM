@@ -1,0 +1,275 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from trend_quality.event_journal import build_event_batch, write_batch_atomic
+from trend_quality.paper_performance_report import render_performance_report
+
+ACCOUNT_ID = "mexc-usdt-forward-10usdt-v2"
+STRATEGY_ID = "trend-quality-daily-cross-sectional-v2-10usdt"
+
+
+def _state(
+    *,
+    positions: list[dict[str, object]],
+    equity: list[dict[str, object]],
+    risk_start: int,
+    risk_nav: str,
+    closed: list[str] | None = None,
+    partial: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "account_id": ACCOUNT_ID,
+        "strategy_id": STRATEGY_ID,
+        "currency": "USDT",
+        "initial_capital": "100",
+        "cash": "99.8",
+        "realized_gross_pnl": "0",
+        "fees_paid": "0.2",
+        "confirmed_funding": "0",
+        "positions": positions,
+        "closed_trade_net_pnls": closed or [],
+        "partial_realized_net_pnls": partial or [],
+        "daily_equity": [{"timestamp_ms": risk_start, "nav": "100"}],
+        "equity_curve": equity,
+        "daily_risk": {
+            "starting_nav": risk_nav,
+            "starting_timestamp_ms": risk_start,
+            "peak_nav": risk_nav,
+            "utc_date": "2027-01-15",
+            "stop_triggered": False,
+        },
+    }
+
+
+def _write_event(
+    root: Path,
+    *,
+    run_id: str,
+    timestamp: int,
+    previous_hash: str | None,
+    state: dict[str, object] | None,
+    details: dict[str, object],
+) -> str:
+    payload: dict[str, object] = {"details": details}
+    if state is not None:
+        payload["portfolio_state"] = state
+    event = {
+        "event_id": f"event-{run_id}",
+        "idempotency_key": run_id,
+        "account_id": ACCOUNT_ID,
+        "strategy_id": STRATEGY_ID,
+        "occurred_at_ms": timestamp,
+        "event_type": "paper_test_event",
+        "payload": payload,
+    }
+    batch = build_event_batch(
+        run_id,
+        timestamp,
+        [event],
+        previous_batch_hash=previous_hash,
+    )
+    write_batch_atomic(root, batch)
+    return str(batch["batch_hash"])
+
+
+def test_report_calculates_per_session_and_lifetime_drawdowns_and_trade_history(
+    tmp_path: Path,
+) -> None:
+    start = 1_800_000_000_000
+    opened = {
+        "instrument_id": 7,
+        "symbol": "AAA_USDT",
+        "side": "long",
+        "quantity": "2",
+        "entry_price": "100",
+        "entry_timestamp_ms": start,
+        "entry_fee": "0.2",
+        "last_mark_price": "80",
+        "leverage": "2",
+    }
+    first_state = _state(
+        positions=[opened],
+        equity=[
+            {"timestamp_ms": start, "nav": "100", "roi_pct": "0"},
+            {"timestamp_ms": start + 1, "nav": "80", "roi_pct": "-20"},
+        ],
+        risk_start=start,
+        risk_nav="100",
+    )
+    parent = _write_event(
+        tmp_path,
+        run_id="open",
+        timestamp=start,
+        previous_hash=None,
+        state=first_state,
+        details={"fills": [opened]},
+    )
+
+    reduced = dict(opened, quantity="1", last_mark_price="90")
+    second_state = _state(
+        positions=[reduced],
+        equity=[
+            {"timestamp_ms": start, "nav": "100", "roi_pct": "0"},
+            {"timestamp_ms": start + 1, "nav": "80", "roi_pct": "-20"},
+            {"timestamp_ms": start + 2, "nav": "95", "roi_pct": "-5"},
+            {"timestamp_ms": start + 3, "nav": "90", "roi_pct": "-10"},
+        ],
+        risk_start=start + 2,
+        risk_nav="90",
+        partial=["-10"],
+    )
+    parent = _write_event(
+        tmp_path,
+        run_id="reduce",
+        timestamp=start + 2,
+        previous_hash=parent,
+        state=second_state,
+        details={
+            "fills": [{
+                "instrument_id": 7,
+                "symbol": "AAA_USDT",
+                "side": "long",
+                "action": "REDUCED",
+                "quantity_delta": "-1",
+                "remaining_quantity": "1",
+                "entry_price": "100",
+                "exit_price": "90",
+                "partial_realized_net_pnl": "-10",
+                "exit_fee": "0.1",
+            }],
+            "portfolio_daily_risk_reset": {
+                "risk_window_reset_at_ms": start + 2,
+                "starting_nav": "90",
+                "risk_window_reset_reason": "daily_portfolio_rebalance",
+            },
+        },
+    )
+
+    flat_state = _state(
+        positions=[],
+        equity=second_state["equity_curve"],  # type: ignore[arg-type]
+        risk_start=start + 2,
+        risk_nav="90",
+        closed=["-15.1"],
+        partial=["-10"],
+    )
+    _write_event(
+        tmp_path,
+        run_id="close",
+        timestamp=start + 4,
+        previous_hash=parent,
+        state=flat_state,
+        details={
+            "stop_exits": [{
+                "instrument_id": 7,
+                "symbol": "AAA_USDT",
+                "side": "long",
+                "quantity": "1",
+                "entry_price": "100",
+                "exit_price": "85",
+                "net_trade_pnl": "-15.1",
+                "exit_timestamp_ms": start + 4,
+                "exit_fee": "0.1",
+            }]
+        },
+    )
+
+    report = render_performance_report(tmp_path, {"outcome": "success"})
+
+    assert "Lifetime / cross-session maximum drawdown:** -20.0000%" in report
+    assert "Worst individual risk-session maximum drawdown:** -20.0000%" in report
+    assert "| OPENED | AAA_USDT | long |" in report
+    assert "| REDUCED | AAA_USDT | long |" in report
+    assert "| CLOSED | AAA_USDT | long |" in report
+    assert "Sortino ratio" in report
+    assert "sample gate" in report
+    assert "Full mark-to-market equity history" in report
+    assert "Verified global event batches: **3**" in report
+    assert "RISK WINDOW RESET" in report
+
+
+def test_report_rejects_a_tampered_event_batch(tmp_path: Path) -> None:
+    start = 1_800_000_000_000
+    state = _state(
+        positions=[],
+        equity=[{"timestamp_ms": start, "nav": "100"}],
+        risk_start=start,
+        risk_nav="100",
+    )
+    _write_event(
+        tmp_path,
+        run_id="integrity",
+        timestamp=start,
+        previous_hash=None,
+        state=state,
+        details={},
+    )
+    event_file = next((tmp_path / "events").glob("**/*.json"))
+    batch = json.loads(event_file.read_text(encoding="utf-8"))
+    batch["events"][0]["payload"]["details"]["tampered"] = True
+    event_file.write_text(json.dumps(batch), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid immutable paper event batch"):
+        render_performance_report(tmp_path)
+
+
+def test_report_filters_archived_account_generations(tmp_path: Path) -> None:
+    start = 1_800_000_000_000
+    archived_event = {
+        "event_id": "archived-event",
+        "idempotency_key": "archived-event",
+        "account_id": "mexc-usdt-forward",
+        "strategy_id": "trend-quality-daily-cross-sectional-v1-1usdt",
+        "occurred_at_ms": start,
+        "event_type": "paper_account_initialized",
+        "payload": {
+            "portfolio_state": {
+                "account_id": "mexc-usdt-forward",
+                "initial_capital": "1",
+            },
+            "details": {},
+        },
+    }
+    first = build_event_batch("archived", start, [archived_event])
+    write_batch_atomic(tmp_path, first)
+    active_state = _state(
+        positions=[],
+        equity=[{"timestamp_ms": start + 1, "nav": "100"}],
+        risk_start=start + 1,
+        risk_nav="100",
+    )
+    _write_event(
+        tmp_path,
+        run_id="active",
+        timestamp=start + 1,
+        previous_hash=str(first["batch_hash"]),
+        state=active_state,
+        details={},
+    )
+
+    report = render_performance_report(tmp_path)
+    assert "Events for this account/strategy generation: **1**" in report
+    assert "archived $1 account generation is excluded" in report
+
+
+def test_report_is_informative_before_account_initialization(tmp_path: Path) -> None:
+    stamp = 1_800_000_000_000
+    probe = {
+        "event_id": "probe",
+        "idempotency_key": "probe",
+        "account_id": ACCOUNT_ID,
+        "strategy_id": STRATEGY_ID,
+        "occurred_at_ms": stamp,
+        "event_type": "paper_state_recovery_probe",
+        "payload": {"details": {"financial_state_created": False}},
+    }
+    batch = build_event_batch("probe", stamp, [probe])
+    write_batch_atomic(tmp_path, batch)
+    report = render_performance_report(tmp_path)
+    assert "not yet initialized" in report
+    assert "No account performance is inferred" in report
