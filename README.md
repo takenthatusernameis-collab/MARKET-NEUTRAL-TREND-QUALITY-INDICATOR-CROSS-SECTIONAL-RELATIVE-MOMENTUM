@@ -60,7 +60,7 @@ MEXC contract volume is denominated in contracts. Convert it using each instrume
 - Margin-aware default sizing: 50% NAV margin per leg at 2× leverage, targeting 1× NAV notional per leg and 2× total gross notional.
 - Daily equal-notional maintenance: retained long/short contracts are resized by only the signed quantity delta needed to bring each toward 1× NAV notional; replaced contracts alone are closed/opened.
 - Partial resize accounting: weighted-average entry, allocated entry fees, incremental realized P&L, margin and funding watermarks are updated without closing a retained position.
-- After the pre-rebalance daily risk check passes, every successful daily pair decision resets the combined drawdown window to post-rebalance NAV. A latched emergency stop or pending flatten cannot be cleared by this reset.
+- After the pre-rebalance daily risk check passes, every successful daily pair decision resets the combined drawdown window to post-rebalance NAV. The separate daily-return metric remains anchored to UTC-day opening NAV. A latched emergency stop or pending flatten cannot be cleared by this reset.
 - Application-level append-only event journal and GitHub state publisher with remote hash-chain validation, exact read-back and fast-forward-only updates.
 
 Key files: src/trend_quality/mexc_api.py, mexc_paper.py, mexc_portfolio.py, market_data_store.py and scripts/mexc_paper_cycle.py.
