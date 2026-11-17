@@ -126,7 +126,13 @@ class GitHubStatePublisher:
             raise GitHubStateError("Unsafe run_id")
         return f"events/{date:%Y}/{date:%m}/{run_id}.json"
 
-    def _latest_batch_hash(self, repo_path: str, tree_sha: str) -> str | None:
+    def _latest_batch_hash(
+        self,
+        repo_path: str,
+        tree_sha: str,
+        *,
+        required_batch_hash: str | None = None,
+    ) -> str | None:
         """Verify the full remote event-batch chain and return its unique tip.
 
         A valid batch hash alone is insufficient: a caller could otherwise
@@ -201,6 +207,10 @@ class GitHubStatePublisher:
             batches[batch_hash] = batch
 
         if not batches:
+            if required_batch_hash is not None:
+                raise GitHubStateError(
+                    f"Required event batch is missing from remote chain: {required_batch_hash}"
+                )
             return None
 
         roots = [
@@ -240,6 +250,10 @@ class GitHubStatePublisher:
 
         if len(visited) != len(batches):
             raise GitHubStateError("State event tree contains disconnected batch chains")
+        if required_batch_hash is not None and required_batch_hash not in visited:
+            raise GitHubStateError(
+                f"Published event batch is not in the verified remote chain: {required_batch_hash}"
+            )
         return current_hash
 
     def publish_batch(self, batch: dict[str, Any]) -> PublishResult:
@@ -363,6 +377,47 @@ class GitHubStatePublisher:
                 "Restore the newest state, reconcile idempotency keys, rebuild the batch "
                 f"against the latest parent, and retry. Original error: {exc}",
                 status_code=exc.status_code,
+            ) from exc
+
+        # Read-after-write verification: do not report success until the exact
+        # canonical event is visible from the remote branch and the complete
+        # branch event chain still verifies, including this batch.
+        try:
+            verified_ref = self._request(
+                "GET",
+                f"{repo_path}/git/ref/heads/{branch_path}",
+            )
+            verified_commit_sha = str(verified_ref["object"]["sha"])
+            verified_commit = self._request(
+                "GET",
+                f"{repo_path}/git/commits/{verified_commit_sha}",
+            )
+            verified_tree_sha = str(verified_commit["tree"]["sha"])
+            self._latest_batch_hash(
+                repo_path,
+                verified_tree_sha,
+                required_batch_hash=str(batch["batch_hash"]),
+            )
+            stored = self._request(
+                "GET",
+                f"{repo_path}/contents/{encoded_path}?ref={quote(self.branch, safe='')}",
+            )
+            if stored.get("encoding") != "base64" or not isinstance(stored.get("content"), str):
+                raise GitHubStateError(
+                    "Published event read-back has an unexpected content encoding"
+                )
+            stored_content = base64.b64decode(
+                stored["content"], validate=False
+            ).decode("utf-8")
+            if stored_content != content:
+                raise GitHubStateError(
+                    "Published event read-back differs from canonical batch content"
+                )
+        except GitHubStateError:
+            raise
+        except (KeyError, TypeError, ValueError, UnicodeDecodeError) as exc:
+            raise GitHubStateError(
+                f"Published event read-back verification failed: {type(exc).__name__}"
             ) from exc
 
         return PublishResult(
