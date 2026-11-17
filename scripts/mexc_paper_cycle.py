@@ -112,6 +112,28 @@ def _completed_candles(
     return rows
 
 
+def _stale_or_missing_position_marks(
+    positions: list[dict[str, Any]],
+    ticker_by_id: dict[int, dict[str, Any]],
+    now_ms: int,
+    *,
+    max_age_ms: int = 300_000,
+) -> list[str]:
+    """Return open-position symbols without a fresh, positive mark price."""
+    missing: list[str] = []
+    for position in positions:
+        iid = int(position["instrument_id"])
+        ticker = ticker_by_id.get(iid)
+        if ticker is None:
+            missing.append(str(position["symbol"]))
+            continue
+        age = now_ms - int(ticker.get("timestamp_ms", 0))
+        mark = dec(ticker.get("mark_price"))
+        if age < 0 or age > max_age_ms or mark <= 0:
+            missing.append(str(position["symbol"]))
+    return sorted(set(missing))
+
+
 def _ticker_maps(
     instruments: list[dict[str, Any]],
     ticker_rows: list[dict[str, Any]],
@@ -891,6 +913,7 @@ def _snapshot_only_cycle(
         "execution_short_top": [],
         "excluded_or_unranked_sample": [],
         "portfolio": portfolio_report,
+        "missing_position_marks": locals().get("position_mark_gaps", []),
         "portfolio_snapshot": snapshot,
         "funding_events": funding_events,
         "unresolved_funding_count": unresolved_funding,
@@ -1058,66 +1081,102 @@ def _run() -> int:
         funding_events, unresolved_funding = _process_funding(
             client, store, portfolio, server_ms
         )
-        nav_before_decisions = portfolio_nav(portfolio, ticker_by_id)
-        long_notional_before = Decimal("0")
-        short_notional_before = Decimal("0")
-        for position in portfolio.get("positions", []):
-            mark = dec(ticker_by_id.get(int(position["instrument_id"]), {}).get(
-                "mark_price", position.get("last_mark_price")
-            ))
-            notional = dec(position["quantity"]) * mark
-            if position["side"] == "long":
-                long_notional_before += notional
-            else:
-                short_notional_before += notional
-        daily_risk_snapshot = append_equity_snapshot(
-            portfolio, server_ms, nav_before_decisions,
-            long_notional_before, short_notional_before,
+        position_mark_gaps = _stale_or_missing_position_marks(
+            list(portfolio.get("positions", [])),
+            ticker_by_id,
+            server_ms,
         )
-        state_changed = True
-        if (
-            portfolio["daily_risk"].get("stop_triggered")
-            or portfolio.get("emergency_liquidation_pending")
-        ) and portfolio.get("positions"):
-            try:
-                stop_exits.extend(_close_all(
-                    client, portfolio, instrument_by_id, server_ms
-                ))
-                portfolio["daily_risk"]["flattened"] = True
-                portfolio["daily_risk"]["flatten_error"] = None
-                portfolio["emergency_liquidation_pending"] = False
-                paper_decision_status = "EMERGENCY_BOOK_FLATTENED"
-            except Exception as exc:
-                portfolio["daily_risk"]["flattened"] = False
+        daily_risk_snapshot: dict[str, Any] | None = None
+        if position_mark_gaps:
+            state_changed = True
+            paper_decision_status = "BLOCKED_MISSING_POSITION_MARK"
+            emergency_pending = bool(
+                portfolio.get("daily_risk", {}).get("stop_triggered")
+                or portfolio.get("emergency_liquidation_pending")
+            )
+            if emergency_pending and portfolio.get("positions"):
                 portfolio["emergency_liquidation_pending"] = True
-                portfolio["daily_risk"]["flatten_attempts"] = int(
-                    portfolio["daily_risk"].get("flatten_attempts", 0)
-                ) + 1
-                portfolio["daily_risk"]["flatten_error"] = (
-                    f"{type(exc).__name__}: {str(exc)[:200]}"
-                )
-                paper_decision_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
-        elif portfolio.get("daily_risk", {}).get("stop_triggered"):
-            portfolio["daily_risk"]["flattened"] = True
-            portfolio["emergency_liquidation_pending"] = False
-            paper_decision_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
+                try:
+                    stop_exits.extend(
+                        _close_all(client, portfolio, instrument_by_id, server_ms)
+                    )
+                    portfolio["daily_risk"]["flattened"] = True
+                    portfolio["daily_risk"]["flatten_error"] = None
+                    portfolio["emergency_liquidation_pending"] = False
+                    paper_decision_status = "EMERGENCY_BOOK_FLATTENED_WITH_MARK_GAP"
+                except Exception as exc:
+                    portfolio["daily_risk"]["flattened"] = False
+                    portfolio["emergency_liquidation_pending"] = True
+                    portfolio["daily_risk"]["flatten_attempts"] = int(
+                        portfolio["daily_risk"].get("flatten_attempts", 0)
+                    ) + 1
+                    portfolio["daily_risk"]["flatten_error"] = (
+                        f"{type(exc).__name__}: {str(exc)[:200]}"
+                    )
+                    paper_decision_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
         else:
-            if history_coverage_pass:
-                stop_exits, trailing_updates = _process_stops(
-                    client,
-                    portfolio,
-                    instrument_by_id,
-                    ticker_by_id,
-                    history,
-                    latest_bar_ms,
-                    server_ms,
-                )
-            state_changed = bool(state_changed or funding_events or stop_exits or trailing_updates)
-
+            nav_before_decisions = portfolio_nav(portfolio, ticker_by_id)
+            long_notional_before = Decimal("0")
+            short_notional_before = Decimal("0")
+            for position in portfolio.get("positions", []):
+                mark = dec(ticker_by_id.get(int(position["instrument_id"]), {}).get(
+                    "mark_price", position.get("last_mark_price")
+                ))
+                notional = dec(position["quantity"]) * mark
+                if position["side"] == "long":
+                    long_notional_before += notional
+                else:
+                    short_notional_before += notional
+            daily_risk_snapshot = append_equity_snapshot(
+                portfolio, server_ms, nav_before_decisions,
+                long_notional_before, short_notional_before,
+            )
+            state_changed = True
+            if (
+                portfolio["daily_risk"].get("stop_triggered")
+                or portfolio.get("emergency_liquidation_pending")
+            ) and portfolio.get("positions"):
+                try:
+                    stop_exits.extend(_close_all(
+                        client, portfolio, instrument_by_id, server_ms
+                    ))
+                    portfolio["daily_risk"]["flattened"] = True
+                    portfolio["daily_risk"]["flatten_error"] = None
+                    portfolio["emergency_liquidation_pending"] = False
+                    paper_decision_status = "EMERGENCY_BOOK_FLATTENED"
+                except Exception as exc:
+                    portfolio["daily_risk"]["flattened"] = False
+                    portfolio["emergency_liquidation_pending"] = True
+                    portfolio["daily_risk"]["flatten_attempts"] = int(
+                        portfolio["daily_risk"].get("flatten_attempts", 0)
+                    ) + 1
+                    portfolio["daily_risk"]["flatten_error"] = (
+                        f"{type(exc).__name__}: {str(exc)[:200]}"
+                    )
+                    paper_decision_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
+            elif portfolio.get("daily_risk", {}).get("stop_triggered"):
+                portfolio["daily_risk"]["flattened"] = True
+                portfolio["emergency_liquidation_pending"] = False
+                paper_decision_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
+            else:
+                if history_coverage_pass:
+                    stop_exits, trailing_updates = _process_stops(
+                        client,
+                        portfolio,
+                        instrument_by_id,
+                        ticker_by_id,
+                        history,
+                        latest_bar_ms,
+                        server_ms,
+                    )
+                state_changed = bool(state_changed or funding_events or stop_exits or trailing_updates)
+    
+    
         if (
             new_daily_bar
             and not portfolio.get("daily_risk", {}).get("stop_triggered")
             and not portfolio.get("emergency_liquidation_pending")
+            and not position_mark_gaps
         ):
             pair = (
                 _try_pair(
@@ -1215,6 +1274,7 @@ def _run() -> int:
                     include_b=False,
                 ),
                 "history_coverage_pass": history_coverage_pass,
+                "missing_position_marks": position_mark_gaps,
                 "unresolved_funding_count": unresolved_funding,
                 "portfolio_daily_risk_snapshot": daily_risk_snapshot,
                 "emergency_risk_status": (
