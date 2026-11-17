@@ -9,6 +9,8 @@ on:
       - "src/trend_quality/mexc_portfolio.py"
       - "src/trend_quality/market_data_store.py"
       - "src/trend_quality/event_journal.py"
+      - "src/trend_quality/paper_performance_report.py"
+      - "scripts/build_paper_performance_report.py"
       - "scripts/mexc_paper_cycle.py"
       - ".github/workflows/mexc-paper-cycle.yml"
   schedule:
@@ -98,6 +100,7 @@ jobs:
         env:
           PAPER_STATE_DIR: ../state
           PAPER_PERFORMANCE_REPORT_PATH: ../PAPER_PERFORMANCE_REPORT.md
+          PAPER_EQUITY_CURVE_SVG_PATH: ../equity_curve.svg
           PAPER_WORKFLOW_OUTCOME: ${{ steps.cycle.outcome }}
           PAPER_WORKFLOW_RUN_ID: ${{ github.run_id }}
           PAPER_WORKFLOW_RUN_NUMBER: ${{ github.run_number }}
@@ -115,7 +118,8 @@ jobs:
             git -C strategy fetch origin main
             git -C strategy checkout -B main origin/main
             cp PAPER_PERFORMANCE_REPORT.md strategy/PAPER_PERFORMANCE_REPORT.md
-            git -C strategy add PAPER_PERFORMANCE_REPORT.md
+            cp equity_curve.svg strategy/equity_curve.svg
+            git -C strategy add PAPER_PERFORMANCE_REPORT.md equity_curve.svg
             if git -C strategy diff --cached --quiet; then
               echo "Standalone performance report is unchanged."
               exit 0
@@ -133,6 +137,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mexc-paper-research-report
-          path: market-data/data/reports/mexc/
+          path: |
+            market-data/data/reports/mexc/
+            equity_curve.svg
           if-no-files-found: warn
           retention-days: 30
