@@ -256,3 +256,8 @@ The old `mexc-usdt-forward` $1 account is retained as an archived generation in 
 ### Evidence and limitations
 
 The first $10 initialization cycle reports one daily equity observation, so CAGR, Sharpe, Sortino, meaningful drawdown history and profitability remain unavailable. The initial unrealized mark and fees are not performance evidence. The state branch remains intentionally unprotected; publisher-side chain checks and single-writer coordination remain active, but a repository writer/admin can still rewrite or delete history outside the publisher.
+
+
+**Final implementation validation:** CI [run 43994339602](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43994339602) on commit `b5311cf83dd30fd6d9ef8c9308ded54e5ce2b458` — Ruff passed; **155 tests passed**. This includes the regression test for serialization and restoration of the frozen daily entry shortlist used by five-minute retries.
+
+**Scheduling evidence:** the workflow YAML contains both `schedule: "*/5 * * * *"` and `workflow_dispatch`. Recent Actions run history through 2026-11-17 01:17 UTC showed successful push-triggered runs, including the independent $10 account restore, but no schedule-originated run. The cron is configured; automatic scheduled execution has not yet been independently observed. The manual launcher is available for immediate starts.
