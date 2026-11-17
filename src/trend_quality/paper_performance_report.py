@@ -1,6 +1,7 @@
 """Standalone MEXC paper-account report rebuilt from the verified event chain."""
 from __future__ import annotations
 
+import html
 import json
 from collections import defaultdict
 from datetime import UTC, datetime
@@ -418,64 +419,146 @@ def _drawdown(
     }
 
 
-def _sparkline(values: list[Decimal]) -> str:
-    if not values:
-        return "No equity observations yet."
-    glyphs = "▁▂▃▄▅▆▇█"
-    low, high = min(values), max(values)
-    if high == low:
-        return glyphs[3] * len(values)
-    span = high - low
-    return "".join(
-        glyphs[min(7, max(0, int((value - low) / span * Decimal("7"))))]
-        for value in values
-    )
-
-
-def _metric(metrics: dict[str, Any], name: str, kind: str = "ratio") -> str:
-    item = metrics.get(name)
-    if not item:
-        reasons = {
-            "sortino": "at least 20 daily returns and 5 negative returns required",
-            "sharpe": "at least 30 daily returns required",
-            "cagr": "at least 365 elapsed calendar days required",
-            "annualized_daily_volatility": "at least 30 daily returns required",
-        }
-        return f"Unavailable — {reasons.get(name, 'sample gate not met')}"
-    value = item.get("value")
-    if value is None:
-        return f"Unavailable — {item.get('reason') or 'sample gate not met'}"
-    if kind == "percent":
-        return f"{float(value) * 100:+.3f}%"
-    if kind == "days":
-        return f"{float(value):.2f} days"
-    if kind == "count":
-        return str(int(value))
-    if kind == "factor":
-        return f"{float(value):.3f}×"
-    return f"{float(value):.3f}"
-
-
-def _open_positions(positions: list[dict[str, Any]]) -> list[str]:
-    rows = [
-        "| Symbol | Side | Quantity | Entry | Mark | Notional (USDT) | "
-        "Unrealized P&L (USDT) | Entry UTC |",
-        "|---|---|---:|---:|---:|---:|---:|---|",
+def _equity_curve_svg(
+    points: list[dict[str, Any]],
+    initial_capital: Decimal,
+) -> str:
+    """Render SVG from the same persisted NAV marks used by the report."""
+    width, height = 1120, 430
+    left, right, top, bottom = 96, 34, 88, 72
+    plot_right = width - right
+    plot_bottom = height - bottom
+    plot_width = plot_right - left
+    plot_height = plot_bottom - top
+    values = [_decimal(point.get("nav")) for point in points]
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" role="img" aria-labelledby="equity-title equity-desc">',
+        '<title id="equity-title">Trend-Quality paper portfolio equity curve</title>',
+        '<desc id="equity-desc">USDT net asset value from persisted mark-to-market observations, '
+        'with an initial-capital reference line.</desc>',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        '<g font-family="Arial, sans-serif" fill="#222">',
+        f'<text x="{width / 2:.0f}" y="27" text-anchor="middle" font-size="20" font-weight="bold">'
+        'Trend-Quality Paper Portfolio — Equity Curve</text>',
+        f'<text x="{width / 2:.0f}" y="50" text-anchor="middle" font-size="12" fill="#666">'
+        'USDT net asset value · persisted mark-to-market observations · paper only</text>',
     ]
-    for position in positions:
-        qty = _decimal(position.get("quantity"))
-        entry = _decimal(position.get("entry_price"))
-        mark = _decimal(position.get("last_mark_price"), str(entry))
-        pnl = (
-            (mark - entry) * qty if position.get("side") == "long"
-            else (entry - mark) * qty
+
+    if not values:
+        parts.append(
+            f'<text x="{width / 2:.0f}" y="{height / 2:.0f}" text-anchor="middle" '
+            'font-size="18" fill="#666">Waiting for the first paper equity observation</text>'
         )
-        rows.append(
-            f"| {_cell(position.get('symbol'))} | {_cell(position.get('side'))} "
-            f"| {qty} | {entry} | {mark} | {_money(qty * mark)} | {_money(pnl)} "
-            f"| {_utc(position.get('entry_timestamp_ms'))} |"
+        parts.extend(["</g></svg>", ""])
+        return "".join(parts)
+
+    reference = initial_capital if initial_capital > ZERO else values[0]
+    bounds = values + ([reference] if reference > ZERO else [])
+    low, high = min(bounds), max(bounds)
+    spread = high - low
+    padding = max(spread * Decimal("0.12"), abs(reference) * Decimal("0.001"), Decimal("0.01"))
+    low -= padding
+    high += padding
+    if high <= low:
+        high = low + Decimal("1")
+
+    first_timestamp = int(points[0]["timestamp_ms"])
+    last_timestamp = int(points[-1]["timestamp_ms"])
+    elapsed = max(0, last_timestamp - first_timestamp)
+
+    def x_position(timestamp_ms: int) -> float:
+        if elapsed == 0:
+            return left + plot_width / 2
+        return left + (timestamp_ms - first_timestamp) / elapsed * plot_width
+
+    def y_position(value: Decimal) -> float:
+        return top + float((high - value) / (high - low)) * plot_height
+
+    # For long histories, retain bucket extrema so drawdowns remain visible.
+    plotted = list(enumerate(zip(points, values)))
+    max_points = 1200
+    if len(plotted) > max_points:
+        bucket_size = max(1, (len(plotted) - 2) // ((max_points // 2) - 1))
+        retained = {0, len(plotted) - 1}
+        for bucket_start in range(1, len(plotted) - 1, bucket_size):
+            bucket_end = min(len(plotted) - 1, bucket_start + bucket_size)
+            bucket = plotted[bucket_start:bucket_end]
+            if bucket:
+                retained.add(min(bucket, key=lambda item: item[1][1])[0])
+                retained.add(max(bucket, key=lambda item: item[1][1])[0])
+        plotted = [plotted[index] for index in sorted(retained)]
+
+    coords = [
+        (x_position(int(point["timestamp_ms"])), y_position(value))
+        for _index, (point, value) in plotted
+    ]
+    polyline = " ".join(f"{x:.2f},{y:.2f}" for x, y in coords)
+
+    for tick_index in range(5):
+        fraction = tick_index / 4
+        y = top + fraction * plot_height
+        value = high - (high - low) * Decimal(str(fraction))
+        label = format(value, ",.4f")
+        parts.extend([
+            f'<line x1="{left}" y1="{y:.2f}" x2="{plot_right}" y2="{y:.2f}" '
+            'stroke="#e5e7eb" stroke-width="1"/>',
+            f'<text x="{left - 12}" y="{y + 4:.2f}" text-anchor="end" font-size="11" '
+            f'fill="#555">{html.escape(label)}</text>',
+        ])
+
+    parts.extend([
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{plot_bottom}" stroke="#777" stroke-width="1"/>',
+        f'<line x1="{left}" y1="{plot_bottom}" x2="{plot_right}" y2="{plot_bottom}" stroke="#777" stroke-width="1"/>',
+    ])
+
+    if reference > ZERO:
+        reference_y = y_position(reference)
+        reference_label_y = max(top + 13, min(plot_bottom - 7, reference_y - 7))
+        parts.extend([
+            f'<line x1="{left}" y1="{reference_y:.2f}" x2="{plot_right}" y2="{reference_y:.2f}" '
+            'stroke="#c27a12" stroke-width="1.5" stroke-dasharray="7 5"/>',
+            f'<text x="{plot_right - 6}" y="{reference_label_y:.2f}" '
+            'text-anchor="end" font-size="11" fill="#9a5b08">'
+            f'Initial capital: {html.escape(format(reference, ",.4f"))} USDT</text>',
+        ])
+
+    first_value, last_value = values[0], values[-1]
+    roi = (last_value / reference - ONE) * Decimal("100") if reference > ZERO else ZERO
+    parts.extend([
+        f'<polygon points="{polyline} {coords[-1][0]:.2f},{plot_bottom} '
+        f'{coords[0][0]:.2f},{plot_bottom}" fill="#1976d2" opacity="0.10"/>',
+        f'<polyline points="{polyline}" fill="none" stroke="#1976d2" stroke-width="3" '
+        'stroke-linejoin="round" stroke-linecap="round"/>',
+        f'<circle cx="{coords[0][0]:.2f}" cy="{coords[0][1]:.2f}" r="4.5" fill="#1976d2"/>',
+        f'<circle cx="{coords[-1][0]:.2f}" cy="{coords[-1][1]:.2f}" r="4.5" fill="#1976d2"/>',
+        f'<text x="{left}" y="73" font-size="13" fill="#333">'
+        f'Start: {html.escape(format(first_value, ",.4f"))} USDT</text>',
+        f'<text x="{plot_right}" y="73" text-anchor="end" font-size="13" fill="#333">'
+        f'Latest: {html.escape(format(last_value, ",.4f"))} USDT '
+        f'({roi:+.2f}% vs initial)</text>',
+    ])
+
+    label_indices = [0] if len(points) == 1 else [0, len(points) // 2, len(points) - 1]
+    anchors = ["middle"] if len(label_indices) == 1 else ["start", "middle", "end"]
+    for index, anchor in zip(label_indices, anchors):
+        stamp = datetime.fromtimestamp(
+            int(points[index]["timestamp_ms"]) / 1000,
+            tz=UTC,
+        ).strftime("%Y-%m-%d %H:%M UTC")
+        parts.append(
+            f'<text x="{x_position(int(points[index]["timestamp_ms"])):.2f}" '
+            f'y="{height - 25}" text-anchor="{anchor}" font-size="11" fill="#555">'
+            f'{html.escape(stamp)}</text>'
         )
-    return rows
+
+    parts.extend([
+        f'<text x="{plot_right}" y="{height - 7}" text-anchor="end" font-size="10" fill="#777">'
+        f'{len(points):,} persisted NAV observations</text>',
+        "</g></svg>",
+        "",
+    ])
+    return "".join(parts)
 
 
 def render_performance_report(
@@ -483,6 +566,7 @@ def render_performance_report(
     workflow_metadata: dict[str, str] | None = None,
     *,
     generated_at_ms: int | None = None,
+    equity_svg_path: Path | None = None,
 ) -> str:
     batches = _load_verified_batches(Path(state_dir))
     all_events = [event for batch in batches for event in batch.get("events", [])]
@@ -505,11 +589,17 @@ def render_performance_report(
     generated_at_ms = generated_at_ms or int(datetime.now(UTC).timestamp() * 1000)
 
     if not state_events:
+        if equity_svg_path is not None:
+            chart_path = Path(equity_svg_path)
+            chart_path.parent.mkdir(parents=True, exist_ok=True)
+            chart_path.write_text(_equity_curve_svg([], ZERO), encoding="utf-8")
         return "\n".join([
             "# MEXC Paper Performance Report",
             "",
             f"Generated: {_utc(generated_at_ms)}",
             f"Workflow run: {run_link}",
+            "",
+            "![Trend-Quality paper portfolio equity curve](equity_curve.svg)",
             "",
             "The active $10 USDT paper account is not yet initialized. The global event "
             "chain was verified, but it contains no full account-state snapshot.",
@@ -528,6 +618,10 @@ def render_performance_report(
 
     equity, session_baselines = _equity_sessions(account_events, latest_state)
     initial = _decimal(latest_state.get("initial_capital"))
+    if equity_svg_path is not None:
+        chart_path = Path(equity_svg_path)
+        chart_path.parent.mkdir(parents=True, exist_ok=True)
+        chart_path.write_text(_equity_curve_svg(equity, initial), encoding="utf-8")
     cash = _decimal(latest_state.get("cash"))
     positions = list(latest_state.get("positions", []))
     unrealized = ZERO
@@ -677,7 +771,10 @@ def render_performance_report(
         "",
         f"All persisted mark-to-market observations ({len(equity)} points):",
         "",
-        f"Sparkline: {_sparkline(curve_values)}",
+        "![Trend-Quality paper portfolio equity curve](equity_curve.svg)",
+        "",
+        "The SVG uses the same hash-chain-verified mark-to-market NAV observations shown in the full history below. "
+        "The dashed line marks original account capital.",
         "",
         f"Observed NAV range: {_money(min(curve_values)) if curve_values else '—'} to "
         f"{_money(max(curve_values)) if curve_values else '—'} USDT.",
