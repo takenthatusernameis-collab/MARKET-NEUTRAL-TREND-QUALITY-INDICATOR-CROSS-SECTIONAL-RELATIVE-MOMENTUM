@@ -171,6 +171,7 @@ def test_frozen_daily_entry_shortlist_round_trips_for_five_minute_retries() -> N
         _pending_entry_signal,
         _restore_pending_rankings,
     )
+
     from trend_quality.mexc_paper import MEXCRankings
     from trend_quality.ranking import Candidate
 
