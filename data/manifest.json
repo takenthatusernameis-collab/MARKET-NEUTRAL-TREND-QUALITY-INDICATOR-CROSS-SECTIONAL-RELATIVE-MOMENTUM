@@ -49816,10 +49816,10 @@
   "last_daily_workflow_bar_ms": 1794787200000,
   "last_processed_daily_bar_ms": 1794787200000,
   "last_research_daily_bar_ms": 1794787200000,
-  "last_snapshot_ms": 1794945501340,
+  "last_snapshot_ms": 1794945554115,
   "last_state_recovery_probe_ms": 1794877852005,
   "provider": "mexc",
   "schema_version": 1,
   "selected_provider": "mexc",
-  "updated_at_ms": 1794945501340
+  "updated_at_ms": 1794945554115
 }
