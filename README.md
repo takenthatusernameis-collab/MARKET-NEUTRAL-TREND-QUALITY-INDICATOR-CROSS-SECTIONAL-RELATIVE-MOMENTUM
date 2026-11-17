@@ -49,7 +49,7 @@ MEXC contract volume is denominated in contracts. Convert it using each instrume
 - Incremental, provider-isolated market-data persistence: up to 365 days of initial daily history, in resumable batches of 150 instruments, then only missing daily candles. Five-minute ticker snapshots are stored separately.
 - USDT paper-account accounting primitives for cash, realized/unrealized P&L, fees, funding, ATR stops, five-minute equity snapshots, combined daily drawdown control and sample-gated performance metrics.
 - Margin-aware default sizing: 50% NAV margin per leg at 2× leverage, targeting 1× NAV notional per leg and 2× total gross notional.
-- Immutable event journal and GitHub state publisher with remote hash-chain validation.
+- Application-level append-only event journal and GitHub state publisher with remote hash-chain validation, exact read-back and fast-forward-only updates.
 
 Key files: src/trend_quality/mexc_api.py, mexc_paper.py, mexc_portfolio.py, market_data_store.py and scripts/mexc_paper_cycle.py.
 
@@ -59,7 +59,7 @@ The single five-minute workflow in [.github/workflows/mexc-paper-cycle.yml](.git
 
 **Latest full daily-close MEXC run:** [43984343892](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984343892) completed successfully with 1,143 active cross-margin perpetuals, 273,160 stored daily-candle rows, 93 instruments completed in the final bootstrap batch, zero bootstrap instruments remaining, zero missing tickers, zero missing latest completed bars and zero reported API failures. The history-coverage gate passed. Q rankings were recalculated. The routine follow-up snapshot run [43984739626](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984739626) reported PORTFOLIO_SNAPSHOT_ONLY, daily_decision_due=false and q_rankings_recalculated=false. These are public-data workflow checks, not portfolio-performance evidence.
 
-**The forward paper account has not been initialized.** PAPER_STATE_WRITE_ENABLED remains false. The state branch protection and restricted-writer/publisher recovery gate is not yet open, so the workflow must not create or persist simulated positions or claim portfolio NAV. The runtime protection check remains fail-closed.
+**The forward paper account is not initialized until its recovery handshake completes.** The MEXC workflow now enables paper-state writing by default; set the repository Actions variable `PAPER_STATE_WRITE_ENABLED=false` to pause it. The first writer run publishes only a non-financial recovery probe. A later run must restore that probe from a fresh checkout before it can create the 1 USDT financial account. No real exchange orders or private endpoints are used.
 
 The 25% emergency stop is a combined portfolio daily drawdown stop, measured from the highest observed NAV in the UTC day; it closes both simulated legs. It does not cap lifetime MDD. Default leverage is 2× on 50% NAV margin per leg (1× NAV notional each, 2× combined gross). Five-minute monitoring is sampled and cannot guarantee detection at the exact threshold between invocations.
 
@@ -87,7 +87,6 @@ See [STATUS](STATUS.md), [master implementation directive](IMPLEMENTATION_PROMPT
 
 ## Forward-paper seed and activation
 
-The configured forward seed is 1 USDT. At 50% NAV margin per leg and 2x leverage, the nominal target is 1 USDT notional per leg; exchange minimums may leave the account flat. The account remains uninitialized until the state branch is server-side protected and the durable publisher/recovery test passes. The MEXC workflow's PAPER_STATE_WRITE_ENABLED repository variable defaults to false. The workflow's STATE_PROTECTION_TOKEN secret is a fine-grained, repository-limited token used only for Administration: read protection verification. See OPERATING_MODEL.md.
+The configured forward seed is 1 USDT. At 50% NAV margin per leg and 2× leverage, the nominal target is 1 USDT notional per leg; MEXC minimum contract sizes may leave the account flat. The state branch is intentionally unprotected, so no administrator route or `STATE_PROTECTION_TOKEN` is required. The MEXC workflow and retired manual Polymarket diagnostic share repository-wide concurrency group `paper-state-branch-single-writer`. The publisher still validates the full hash chain, rejects forks and conflicting writes, uses fast-forward-only commits and verifies exact remote read-back. Because the branch is unprotected, repository users with write access could still rewrite or delete history outside the publisher; this residual risk is documented in OPERATING_MODEL.md.
 
-
-Protection and activation steps are documented in [STATE_PROTECTION_SETUP.md](STATE_PROTECTION_SETUP.md). The first writer-enabled run only emits a non-financial recovery probe; a fresh checkout must verify it before the 1 USDT financial initialization event can be created.
+See the [paper-state operating guide](STATE_PROTECTION_SETUP.md) for the writer switch, recovery handshake and integrity limitations.

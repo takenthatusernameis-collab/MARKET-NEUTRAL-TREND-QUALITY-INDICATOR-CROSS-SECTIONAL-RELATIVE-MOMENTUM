@@ -222,6 +222,83 @@ def verify_event_batch(batch: dict[str, Any]) -> bool:
         return False
 
 
+
+def order_event_batches(batches: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return verified batches in parent-hash order, independent of venue clocks."""
+    values = list(batches)
+    if not values:
+        return []
+
+    by_hash: dict[str, dict[str, Any]] = {}
+    seen_run_ids: set[str] = set()
+    seen_event_ids: set[str] = set()
+    seen_idempotency_keys: set[str] = set()
+    for batch in values:
+        if not verify_event_batch(batch):
+            raise EventJournalError("Invalid event batch in local state chain")
+        batch_hash = str(batch["batch_hash"])
+        if batch_hash in by_hash:
+            raise EventJournalError("Duplicate batch hash in local state chain")
+        run_id = str(batch["run_id"])
+        if run_id in seen_run_ids:
+            raise EventJournalError(f"Duplicate run_id in local state chain: {run_id}")
+        seen_run_ids.add(run_id)
+        for event in batch["events"]:
+            event_id = str(event["event_id"])
+            idempotency_key = str(event["idempotency_key"])
+            if event_id in seen_event_ids:
+                raise EventJournalError(f"Duplicate event_id in local state chain: {event_id}")
+            if idempotency_key in seen_idempotency_keys:
+                raise EventJournalError(
+                    f"Duplicate idempotency_key in local state chain: {idempotency_key}"
+                )
+            seen_event_ids.add(event_id)
+            seen_idempotency_keys.add(idempotency_key)
+        by_hash[batch_hash] = batch
+
+    roots = [
+        batch for batch in by_hash.values()
+        if batch.get("previous_batch_hash") is None
+    ]
+    if len(roots) != 1:
+        raise EventJournalError(
+            f"Local state chain must have exactly one genesis batch; found {len(roots)}"
+        )
+
+    children: dict[str, list[str]] = {}
+    for batch_hash, batch in by_hash.items():
+        previous = batch.get("previous_batch_hash")
+        if previous is None:
+            continue
+        if previous not in by_hash:
+            raise EventJournalError(
+                f"Orphan event batch in local state chain: {batch_hash}"
+            )
+        children.setdefault(str(previous), []).append(batch_hash)
+
+    ordered: list[dict[str, Any]] = []
+    visited: set[str] = set()
+    current_hash = str(roots[0]["batch_hash"])
+    while True:
+        if current_hash in visited:
+            raise EventJournalError("Local state chain contains a cycle")
+        visited.add(current_hash)
+        ordered.append(by_hash[current_hash])
+        next_hashes = children.get(current_hash, [])
+        if len(next_hashes) > 1:
+            raise EventJournalError(
+                f"Local state chain forks after batch {current_hash}"
+            )
+        if not next_hashes:
+            break
+        current_hash = next_hashes[0]
+
+    if len(visited) != len(by_hash):
+        raise EventJournalError("Local state chain contains disconnected batches")
+    return ordered
+
+
+
 def write_batch_atomic(root: str | Path, batch: dict[str, Any]) -> Path:
     """Atomically create a new batch file; never overwrite another run."""
     if not verify_event_batch(batch):

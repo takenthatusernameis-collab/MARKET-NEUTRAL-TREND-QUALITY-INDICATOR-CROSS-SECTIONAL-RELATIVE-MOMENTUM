@@ -50,12 +50,15 @@ The repository is in emergency red-team no-go, not a trading-ready phase. No pap
 
 - [x] Canonical immutable event batches, SHA-256 event chain and batch hash.
 - [x] Local atomic batch writer and schema validation.
-- [x] Dedicated `state` branch created with append-only policy.
+- [x] Dedicated `state` branch created; append-only behavior is enforced by the application publisher, not server-side branch protection.
 - [x] GitHub state-branch publisher with mocked API tests, duplicate protection and non-force fast-forward update.
 - [x] Verify every remote event batch and require the appended batch's previous hash to match the unique remote chain tip; reject forks, orphan batches and duplicate genesis roots (mocked tests).
 - [x] Transactional SQLite projection with chain/idempotency checks and integrity verification.
-- [ ] Configure server-side protection/ruleset for `state` (currently unprotected; repository rulesets endpoint returned an empty list).
-- [ ] Verify publisher against the actual GitHub API with a narrowly scoped token after branch protection is enabled.
+- [x] Remove server-side branch-protection and Administration-token dependencies for paper-only operation.
+- [x] Serialize MEXC and the retired manual Polymarket state publishers with one non-cancelling repository-wide concurrency group.
+- [x] Verify remote event-chain topology, exact canonical read-back, idempotent replay and non-forced fast-forward conflict handling in the publisher.
+- [x] Restore local event batches by `previous_batch_hash` links rather than exchange timestamps; reject forks, orphan batches and duplicate identifiers.
+- [ ] Verify the first live GitHub probe write/read-back and following fresh-checkout recovery on the actual state branch.
 - [ ] Implement complete restore/rebuild from state-branch event files after runner loss.
 - [ ] Integrate persistence as a mandatory precondition for any paper state transition.
 
@@ -162,13 +165,13 @@ The public-data API probe does not use a wallet, API key, private account endpoi
 - [x] Add bounded 365-day initial bootstrap, resumable 150-instrument batches and incremental candles after stored cursors.
 - [x] Verify sampled Day1 boundaries at 00:00 UTC across crypto, equity, commodity, FX and unclassified instrument groups.
 - [x] Add read-only hosted-runner MEXC preflight; success evidence is linked in STATUS.md.
-- [x] Add a five-minute MEXC public-data/ranking workflow with PAPER_STATE_WRITE_ENABLED=false.
+- [x] Add a five-minute MEXC public-data/ranking/forward-paper workflow; `PAPER_STATE_WRITE_ENABLED` defaults to true and can be disabled with the repository Actions variable.
 - [x] Verify successful market-data branch commits after correcting the branch's ignored data directory. Runs 43976810498 and 43977234937 both completed, committed public candles/snapshots/reports and uploaded artifacts; progress advanced from 150 to 300 bootstrapped instruments.
 - [ ] Complete full-universe data-quality/freshness verification and independent Q ranking reconstruction.
-- [ ] Configure server-side protection and restricted writers for state branch; current branch is unprotected and no rulesets exist.
-- [ ] Test real event publisher, idempotency/conflict behavior and full restore from immutable state events.
-- [ ] Only after every gate passes, initialize the separate 1 USDT forward paper account.
+- [x] Configure a shared single-writer concurrency group across every workflow that can append to the state branch.
+- [ ] Verify the real publisher/read-back and fresh-checkout recovery cycle on the live GitHub state branch.
+- [ ] Initialize and then independently restore the separate 1 USDT forward paper account after the recovery probe passes.
 - [ ] Implement chronological historical replay, survivorship-aware universe reconstruction and cost/funding/stop-delay sensitivity.
 - [ ] Generate verified equity and drawdown charts and human-readable performance report from persisted NAV data.
 
-MEXC is the current selected public-data provider. This phase overrides earlier historical Polymarket-first/Bybit-first plan entries. The account writer remains disabled until server-side persistence protections and integration/recovery tests pass.
+MEXC is the current selected public-data provider. This phase overrides earlier historical Polymarket-first/Bybit-first plan entries. The account writer is enabled by default in the MEXC workflow; the first run is probe-only and financial initialization remains blocked until a later fresh checkout verifies the recovery probe. The branch is intentionally unprotected, with residual privileged-rewrite risk documented in OPERATING_MODEL.md.

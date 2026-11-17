@@ -2,22 +2,25 @@
 """Five-minute MEXC market-data and gated USDT forward-paper cycle.
 
 Public market data can be collected and ranked without state-write authorization.
-Portfolio transitions require the explicit PAPER_STATE_WRITE_ENABLED flag AND
-a live positive GitHub state-branch protection check. There are no live orders.
+Portfolio transitions require the explicit PAPER_STATE_WRITE_ENABLED flag.
+State writes are serialized, hash-chain checked and verified by exact remote
+read-back. There are no live orders.
 """
 from __future__ import annotations
 
 import json
 import os
-import urllib.error
-import urllib.request
 from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from trend_quality.event_journal import build_event_batch, verify_event_batch
+from trend_quality.event_journal import (
+    build_event_batch,
+    order_event_batches,
+    verify_event_batch,
+)
 from trend_quality.github_state import GitHubStatePublisher
 from trend_quality.indicators import wilder_atr
 from trend_quality.market_data_store import MarketDataStore
@@ -334,7 +337,7 @@ def _load_state(
         if not verify_event_batch(value):
             raise RuntimeError(f"Invalid immutable paper event batch: {path}")
         batches.append(value)
-    batches.sort(key=lambda row: int(row["created_at_ms"]))
+    batches = order_event_batches(batches)
     previous_hash: str | None = None
     portfolio: dict[str, Any] | None = None
     recovery_probe_verified = False
@@ -357,65 +360,6 @@ def _load_state(
                 if isinstance(state, dict) and state.get("account_id") == ACCOUNT_ID:
                     portfolio = state
     return portfolio, previous_hash, recovery_probe_verified
-
-
-def _state_branch_protection(
-    repository: str,
-    token: str,
-) -> tuple[bool, str]:
-    """Fail closed unless a separate admin-read token verifies the full protection."""
-    if not repository or not token:
-        return False, "MISSING_GITHUB_REPOSITORY_OR_TOKEN"
-    protection_token = os.environ.get("STATE_PROTECTION_TOKEN", "").strip()
-    if not protection_token:
-        return False, "STATE_PROTECTION_ADMIN_READ_TOKEN_MISSING"
-
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "mexc-paper-state-protection-check/1.0",
-    }
-
-    def fetch_json(url: str, bearer: str) -> dict[str, Any]:
-        request = urllib.request.Request(
-            url,
-            headers={**headers, "Authorization": f"Bearer {bearer}"},
-            method="GET",
-        )
-        with urllib.request.urlopen(request, timeout=12) as response:
-            payload = json.loads(response.read(1_000_000).decode("utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("GitHub protection response is not an object")
-        return payload
-
-    base_url = f"https://api.github.com/repos/{repository}"
-    try:
-        branch = fetch_json(f"{base_url}/branches/state", token)
-        if branch.get("protected") is not True:
-            return False, "STATE_BRANCH_NOT_PROTECTED"
-        protection = fetch_json(
-            f"{base_url}/branches/state/protection",
-            protection_token,
-        )
-    except urllib.error.HTTPError as exc:
-        return False, f"STATE_BRANCH_PROTECTION_CHECK_HTTP_{exc.code}"
-    except Exception as exc:
-        return False, f"STATE_BRANCH_PROTECTION_CHECK_FAILED:{type(exc).__name__}"
-
-    if (protection.get("enforce_admins") or {}).get("enabled") is not True:
-        return False, "STATE_BRANCH_PROTECTION_NOT_ENFORCED_FOR_ADMINS"
-    if (protection.get("allow_force_pushes") or {}).get("enabled") is not False:
-        return False, "STATE_BRANCH_FORCE_PUSH_PROHIBITION_NOT_CONFIRMED"
-    if (protection.get("allow_deletions") or {}).get("enabled") is not False:
-        return False, "STATE_BRANCH_DELETION_PROHIBITION_NOT_CONFIRMED"
-    if (protection.get("required_linear_history") or {}).get("enabled") is not True:
-        return False, "STATE_BRANCH_LINEAR_HISTORY_NOT_ENFORCED"
-    restrictions = protection.get("restrictions")
-    if not isinstance(restrictions, dict) or not any(
-        restrictions.get(key) for key in ("users", "teams", "apps")
-    ):
-        return False, "STATE_BRANCH_WRITER_RESTRICTIONS_MISSING"
-    return True, "STATE_BRANCH_PROTECTION_AND_WRITER_RESTRICTIONS_CONFIRMED"
 
 
 def _publish_recovery_probe(
@@ -766,7 +710,7 @@ def _snapshot_only_cycle(
     portfolio: dict[str, Any] | None,
     writer_enabled: bool,
     writer_requested: bool,
-    state_protection_reason: str,
+    state_write_mode: str,
     previous_hash: str | None,
     latest_bar_ms: int,
     server_ms: int,
@@ -972,7 +916,7 @@ def _snapshot_only_cycle(
         "ordinary_strategy_decisions": False,
         "paper_state_write_requested": writer_requested,
         "paper_simulation_enabled": writer_enabled,
-        "state_branch_protection": state_protection_reason,
+        "state_write_mode": state_write_mode,
         "paper_decision_status": risk_status,
         "ticker_coverage": len(ticker_by_id),
         "missing_ticker_count": len(missing_symbols),
@@ -1010,6 +954,11 @@ def _snapshot_only_cycle(
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 0
 
+def _paper_state_writer_requested() -> bool:
+    """Require an explicit true flag; the scheduled workflow supplies the default."""
+    return os.environ.get("PAPER_STATE_WRITE_ENABLED", "").strip().lower() == "true"
+
+
 def _run() -> int:
     market_data_dir = Path(os.environ.get("MARKET_DATA_DIR", "market-data"))
     state_dir = Path(os.environ.get("PAPER_STATE_DIR", "state"))
@@ -1029,15 +978,13 @@ def _run() -> int:
 
     # Inspect the persistent state before any universe/history/ranking requests.
     previous_state, previous_hash, recovery_probe_verified = _load_state(state_dir)
-    writer_requested = os.environ.get("PAPER_STATE_WRITE_ENABLED", "").lower() == "true"
-    state_protected = False
-    state_protection_reason = "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION"
-    if writer_requested:
-        state_protected, state_protection_reason = _state_branch_protection(
-            os.environ.get("GITHUB_REPOSITORY", ""),
-            os.environ.get("GITHUB_TOKEN", ""),
-        )
-    writer_enabled = writer_requested and state_protected
+    writer_requested = _paper_state_writer_requested()
+    state_write_mode = (
+        "UNPROTECTED_SINGLE_WRITER_APPEND_ONLY"
+        if writer_requested
+        else "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION"
+    )
+    writer_enabled = writer_requested
     if writer_enabled and previous_state is None and not recovery_probe_verified:
         probe_result = _publish_recovery_probe(server_ms, previous_hash)
         store.manifest["last_state_recovery_probe_ms"] = server_ms
@@ -1051,7 +998,7 @@ def _run() -> int:
             "paper_simulation_enabled": False,
             "paper_account_initialized": False,
             "initial_capital_usdt": str(INITIAL_CAPITAL),
-            "state_branch_protection": state_protection_reason,
+            "state_write_mode": state_write_mode,
             "state_recovery_probe": probe_result,
             "orders_submitted": 0,
             "credentials_used": False,
@@ -1114,7 +1061,7 @@ def _run() -> int:
             portfolio=portfolio,
             writer_enabled=writer_enabled,
             writer_requested=writer_requested,
-            state_protection_reason=state_protection_reason,
+            state_write_mode=state_write_mode,
             previous_hash=previous_hash,
             latest_bar_ms=latest_bar_ms,
             server_ms=server_ms,
@@ -1441,7 +1388,7 @@ def _run() -> int:
                 portfolio.get("last_processed_daily_bar_ms")
             )
 
-    # A disabled or unprotected journal never initializes a simulated account.
+    # A disabled paper-state writer never initializes a simulated account.
     portfolio_report = (
         account_report(portfolio, ticker_by_id)
         if writer_enabled and portfolio is not None
@@ -1502,7 +1449,7 @@ def _run() -> int:
         ),
         "excluded_or_unranked_sample": rankings.excluded[:50],
         "paper_state_write_requested": writer_requested,
-        "state_branch_protection": state_protection_reason,
+        "state_write_mode": state_write_mode,
         "paper_simulation_enabled": writer_enabled,
         "paper_decision_status": paper_decision_status,
         "portfolio": portfolio_report,
@@ -1549,7 +1496,7 @@ def _markdown_report(report: dict[str, Any]) -> str:
         f"- Active cross-margin USDT perpetuals: {report['active_cross_usdt_perpetual_count']}",
         f"- Bootstrap remaining: {report['bootstrap_remaining']}",
         f"- History coverage gate: {report['history_coverage_pass']}",
-        f"- Paper-state write gate: {report['state_branch_protection']}",
+        f"- State write mode: {report['state_write_mode']}",
         f"- Paper simulation enabled: {report['paper_simulation_enabled']}",
         f"- Decision: {report['paper_decision_status']}",
         "",

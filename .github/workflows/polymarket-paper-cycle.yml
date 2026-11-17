@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: polymarket-cross-margin-paper-cycle
+  group: paper-state-branch-single-writer
   cancel-in-progress: false
 
 jobs:

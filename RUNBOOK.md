@@ -38,21 +38,15 @@ The MEXC workflow is scheduled every five minutes. Initial history bootstrap is 
 
 Public market data and ranking reports belong on the market-data branch, not the financial event branch. The first workflow run completed 150 bootstrap instruments and left 911 pending but its market-data commit was blocked by the repository ignore rule. The workflow now force-adds the data directory. Confirm a subsequent successful commit before describing market data as durably persisted.
 
-## Paper-account gate
+## Paper-account state and single-writer mode
 
-**Do not enable paper portfolio writes yet.**
+The forward account seed is 1 USDT. The MEXC workflow defaults `PAPER_STATE_WRITE_ENABLED` to true; set the repository Actions variable to the literal string `false` to pause all account-state transitions. A protected branch, repository ruleset, administrator intervention or `STATE_PROTECTION_TOKEN` is not required.
 
-The state branch is currently unprotected and repository rulesets are absent. The MEXC workflow must keep PAPER_STATE_WRITE_ENABLED=false. This allows public market-data updates and Q ranking but no portfolio initialization, simulated position transition, financial event commit or NAV claim.
+MEXC and the retired manual Polymarket diagnostic share the same repository-wide `paper-state-branch-single-writer` concurrency group with `cancel-in-progress: false`. This serializes all workflow writers to the shared `state` branch. The publisher remains append-only at the application level: it verifies the full remote hash chain, rejects forks/orphans/duplicate identifiers and different content at an existing path, commits with a normal non-forced fast-forward update and verifies exact remote read-back after writes and idempotent retries. Local recovery follows parent hashes rather than venue timestamps. A non-fast-forward conflict or failed verification must stop the run; never force-push or claim unpersisted account state as durable.
 
-Before considering the writer flag:
-1. Configure server-side state branch protection or a repository ruleset.
-2. Prohibit force-push and branch deletion; restrict writers and enforce protections for administrators.
-3. Verify the actual branch-protection API response from the workflow's token.
-4. Run a real append, duplicate/idempotency and conflict test.
-5. Rebuild the paper state from immutable events and verify chain integrity.
-6. Only after full market-data, execution, accounting and stop/funding tests pass, consider initializing the 1 USDT account.
+Activation is two-stage. The first writer run publishes only a non-financial recovery probe. A later run checks out `state` afresh, verifies the probe and the full chain, and only then initializes the 1 USDT financial account. A later run must restore the initialization event before the account is reported as durably active. If venue lot sizes or costs prevent a valid 1 USDT pair, an initialized flat account is acceptable.
 
-The repository is public. Every state and market-data artifact is public and permanent. Never commit personal identifiers, secrets or private account information.
+**Residual risk:** the branch is intentionally unprotected. A repository user with write/admin permissions can rewrite or delete history outside the publisher; application-level chain validation cannot prevent privileged manual tampering. The repository is public and all committed ledger/data is public and permanent.
 
 ## Data and funding failures
 

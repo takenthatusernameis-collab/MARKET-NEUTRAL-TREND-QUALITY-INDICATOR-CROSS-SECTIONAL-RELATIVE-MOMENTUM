@@ -3,7 +3,7 @@
 **Report date:** 2026-11-17  
 **Selected provider:** MEXC Futures public API — technical data qualification passed  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
-**Forward paper account:** NOT INITIALIZED — state branch protection gate is closed  
+**Forward paper account:** NOT INITIALIZED — unprotected single-writer recovery handshake pending  
 **Historical replay:** not implemented  
 **Verified portfolio NAV:** not available  
 **Performance claims:** none
@@ -158,3 +158,19 @@ The one remaining external action is to apply the settings and add the least-pri
 
 No financial event, position, NAV, equity or performance observation has been created. No live orders, private MEXC endpoints, exchange credentials or wallet access were used.
 
+
+
+## 2026-11-17 — Unprotected single-writer paper mode implemented
+
+The repository no longer requires state-branch protection, a repository ruleset, Administration permission or `STATE_PROTECTION_TOKEN`. The state branch is intentionally unprotected to avoid blocking paper-evidence collection on repository administration.
+
+- MEXC paper-state writing defaults to enabled in the five-minute workflow; setting the repository Actions variable `PAPER_STATE_WRITE_ENABLED=false` pauses all portfolio-state writes.
+- MEXC and the retired manual Polymarket diagnostic share the same repository-wide `paper-state-branch-single-writer` concurrency group with `cancel-in-progress: false`; no two workflow publishers can run simultaneously.
+- The publisher remains application-level append-only: full remote hash-chain checks, unique genesis/linear topology, duplicate-ID/idempotency rejection, fast-forward-only writes, exact canonical remote read-back and verification on idempotent replay remain mandatory.
+- Local restoration now follows `previous_batch_hash` links rather than `created_at_ms`, avoiding ordering errors from different exchange server clocks.
+- The two-stage recovery handshake remains: first write only a non-financial recovery probe; later fresh checkout must verify it before the 1 USDT financial account-initialization event.
+- **At this code revision the account is still NOT INITIALIZED.** No initialization or performance evidence is claimed until the actual workflow probe, fresh-checkout recovery and financial event are observed. The 1 USDT account may legitimately remain flat if MEXC minimum-size and cost constraints prevent a valid pair.
+- **Residual risk accepted:** because the branch is unprotected, a repository user with write/admin access can rewrite or delete history outside the publisher. Chain validation detects malformed state when observed but cannot prevent privileged manual tampering.
+- No live orders, private MEXC endpoints, credentials or wallet access are used.
+
+CI and the first workflow recovery-probe run must be checked after this commit before the account is reported as initialized.

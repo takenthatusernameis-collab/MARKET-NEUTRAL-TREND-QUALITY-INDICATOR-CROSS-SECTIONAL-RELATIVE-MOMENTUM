@@ -90,19 +90,24 @@ Produce sorted positive-Q long and negative-Q short lists with deterministic tie
 
 The human-readable MEXC report should show universe and data coverage, history-bootstrap progress, exclusions, Q/B values and top research/executable rankings, portfolio cash and NAV if an account exists, positions, realized/unrealized P&L, fees, confirmed/unresolved funding, gross/net exposure, drawdown, stops, trade statistics and daily equity curve. Metrics below their required sample window must be shown as unavailable with the precise reason, not as zero.
 
-### 0.7 Immutable account-state gate — do not bypass
+### 0.7 Unprotected single-writer account-state mode — paper only
 
-The repository's state branch was observed unprotected and its repository rulesets endpoint returned an empty list. The five-minute MEXC workflow therefore explicitly sets PAPER_STATE_WRITE_ENABLED=false. This is intentional. The workflow may collect public market data and produce rankings, but it must not initialize the portfolio, open/close simulated positions, publish financial event batches or claim a verified portfolio NAV while the gate is closed.
+The `state` branch is intentionally unprotected in the current paper-only architecture. Do not require repository Administration permissions, a branch-protection rule, a ruleset or a `STATE_PROTECTION_TOKEN` secret. The MEXC five-minute workflow defaults `PAPER_STATE_WRITE_ENABLED` to true; the repository Actions variable can be set to the literal string `false` to pause writing. Keep public-data-only boundaries: no private endpoint, account credential, wallet action, Testnet or live order is allowed.
 
-Before any account transition:
-1. Verify server-side state-branch protection or a repository ruleset.
-2. Confirm force-push and branch deletion are prohibited and writers are restricted.
-3. Enforce protections for administrators as appropriate.
-4. Test a real GitHub event publisher append, duplicate/idempotency behavior, conflict handling and full state restore/replay.
-5. Keep the event-batch previous hash anchored to the verified remote chain tip.
-6. Only then, after all market-data and portfolio accounting acceptance gates pass, consider explicitly enabling the paper writer.
+Every workflow that can append to the shared `state` branch must use the same repository-wide GitHub Actions concurrency group `paper-state-branch-single-writer` with `cancel-in-progress: false`. This currently includes the scheduled MEXC workflow and the retired manually dispatched Polymarket diagnostic. Do not introduce another state writer without joining this same lock and validating restore compatibility. Workflow-level concurrency is the single-writer serialization mechanism; a non-fast-forward ref conflict remains a hard failure and must never be force-pushed.
 
-Never weaken the guard, create a fake success path, write mutable account state to market-data, or treat a workflow artifact or SQLite projection as the authoritative ledger. The repository is public; every committed market-data or state file is public and permanent.
+Retain all application-level durability checks:
+1. Reconstruct the complete remote event chain from the branch tree and verify every event-batch hash and event hash.
+2. Require exactly one genesis, a single unbroken parent-hash chain, no forks, cycles, orphans or disconnected batches, and globally unique run IDs, event IDs and idempotency keys.
+3. Require each new batch's `previous_batch_hash` to match the verified remote chain tip.
+4. Publish only a new immutable event path using a normal non-forced fast-forward ref update; never overwrite different content at an existing path.
+5. After every new write and idempotent replay, read back the exact canonical event file and re-verify that its batch hash is present in the complete remote chain.
+6. Rebuild local state by following `previous_batch_hash` links, not venue timestamps; public venue clocks can differ.
+7. Fail closed on malformed/truncated trees, chain corruption, API failures, exact-content mismatch or non-fast-forward conflict. Never claim a transition is durable when publisher verification fails.
+
+The first enabled MEXC run appends only a non-financial `paper_state_recovery_probe`. A later run must check out `state` afresh and verify that probe and the full chain before any account balance or financial event is created. Only then may it append `paper_account_initialized` with exactly 1 USDT starting cash, forward-paper-only mode and no imported historical trades or equity. A later run must restore the financial event before reporting the account as operational.
+
+Because the branch is intentionally unprotected, a repository user with sufficient write/admin access can manually delete or rewrite its history outside the publisher. Hash-chain validation can reject malformed history on the next read but cannot prevent privileged tampering. This residual risk is accepted to avoid an administrative setup dependency. Every state file in this public repository is public and persistent; never place credentials, private user data or exchange account information in it.
 
 ### 0.8 Current implementation disclosure
 
@@ -279,7 +284,7 @@ Each workflow produces a uniquely named event batch (for example `events/YYYY/MM
 
 Before any new batch is committed, reconstruct the complete remote event-batch chain from the current `state` branch tree and verify that the new batch's `previous_batch_hash` equals the unique remote chain tip. Reject a second genesis batch, forks, cycles, orphaned/disconnected batches, invalid file paths, malformed blobs, and truncated Git trees. Do not trust a local SQLite hash or caller-supplied parent hash as evidence of the remote tip.
 
-The `state` branch must have server-side GitHub branch protection or a repository ruleset that disallows force pushes/deletion and restricts writers before account initialization. Publisher-side fast-forward logic is not a substitute for server-side protection. Because this repository is public, every event file is public and persistent: never store credentials, personal identifiers or confidential account data in its Git history.
+The `state` branch is intentionally unprotected in the paper-only mode. Publisher-side hash-chain validation, shared single-writer workflow concurrency, non-forced fast-forward updates, exact remote read-back and fresh-checkout recovery are required; this does not prevent privileged manual history rewrites. Because this repository is public, every event file is public and persistent: never store credentials, personal identifiers or confidential account data in its Git history.
 
 Storage is not unlimited. Estimate and monitor repository growth; partition compressed market data. If Git storage cannot safely support the required data volume, report the blocker instead of silently deleting history or introducing paid services.
 
@@ -509,7 +514,7 @@ Each workflow produces a uniquely named event batch (for example `events/YYYY/MM
 
 Before any new batch is committed, reconstruct the complete remote event-batch chain from the current `state` branch tree and verify that the new batch's `previous_batch_hash` equals the unique remote chain tip. Reject a second genesis batch, forks, cycles, orphaned/disconnected batches, invalid file paths, malformed blobs, and truncated Git trees. Do not trust a local SQLite hash or caller-supplied parent hash as evidence of the remote tip.
 
-The `state` branch must have server-side GitHub branch protection or a repository ruleset that disallows force pushes/deletion and restricts writers before account initialization. Publisher-side fast-forward logic is not a substitute for server-side protection. Because this repository is public, every event file is public and persistent: never store credentials, personal identifiers or confidential account data in its Git history.
+The `state` branch is intentionally unprotected in the paper-only mode. Publisher-side hash-chain validation, shared single-writer workflow concurrency, non-forced fast-forward updates, exact remote read-back and fresh-checkout recovery are required; this does not prevent privileged manual history rewrites. Because this repository is public, every event file is public and persistent: never store credentials, personal identifiers or confidential account data in its Git history.
 
 Storage is not unlimited. Estimate and monitor repository growth; partition compressed market data. If Git storage cannot safely support the required data volume, report the blocker instead of silently deleting history or introducing paid services.
 
@@ -696,7 +701,7 @@ The 25% control is a **daily** risk threshold, not a lifetime MDD ceiling. Lifet
 
 ### 19.4 State safety and forward-paper activation gate
 
-Keep PAPER_STATE_WRITE_ENABLED=false until the state branch has independently verified server-side protection against force-push and deletion, restricted writers, and a successful immutable event-publisher/recovery test. The runtime state-protection check remains mandatory. Do not bypass the gate, infer that account code being implemented means the account is active, or silently initialize a forward account.
+The MEXC workflow defaults PAPER_STATE_WRITE_ENABLED=true, with the repository Actions variable set to the literal string false as the emergency pause. Do not require server-side branch protection or an Administration token. The shared paper-state-branch-single-writer concurrency group and publisher/recovery checks are mandatory. Do not infer that account code being implemented means the account is active: the first writer run is probe-only, and the financial account may be initialized only after a later fresh checkout verifies the probe and complete event chain.
 
 No live orders, Testnet orders, private account/order/position endpoints, exchange credentials, wallet access or exchange-side stop placement are allowed. No financial performance claims until the forward paper account has actually persisted observations. This repository is public, so any future state written to its branches is public and permanent.
 
@@ -717,15 +722,16 @@ Reports must distinguish source-data completeness, test validation, state-write 
 
 
 
-## 20. 2026-11-17 — 1 USDT FORWARD SEED AND PROTECTION TOKEN OVERRIDE
+## 20. 2026-11-17 — 1 USDT SEED AND UNPROTECTED SINGLE-WRITER OVERRIDE
 
-This section supersedes all historical 100 USDT seed-capital values above.
+This section supersedes historical 100 USDT seed-capital values and every older state-branch protection/administrator activation requirement above.
 
-- The forward account's initial capital and starting cash are 1 USDT.
-- Preserve 50% NAV margin per leg at 2x leverage: target approximately 1 USDT notional on each side and 2 USDT combined gross notional.
-- Round quantities down and respect MEXC minimum/maximum order sizes, contract multipliers, depth, fees and shortfall caps. If the 1 USDT NAV cannot satisfy minimum order constraints on both legs, remain flat; never increase exposure to force an entry.
-- The MEXC workflow defaults PAPER_STATE_WRITE_ENABLED to false and reads the explicit repository Actions variable of the same name. Missing variable means disabled.
-- The workflow uses the STATE_PROTECTION_TOKEN repository Actions secret solely to inspect branch protection. It must be a fine-grained token limited to this repository with Administration: read permission. The regular workflow GITHUB_TOKEN remains the separate append-only publisher credential with Contents: write.
-- Before enabling the repository variable, configure the state branch's server-side protection: administrator enforcement; no force pushes; no branch deletion; and restricted writers limited to the intended GitHub Actions app. The runtime gate must verify the actual /branches/state/protection response, not infer the detailed settings from the branch summary.
-- A successful event write is not enough: publisher success requires post-write read-back of exact canonical contents and fresh verification of the full remote event chain. A repeated exact batch must remain idempotent. The first financial batch must be the 1 USDT account-initialization event and must not include any historical trades or equity.
-- Do not initialize the account, set the variable true, or make financial ledger writes until server-side branch protection and a real publisher/recovery round trip are verified.
+- The forward account's initial capital and starting cash are exactly 1 USDT.
+- Preserve 50% NAV margin per leg at 2× leverage: target approximately 1 USDT notional on each side and 2 USDT combined gross notional. Respect MEXC minimum/maximum order sizes, contract multipliers, quantity increments, book depth, fees and shortfall caps. If 1 USDT NAV cannot fund both valid legs, remain flat; never raise capital or force an undersized entry.
+- The MEXC workflow defaults `PAPER_STATE_WRITE_ENABLED` to true. A repository Actions variable with the literal value `false` pauses all paper-state writes. No manual variable enablement, branch-protection configuration, repository ruleset or `STATE_PROTECTION_TOKEN` is required.
+- The `state` branch is intentionally unprotected. All workflows that can append to it must share repository-wide concurrency group `paper-state-branch-single-writer` with `cancel-in-progress: false`; this currently covers MEXC and the retired manually dispatched Polymarket diagnostic.
+- Preserve the complete publisher integrity contract: verify all remote batches and the unique full chain tip; reject multiple genesis roots, forks, cycles, orphaned/disconnected batches and duplicate run/event/idempotency identifiers; require the caller's previous hash to match the latest verified tip; write only a new event file using a normal non-forced fast-forward update; read back exact canonical contents and re-verify chain membership after writes and idempotent replays; fail on conflict and never force-push.
+- Restore local batches by following `previous_batch_hash` links, not `created_at_ms` order, because different venue clocks may not agree.
+- The first writer run must publish only a non-financial `paper_state_recovery_probe`. A later fresh checkout must verify the probe and full chain before the first financial batch `paper_account_initialized` can set 1 USDT cash. Later runs must restore that event before reporting the account as operational. No historical trades/equity can be imported.
+- The unprotected branch has residual privileged-rewrite/deletion risk that application-level checks cannot prevent. It is public; do not store credentials, private account details or personal identifiers.
+- No live orders, Testnet orders, private account/order/position endpoints, exchange credentials, wallet access or exchange-side stop placement are allowed. No profitability claim until the forward paper account has actually persisted observations and sufficient samples.

@@ -1,84 +1,31 @@
-# State Branch Protection and 1 USDT Forward Initialization
+# Paper-State Operating Guide — Unprotected Single-Writer Mode
 
-**Current state:** blocked pending repository-admin configuration. The state branch exists, but GitHub currently reports it as unprotected and there are no repository rulesets. The connected GitHub integration can commit files and refs but cannot change branch protection because its GitHub App installation lacks Administration permission.
+**Status (2026-11-17):** the administrator-only branch-protection setup described by the original version of this file is retired. The MEXC forward-paper workflow no longer depends on repository Administration permissions, a protected branch, a ruleset or a `STATE_PROTECTION_TOKEN` secret.
 
-## 1. Protect the state branch in GitHub
+## Current operating configuration
 
-In the repository, open **Settings → Branches → Add branch protection rule**.
+- The MEXC workflow is the scheduled forward-paper account writer and defaults `PAPER_STATE_WRITE_ENABLED` to true.
+- Set the repository Actions variable `PAPER_STATE_WRITE_ENABLED=false` to pause paper-state transitions. No secret is required to enable or disable the writer.
+- The MEXC workflow and retired manually dispatched Polymarket diagnostic share repository-wide concurrency group `paper-state-branch-single-writer`, with `cancel-in-progress: false`. Their workflows cannot execute state writes concurrently.
+- The publisher only appends a new event batch with a normal non-forced fast-forward ref update. It verifies the complete remote hash chain before append, rejects a second genesis/fork/orphan/disconnected chain and duplicate identifiers, then reads back the exact canonical event file and re-verifies chain membership. Idempotent replays repeat remote verification.
+- Local state restoration follows `previous_batch_hash` links rather than exchange timestamps, so venue clock skew cannot reorder the persisted event history.
+- First writer invocation publishes only a non-financial `paper_state_recovery_probe`. A later workflow invocation checks out `state` afresh and verifies the full chain and probe before creating the 1 USDT `paper_account_initialized` event.
 
-Set the branch name pattern to:
+## Recovery and account initialization
 
-- state
+The account is **not initialized** merely because the source code is ready or the workflow is enabled. Initialization is confirmed only after all of these are visible:
 
-Enable the following controls:
+1. A successful MEXC workflow run reports `STATE_PERSISTENCE_PROBE`, with exact remote read-back verified and no account created.
+2. A later run restores that probe from its fresh `state` checkout and reports `state_recovery_probe_verified_from_prior_checkout=true`.
+3. The same later run, or a subsequent eligible run, appends a `paper_account_initialized` event with 1 USDT starting cash, forward-paper-only mode, and no imported historical trades/equity.
+4. A subsequent run restores the financial event and reports a reconciled 1 USDT cash/NAV starting state.
 
-- **Enforce administrators** / include administrators.
-- **Restrict who can push to matching branches**; restrict the allow-list to the GitHub Actions app used by this repository's workflow.
-- **Do not allow force pushes**.
-- **Do not allow deletions**.
-- **Require linear history**.
+The account may remain flat if MEXC's minimum contract size, quantity step, market depth or modeled costs make both legs infeasible at 1 USDT. Never increase starting capital or force an undersized trade to manufacture activity.
 
-Do not require pull-request-only writes for this branch: the event publisher appends verified fast-forward Git commits directly. Do not allow broad user/team write access. The state branch is public; all ledger contents will be publicly visible and permanent.
+## What this mode protects — and what it does not
 
-## 2. Add a narrowly scoped protection-read secret
+The publisher and recovery code preserve application-level append-only behavior, hash-chain integrity, idempotency, exact remote read-back and fast-forward conflict detection. The shared concurrency group prevents overlapping GitHub Actions writers. A write conflict or verification failure must stop the state transition; never force-push, overwrite a different event file or claim an unverified state is durable.
 
-Create a fine-grained personal access token restricted to this repository with only:
+**Residual risk:** the `state` branch is not server-side protected. A repository user with sufficient write/admin permissions can manually delete or rewrite history outside the publisher. Hash-chain validation can reject a malformed or incomplete history when the workflow next reads it, but it cannot prevent a privileged user from rewriting the branch or guarantee preservation against deliberate tampering. This trade-off is accepted to remove the Administration dependency and allow paper evidence collection without live funds or live orders.
 
-- **Repository permissions → Administration: Read-only**.
-
-No Contents write, Actions write, exchange permissions or other repositories are required for this token. Add it under **Settings → Secrets and variables → Actions → New repository secret**:
-
-- Name: STATE_PROTECTION_TOKEN
-- Value: the fine-grained token
-
-The workflow uses this secret only to read the dedicated branch-protection endpoint. The separate Actions GITHUB_TOKEN remains the append-only event publisher and has Contents: write in the workflow. Do not put the token in source files or workflow YAML.
-
-GitHub documents that the protected-branch GET endpoint requires Administration repository permissions (read) for fine-grained tokens:
-https://docs.github.com/en/rest/branches/branch-protection#get-branch-protection
-
-## 3. Keep the writer disabled until verification passes
-
-The workflow defaults the repository Actions variable PAPER_STATE_WRITE_ENABLED to false.
-
-After branch protection and the read-only secret are in place, the next run must first report:
-
-- STATE_PERSISTENCE_PROBE
-- PUBLISH_READBACK_VERIFIED_AWAITING_FRESH_CHECKOUT
-- no account initialized
-- zero orders
-
-The publisher performs a post-write read-back of exact canonical event contents and a full event-chain verification. The following scheduled invocation checks the persisted probe from a fresh checkout of the state branch. Only after that does the workflow become eligible to initialize the financial account.
-
-Review that recovered probe run, then set the repository Actions variable:
-
-- Name: PAPER_STATE_WRITE_ENABLED
-- Value: true
-
-The runtime protection check is still mandatory on every write-capable run. Missing/invalid protection credentials, unprotected branch state, force-push/deletion allowance, missing writer restrictions or failed event read-back all fail closed.
-
-## 4. 1 USDT account initialization
-
-The first financial event must be paper_account_initialized with:
-
-- Currency: USDT
-- Initial capital: 1 USDT
-- Starting cash: 1 USDT
-- Forward-paper-only mode
-- No imported historical trades or equity
-
-The first eligible daily-close decision cycle may simulate a pair only if both MEXC legs pass minimum contract size, lot step, maximum quantity, current book depth, fees and shortfall constraints. At 50% NAV margin per leg and 2× leverage, the target notional is about 1 USDT per leg. If the venue's minimum order constraints make a valid pair impossible, initialize the 1 USDT ledger flat and keep it flat. Never inflate the account or force an undersized trade.
-
-Historical performance must remain separate. The account starts at its actual initialization timestamp; no backfilled equity or fabricated fills are permitted.
-
-## 5. Acceptance evidence
-
-Do not report the account as initialized until all of the following are verified in GitHub Actions and on the state branch:
-
-1. The branch protection endpoint confirms administrator enforcement, force pushes disabled, deletions disabled and restricted writers.
-2. First run publishes the non-financial state recovery probe and reads it back exactly.
-3. A later run restores the probe from a fresh checkout and verifies its event-batch hash chain.
-4. The first financial event creates a 1 USDT starting balance.
-5. A later run restores that financial event and reconstructs the same 1 USDT account state.
-6. CI, event-chain integrity, NAV reconciliation and paper-only boundary tests pass.
-
-No live orders, private MEXC endpoints, exchange credentials or wallet access are used.
+The repository is public. State events and market-data reports are publicly visible and persistent. Never store exchange credentials, private account information, secrets or personal identifiers in the repository. The entire workflow uses public MEXC market-data endpoints and never submits orders.

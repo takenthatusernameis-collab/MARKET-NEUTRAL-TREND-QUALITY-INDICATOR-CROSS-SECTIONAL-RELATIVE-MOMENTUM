@@ -10,7 +10,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from trend_quality.event_journal import build_event_batch, verify_event_batch
+from trend_quality.event_journal import (
+    build_event_batch,
+    order_event_batches,
+    verify_event_batch,
+)
 from trend_quality.execution import BookLevel, simulate_orderbook_fill
 from trend_quality.github_state import GitHubStatePublisher
 from trend_quality.indicators import compute_q_series, wilder_atr
@@ -94,7 +98,7 @@ def _load_state_from_event_branch(state_dir: Path) -> tuple[dict[str, Any] | Non
         if not verify_event_batch(value):
             raise RuntimeError(f"Paper state event batch failed hash verification: {path}")
         batches.append(value)
-    batches.sort(key=lambda row: int(row["created_at_ms"]))
+    batches = order_event_batches(batches)
     previous_hash: str | None = None
     latest_state: dict[str, Any] | None = None
     for batch in batches:
