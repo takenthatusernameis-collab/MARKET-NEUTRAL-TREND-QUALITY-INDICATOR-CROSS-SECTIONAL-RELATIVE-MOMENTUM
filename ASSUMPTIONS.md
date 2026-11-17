@@ -8,7 +8,7 @@
 - Noise: absolute deviation baseline; RMS separate experiment.
 - Q threshold: strict |Q|>2 (source's promising-trend threshold).
 - ATR: Wilder 14, multiplier 3.0 (experimental).
-- Initial capital: 100 USDT.
+- Initial capital: 1 USDT.
 - Taker fee assumption: 0.10% per fill (not the user's actual fee tier).
 - Historical execution: next eligible minute open plus adverse cost assumption.
 - Hourly workflow scheduled at minute 17; actual delay is measured, not assumed exact.
