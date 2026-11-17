@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-17T00:51:28.471000+00:00",
+  "last_run_utc": "2026-11-17T00:52:46.509000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward",
     "cash": "1",
@@ -42,13 +42,30 @@
         "short_notional_usdt": "0",
         "timestamp_ms": 1794876688471,
         "utc_date": "2026-11-17"
+      },
+      {
+        "daily_drawdown_pct": "0",
+        "daily_peak_nav": "1",
+        "daily_return_pct": "0",
+        "daily_starting_nav": "1",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "0",
+        "long_notional_usdt": "0",
+        "nav": "1",
+        "roi_pct": "0",
+        "short_notional_usdt": "0",
+        "timestamp_ms": 1794876766509,
+        "utc_date": "2026-11-17"
       }
     ],
     "fees_paid": "0",
     "initial_capital": "1",
     "last_decision_attempt_daily_bar_ms": 1794787200000,
     "last_processed_daily_bar_ms": 1794787200000,
-    "last_snapshot_ms": 1794876688471,
+    "last_snapshot_ms": 1794876766509,
     "positions": [],
     "realized_gross_pnl": "0",
     "schema_version": 1,
@@ -58,9 +75,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "6334d2b5c3c98f893c2895bb7e975ac61e5453ea089c22a2584353f52b1cbd9f",
-    "commit_sha": "4a41dcee7183a700e1e17f20e12ce182de9fd04a",
+    "batch_hash": "87476f8ffe9c951305323e078aa6b6a9f6c8821df05657b2486f4563e2c1bbb0",
+    "commit_sha": "c419e10c8eaae3a0de83c67dc6f7285be5900a19",
     "created": true,
-    "path": "events/2026/11/account-init-1794876688471.json"
+    "path": "events/2026/11/snapshot-1794876766509.json"
   }
 }
