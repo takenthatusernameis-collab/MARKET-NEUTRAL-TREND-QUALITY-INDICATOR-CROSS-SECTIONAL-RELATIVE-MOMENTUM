@@ -265,3 +265,25 @@ def test_equity_snapshot_is_idempotent_and_rejects_time_reversal() -> None:
         assert "cannot move backwards" in str(exc)
     else:
         raise AssertionError("out-of-order equity observations must fail")
+
+
+
+def test_new_utc_day_uses_previous_day_last_nav_when_first_cron_is_delayed() -> None:
+    state = initial_portfolio_state()
+    first_timestamp = 1_700_000_000_000
+    append_equity_snapshot(
+        state, first_timestamp, Decimal("100"),
+        Decimal("100"), Decimal("100"),
+    )
+    next_utc_day_after_five_minutes = (
+        (first_timestamp // 86_400_000 + 1) * 86_400_000 + 300_000
+    )
+    snapshot = append_equity_snapshot(
+        state, next_utc_day_after_five_minutes, Decimal("70"),
+        Decimal("70"), Decimal("70"),
+    )
+    assert snapshot["daily_starting_nav"] == "100"
+    assert snapshot["daily_starting_reference"] == "previous_utc_day_last_snapshot"
+    assert snapshot["daily_return_pct"] == "-30.0"
+    assert snapshot["daily_drawdown_pct"] == "-30.0"
+    assert snapshot["emergency_stop_newly_triggered"]
