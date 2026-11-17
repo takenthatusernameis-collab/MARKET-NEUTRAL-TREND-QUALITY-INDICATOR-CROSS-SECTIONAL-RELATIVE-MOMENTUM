@@ -10,10 +10,13 @@ from trend_quality.mexc_portfolio import (
     apply_confirmed_funding,
     close_paper_position,
     initial_portfolio_state,
+    increase_paper_position,
     lifetime_max_drawdown,
     open_paper_position,
     performance_summary,
     portfolio_nav,
+    reduce_paper_position,
+    reset_daily_risk_window,
     stop_is_triggered,
     update_trailing_stop,
 )
@@ -298,3 +301,104 @@ def test_new_forward_account_default_is_ten_usdt_generation() -> None:
     assert state["account_id"] == "mexc-usdt-forward-10usdt-v2"
     assert state["strategy_id"] == "trend-quality-daily-cross-sectional-v2-10usdt"
     assert state["positions"] == []
+
+
+
+def test_daily_rebalance_increases_and_reduces_only_position_deltas() -> None:
+    state = initial_portfolio_state(Decimal("100"))
+    position = open_paper_position(
+        state,
+        btc_instrument(),
+        {"mark_price": "100"},
+        "long",
+        Decimal("5"),
+        fill("buy", "1", "100", "0.10"),
+        1_700_000_000_000,
+    )
+    original_entry_timestamp = position["entry_timestamp_ms"]
+
+    add = increase_paper_position(
+        state,
+        position,
+        btc_instrument(),
+        {"mark_price": "110"},
+        Decimal("5"),
+        fill("buy", "1", "110", "0.22"),
+        1_700_000_300_000,
+    )
+    assert add["action"] == "INCREASED"
+    assert position["quantity"] == "2"
+    assert position["entry_price"] == "105"
+    assert position["entry_fee"] == "0.32"
+    assert position["initial_margin_usdt"] == "105"
+    assert position["entry_timestamp_ms"] == original_entry_timestamp
+
+    reduction = reduce_paper_position(
+        state,
+        position,
+        fill("sell", "0.5", "120", "0.06"),
+        1_700_000_600_000,
+    )
+    assert reduction["action"] == "REDUCED"
+    assert reduction["quantity_delta"] == "-0.5"
+    assert reduction["remaining_quantity"] == "1.5"
+    assert position["quantity"] == "1.5"
+    assert position["entry_fee"] == "0.240"
+    assert position["initial_margin_usdt"] == "78.75"
+    assert reduction["realized_gross_pnl"] == "7.5"
+    assert reduction["partial_realized_net_pnl"] == "7.360"
+    assert state["cash"] == "107.12"
+    assert state["fees_paid"] == "0.38"
+    assert state["realized_gross_pnl"] == "7.5"
+    assert state["closed_trade_net_pnls"] == []
+    assert state["partial_realized_net_pnls"] == ["7.360"]
+
+
+def test_successful_daily_rebalance_resets_drawdown_baseline_but_not_lifetime_curve() -> None:
+    state = initial_portfolio_state(Decimal("100"))
+    first = 1_700_000_000_000
+    append_equity_snapshot(
+        state, first, Decimal("100"), Decimal("100"), Decimal("100")
+    )
+    interim = append_equity_snapshot(
+        state, first + 300_000, Decimal("85"), Decimal("90"), Decimal("100")
+    )
+    assert interim["daily_drawdown_pct"] == "-15.00"
+    assert not interim["emergency_stop_triggered"]
+
+    reset = reset_daily_risk_window(
+        state, first + 600_000, Decimal("85"),
+        reference="daily_portfolio_rebalance",
+    )
+    assert reset["starting_nav"] == "85"
+    assert reset["peak_nav"] == "85"
+    assert reset["starting_reference"] == "daily_portfolio_rebalance"
+    assert reset["stop_triggered"] is False
+
+    after_reset = append_equity_snapshot(
+        state, first + 900_000, Decimal("63.75"),
+        Decimal("90"), Decimal("100"),
+    )
+    assert after_reset["daily_drawdown_pct"] == "-25.00"
+    assert after_reset["emergency_stop_newly_triggered"]
+    assert lifetime_max_drawdown(state) == Decimal("-0.3625")
+
+
+def test_daily_rebalance_cannot_clear_a_latched_emergency_flatten() -> None:
+    state = initial_portfolio_state(Decimal("100"))
+    first = 1_700_000_000_000
+    append_equity_snapshot(
+        state, first, Decimal("100"), Decimal("100"), Decimal("100")
+    )
+    append_equity_snapshot(
+        state, first + 300_000, Decimal("75"), Decimal("100"), Decimal("100")
+    )
+    try:
+        reset_daily_risk_window(
+            state, first + 600_000, Decimal("75")
+        )
+    except ValueError as exc:
+        assert "latched emergency" in str(exc)
+    else:
+        raise AssertionError("a daily rebalance must never clear an emergency stop")
+    assert state["daily_risk"]["stop_triggered"] is True
