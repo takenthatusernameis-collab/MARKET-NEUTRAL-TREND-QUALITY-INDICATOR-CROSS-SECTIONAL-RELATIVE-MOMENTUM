@@ -83,3 +83,8 @@ python scripts/mexc_public_preflight.py
 The preflight is a live, read-only public-data check. It never accesses an account or submits an order.
 
 See [STATUS](STATUS.md), [master implementation directive](IMPLEMENTATION_PROMPT.md), [implementation plan](IMPLEMENTATION_PLAN.md), [decisions](IMPLEMENTATION_DECISIONS.md), [prompt refinement log](PROMPT_REFINEMENT_LOG.md) and [runbook](RUNBOOK.md).
+
+
+## Forward-paper seed and activation
+
+The configured forward seed is 1 USDT. At 50% NAV margin per leg and 2x leverage, the nominal target is 1 USDT notional per leg; exchange minimums may leave the account flat. The account remains uninitialized until the state branch is server-side protected and the durable publisher/recovery test passes. The MEXC workflow's PAPER_STATE_WRITE_ENABLED repository variable defaults to false. The workflow's STATE_PROTECTION_TOKEN secret is a fine-grained, repository-limited token used only for Administration: read protection verification. See OPERATING_MODEL.md.
