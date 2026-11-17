@@ -5,7 +5,7 @@
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
 **Forward paper account:** INITIALIZED — 1 USDT, paper-only, flat; latest state restored from verified event chain  
 **Historical replay:** not implemented  
-**Verified portfolio NAV:** not available  
+**Verified portfolio NAV:** 1 USDT at latest restored snapshot; flat with zero positions  
 **Performance claims:** none
 
 ## Provider selection and evidence
