@@ -680,6 +680,7 @@ def _snapshot_only_cycle(
     missing_symbols: list[str] = []
     snapshot: dict[str, Any] | None = None
     state_event: dict[str, Any] | None = None
+    portfolio_report: dict[str, Any] | None = None
     risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
     if portfolio is not None:
         positions = list(portfolio.get("positions", []))
@@ -722,23 +723,30 @@ def _snapshot_only_cycle(
                 portfolio, server_ms, nav, long_notional, short_notional
             )
             risk = portfolio["daily_risk"]
-            if risk.get("stop_triggered") and portfolio.get("positions"):
+            if risk.get("stop_triggered"):
+                portfolio["emergency_liquidation_pending"] = bool(portfolio.get("positions"))
+            if (risk.get("stop_triggered") or portfolio.get("emergency_liquidation_pending")) and portfolio.get("positions"):
+                portfolio["emergency_liquidation_pending"] = True
                 try:
                     instruments_by_id = {
                         int(key): value
                         for key, value in store.manifest["instruments"].items()
                     }
                     _close_all(client, portfolio, instruments_by_id, server_ms)
-                    risk["flattened"] = True
-                    risk["flatten_error"] = None
+                    portfolio["daily_risk"]["flattened"] = True
+                    portfolio["daily_risk"]["flatten_error"] = None
+                    portfolio["emergency_liquidation_pending"] = False
                     risk_status = "EMERGENCY_BOOK_FLATTENED"
                 except Exception as exc:
-                    risk["flattened"] = False
-                    risk["flatten_attempts"] = int(risk.get("flatten_attempts", 0)) + 1
-                    risk["flatten_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                    portfolio["daily_risk"]["flattened"] = False
+                    portfolio["daily_risk"]["flatten_attempts"] = int(
+                        portfolio["daily_risk"].get("flatten_attempts", 0)
+                    ) + 1
+                    portfolio["daily_risk"]["flatten_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
                     risk_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
             elif risk.get("stop_triggered"):
-                risk["flattened"] = True
+                portfolio["daily_risk"]["flattened"] = True
+                portfolio["emergency_liquidation_pending"] = False
                 risk_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
             else:
                 risk_status = "MONITORING_ONLY_NO_STRATEGY_DECISIONS"
@@ -771,7 +779,7 @@ def _snapshot_only_cycle(
     else:
         portfolio_report = None
 
-    if portfolio is not None and not writer_enabled:
+    if portfolio is not None and (not writer_enabled or missing_symbols):
         try:
             portfolio_report = account_report(portfolio, ticker_by_id)
         except Exception:
@@ -801,7 +809,7 @@ def _snapshot_only_cycle(
         "ticker_coverage": len(ticker_by_id),
         "missing_ticker_count": len(missing_symbols),
         "missing_position_marks": missing_symbols,
-        "active_cross_usdt_perpetual_count": len(position_instruments),
+        "active_cross_usdt_perpetual_count": "not refreshed in snapshot mode",
         "bootstrap_remaining": "not refreshed in snapshot mode",
         "history_coverage_pass": "not checked in snapshot mode",
         "missing_latest_bar_count": 0,
@@ -986,16 +994,18 @@ def _run() -> int:
             long_notional_before, short_notional_before,
         )
         state_changed = True
-        if portfolio["daily_risk"].get("stop_triggered") and portfolio.get("positions"):
+        if (portfolio["daily_risk"].get("stop_triggered") or portfolio.get("emergency_liquidation_pending")) and portfolio.get("positions"):
             try:
                 stop_exits.extend(_close_all(
                     client, portfolio, instrument_by_id, server_ms
                 ))
                 portfolio["daily_risk"]["flattened"] = True
                 portfolio["daily_risk"]["flatten_error"] = None
+                portfolio["emergency_liquidation_pending"] = False
                 paper_decision_status = "EMERGENCY_BOOK_FLATTENED"
             except Exception as exc:
                 portfolio["daily_risk"]["flattened"] = False
+                portfolio["emergency_liquidation_pending"] = True
                 portfolio["daily_risk"]["flatten_attempts"] = int(
                     portfolio["daily_risk"].get("flatten_attempts", 0)
                 ) + 1
@@ -1005,6 +1015,7 @@ def _run() -> int:
                 paper_decision_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
         elif portfolio.get("daily_risk", {}).get("stop_triggered"):
             portfolio["daily_risk"]["flattened"] = True
+            portfolio["emergency_liquidation_pending"] = False
             paper_decision_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
         else:
             stop_exits, trailing_updates = _process_stops(
@@ -1084,6 +1095,11 @@ def _run() -> int:
                 append_daily_equity(portfolio, latest_bar_ms, nav)
                 portfolio["last_processed_daily_bar_ms"] = latest_bar_ms
                 state_changed = True
+        if new_daily_bar and portfolio.get("daily_risk", {}).get("stop_triggered"):
+            nav = portfolio_nav(portfolio, ticker_by_id)
+            append_daily_equity(portfolio, latest_bar_ms, nav)
+            portfolio["last_processed_daily_bar_ms"] = latest_bar_ms
+            state_changed = True
         if state_changed:
             report_details = {
                 "provider": "mexc",
