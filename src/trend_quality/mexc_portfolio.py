@@ -50,6 +50,7 @@ def initial_portfolio_state(
         "confirmed_funding": "0",
         "positions": [],
         "closed_trade_net_pnls": [],
+        "partial_realized_net_pnls": [],
         "daily_equity": [],
         "equity_curve": [],
         "daily_risk": {},
@@ -147,6 +148,166 @@ def open_paper_position(
     state.setdefault("positions", []).append(position)
     return position
 
+
+
+def increase_paper_position(
+    state: dict[str, Any],
+    position: dict[str, Any],
+    instrument: dict[str, Any],
+    ticker: dict[str, Any],
+    atr: Decimal,
+    fill: SimulatedFill,
+    timestamp_ms: int,
+    *,
+    stop_atr_multiple: Decimal = Decimal("3"),
+) -> dict[str, Any]:
+    """Add only the required quantity while preserving the existing position."""
+    expected_side = "buy" if position["side"] == "long" else "sell"
+    if fill.side != expected_side or not fill.complete:
+        raise ValueError("Rebalance add fill side or completeness is invalid")
+    if int(position["instrument_id"]) != int(instrument["instrument_id"]):
+        raise ValueError("Rebalance add instrument does not match position")
+    if atr <= ZERO or stop_atr_multiple <= ZERO:
+        raise ValueError("ATR and stop multiple must be positive")
+
+    old_quantity = _decimal(position["quantity"], "existing position quantity")
+    added_quantity = fill.filled_quantity
+    if old_quantity <= ZERO or added_quantity <= ZERO:
+        raise ValueError("Existing and added quantities must be positive")
+    old_entry = _decimal(position["entry_price"], "existing entry price")
+    new_quantity = old_quantity + added_quantity
+    average_entry = (
+        old_quantity * old_entry + added_quantity * fill.average_price
+    ) / new_quantity
+    leverage = _decimal(position["leverage"], "position leverage")
+    fee = fill.fee
+    state["cash"] = str(_decimal(state["cash"], "cash") - fee)
+    state["fees_paid"] = str(_decimal(state["fees_paid"], "fees") + fee)
+    position["quantity"] = str(new_quantity)
+    position["entry_price"] = str(average_entry)
+    position["entry_fee"] = str(
+        _decimal(position.get("entry_fee", "0"), "entry fee") + fee
+    )
+    position["initial_margin_usdt"] = str(
+        _decimal(position["initial_margin_usdt"], "initial margin")
+        + fill.notional / leverage
+    )
+    current_mark = _decimal(
+        ticker.get("mark_price", fill.average_price), "rebalance mark price"
+    )
+    position["last_mark_price"] = str(current_mark)
+    candidate_stop = (
+        average_entry - atr * stop_atr_multiple
+        if position["side"] == "long"
+        else average_entry + atr * stop_atr_multiple
+    )
+    if candidate_stop <= ZERO:
+        raise ValueError("Rebalanced ATR stop is non-positive")
+    old_stop = _decimal(position["stop_price"], "existing stop price")
+    position["stop_price"] = str(
+        max(old_stop, candidate_stop)
+        if position["side"] == "long"
+        else min(old_stop, candidate_stop)
+    )
+    position["highest_since_entry"] = str(max(
+        _decimal(position.get("highest_since_entry", old_entry), "position high"),
+        current_mark,
+        fill.average_price,
+    ))
+    position["lowest_since_entry"] = str(min(
+        _decimal(position.get("lowest_since_entry", old_entry), "position low"),
+        current_mark,
+        fill.average_price,
+    ))
+    # Prior funding has already been reconciled before the daily rebalance.
+    # Advance the watermark so the enlarged quantity is not credited/debited
+    # for settlements that occurred before this incremental fill.
+    position["last_funding_timestamp_ms"] = max(
+        int(position.get("last_funding_timestamp_ms", 0)), int(timestamp_ms)
+    )
+    position["last_rebalanced_at_ms"] = int(timestamp_ms)
+    return {
+        "instrument_id": int(position["instrument_id"]),
+        "symbol": str(position["symbol"]),
+        "side": str(position["side"]),
+        "action": "INCREASED",
+        "quantity_delta": str(added_quantity),
+        "new_quantity": str(new_quantity),
+        "average_entry_price": str(average_entry),
+        "fill_price": str(fill.average_price),
+        "notional_usdt": str(fill.notional),
+        "fee_usdt": str(fee),
+        "shortfall_bps": str(fill.shortfall_bps),
+    }
+
+
+def reduce_paper_position(
+    state: dict[str, Any],
+    position: dict[str, Any],
+    fill: SimulatedFill,
+    timestamp_ms: int,
+) -> dict[str, Any]:
+    """Realize only the requested slice; leave the rest of the position open."""
+    expected_side = "sell" if position["side"] == "long" else "buy"
+    if fill.side != expected_side or not fill.complete:
+        raise ValueError("Rebalance reduction fill side or completeness is invalid")
+    old_quantity = _decimal(position["quantity"], "existing position quantity")
+    reduced_quantity = fill.filled_quantity
+    if reduced_quantity <= ZERO or reduced_quantity > old_quantity:
+        raise ValueError("Reduced quantity must be positive and no larger than position")
+    if reduced_quantity == old_quantity:
+        return close_paper_position(state, position, fill, timestamp_ms)
+
+    model = Position(
+        symbol=str(position["symbol"]),
+        side=str(position["side"]),
+        quantity=reduced_quantity,
+        entry_price=_decimal(position["entry_price"], "entry price"),
+    )
+    realized = model.unrealized_pnl(fill.average_price)
+    old_entry_fee = _decimal(position.get("entry_fee", "0"), "entry fee")
+    allocated_entry_fee = old_entry_fee * reduced_quantity / old_quantity
+    remaining_entry_fee = old_entry_fee - allocated_entry_fee
+    exit_fee = fill.fee
+    remaining_quantity = old_quantity - reduced_quantity
+    leverage = _decimal(position["leverage"], "position leverage")
+
+    state["cash"] = str(
+        _decimal(state["cash"], "cash") + realized - exit_fee
+    )
+    state["realized_gross_pnl"] = str(
+        _decimal(state["realized_gross_pnl"], "realized gross PnL") + realized
+    )
+    state["fees_paid"] = str(_decimal(state["fees_paid"], "fees") + exit_fee)
+    partial_net = realized - allocated_entry_fee - exit_fee
+    state.setdefault("partial_realized_net_pnls", []).append(str(partial_net))
+
+    position["quantity"] = str(remaining_quantity)
+    position["entry_fee"] = str(remaining_entry_fee)
+    position["initial_margin_usdt"] = str(
+        remaining_quantity
+        * _decimal(position["entry_price"], "entry price")
+        / leverage
+    )
+    position["last_funding_timestamp_ms"] = max(
+        int(position.get("last_funding_timestamp_ms", 0)), int(timestamp_ms)
+    )
+    position["last_rebalanced_at_ms"] = int(timestamp_ms)
+    return {
+        "instrument_id": int(position["instrument_id"]),
+        "symbol": str(position["symbol"]),
+        "side": str(position["side"]),
+        "action": "REDUCED",
+        "quantity_delta": str(-reduced_quantity),
+        "remaining_quantity": str(remaining_quantity),
+        "entry_price": str(position["entry_price"]),
+        "exit_price": str(fill.average_price),
+        "realized_gross_pnl": str(realized),
+        "allocated_entry_fee": str(allocated_entry_fee),
+        "exit_fee": str(exit_fee),
+        "partial_realized_net_pnl": str(partial_net),
+        "shortfall_bps": str(fill.shortfall_bps),
+    }
 
 def close_paper_position(
     state: dict[str, Any],
@@ -394,6 +555,43 @@ def append_equity_snapshot(
     state["last_snapshot_ms"] = int(timestamp_ms)
     return snapshot
 
+
+def reset_daily_risk_window(
+    state: dict[str, Any],
+    timestamp_ms: int,
+    nav: Decimal,
+    *,
+    reference: str = "daily_portfolio_rebalance",
+) -> dict[str, Any]:
+    """Start a fresh daily drawdown window after a successful portfolio rebalance.
+
+    An already-latched emergency stop is never cleared here: a triggered flatten
+    must complete before a new trade/risk window can start.
+    """
+    if timestamp_ms <= 0 or not isinstance(nav, Decimal) or not nav.is_finite() or nav <= ZERO:
+        raise ValueError("Risk-window reset requires a positive timestamp and NAV")
+    risk = state.setdefault("daily_risk", {})
+    if risk.get("stop_triggered") or state.get("emergency_liquidation_pending"):
+        raise ValueError("Cannot reset a latched emergency drawdown/flatten state")
+    timestamp = datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
+    risk = {
+        "utc_date": timestamp.strftime("%Y-%m-%d"),
+        "starting_nav": str(nav),
+        "starting_timestamp_ms": int(timestamp_ms),
+        "starting_reference": reference,
+        "peak_nav": str(nav),
+        "peak_timestamp_ms": int(timestamp_ms),
+        "stop_triggered": False,
+        "stop_triggered_at_ms": None,
+        "stop_reason": None,
+        "flattened": False,
+        "flatten_attempts": 0,
+        "risk_window_reset_at_ms": int(timestamp_ms),
+        "risk_window_reset_reason": reference,
+    }
+    state["daily_risk"] = risk
+    return dict(risk)
+
 def lifetime_max_drawdown(state: dict[str, Any]) -> Decimal | None:
     """Peak-to-trough NAV drawdown over all stored portfolio snapshots."""
     points = state.get("equity_curve") or state.get("daily_equity", [])
@@ -514,6 +712,14 @@ def account_report(
         "position_count": len(state.get("positions", [])),
         "positions": state.get("positions", []),
         "closed_trade_count": len(state.get("closed_trade_net_pnls", [])),
+        "partial_realized_net_pnl": str(sum(
+            (_decimal(value, "partial realized net PnL")
+             for value in state.get("partial_realized_net_pnls", [])),
+            ZERO,
+        )),
+        "partial_realized_event_count": len(
+            state.get("partial_realized_net_pnls", [])
+        ),
         "daily_equity_curve": list(state.get("daily_equity", [])),
         "performance": performance_summary(state),
     }
