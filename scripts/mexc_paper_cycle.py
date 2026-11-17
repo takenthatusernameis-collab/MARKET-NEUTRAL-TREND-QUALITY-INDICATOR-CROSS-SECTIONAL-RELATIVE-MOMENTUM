@@ -875,20 +875,27 @@ def _run() -> int:
     elif portfolio is not None and portfolio.get("currency") != "USDT":
         raise RuntimeError("Existing paper account currency is not USDT")
 
-    research_bar = store.manifest.get("last_research_daily_bar_ms")
-    if research_bar is None:
-        research_bar = store.manifest.get("last_processed_daily_bar_ms")
+    last_daily_workflow_bar = store.manifest.get("last_daily_workflow_bar_ms")
+    if last_daily_workflow_bar is None:
+        last_daily_workflow_bar = store.manifest.get("last_research_daily_bar_ms")
+    if last_daily_workflow_bar is None:
+        last_daily_workflow_bar = store.manifest.get("last_processed_daily_bar_ms")
     research_due = (
-        research_bar is None
-        or latest_bar_ms > int(research_bar)
-        or not bool(store.manifest.get("bootstrap_complete"))
+        last_daily_workflow_bar is None
+        or latest_bar_ms > int(last_daily_workflow_bar)
     )
+    account_attempt_bar = None
+    if portfolio is not None:
+        account_attempt_bar = portfolio.get(
+            "last_decision_attempt_daily_bar_ms",
+            portfolio.get("last_processed_daily_bar_ms"),
+        )
     account_due = bool(
         writer_enabled
         and portfolio is not None
         and (
-            portfolio.get("last_processed_daily_bar_ms") is None
-            or latest_bar_ms > int(portfolio["last_processed_daily_bar_ms"])
+            account_attempt_bar is None
+            or latest_bar_ms > int(account_attempt_bar)
         )
     )
     if not research_due and not account_due:
@@ -966,14 +973,16 @@ def _run() -> int:
     fills: list[dict[str, Any]] = []
     unresolved_funding = 0
     if writer_enabled and portfolio is not None:
-        old_last_processed = portfolio.get("last_processed_daily_bar_ms")
+        old_last_attempt = portfolio.get(
+            "last_decision_attempt_daily_bar_ms",
+            portfolio.get("last_processed_daily_bar_ms"),
+        )
         new_daily_bar = (
             history_coverage_pass
-            and (
-                old_last_processed is None
-                or latest_bar_ms > int(old_last_processed)
-            )
+            and (old_last_attempt is None or latest_bar_ms > int(old_last_attempt))
         )
+        if old_last_attempt is None or latest_bar_ms > int(old_last_attempt):
+            portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
         funding_events, unresolved_funding = _process_funding(
             client, store, portfolio, server_ms
         )
@@ -1242,6 +1251,7 @@ def _run() -> int:
     store.manifest["selected_provider"] = "mexc"
     if history_coverage_pass:
         store.manifest["last_research_daily_bar_ms"] = latest_bar_ms
+    store.manifest["last_daily_workflow_bar_ms"] = latest_bar_ms
     store.manifest["last_processed_daily_bar_ms"] = (
         store.manifest.get("last_processed_daily_bar_ms")
     )
