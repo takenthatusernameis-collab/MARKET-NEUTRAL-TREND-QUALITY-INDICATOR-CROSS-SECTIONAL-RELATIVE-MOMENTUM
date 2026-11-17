@@ -476,7 +476,7 @@ def _equity_curve_svg(
         return top + float((high - value) / (high - low)) * plot_height
 
     # For long histories, retain bucket extrema so drawdowns remain visible.
-    plotted = list(enumerate(zip(points, values)))
+    plotted = list(enumerate(zip(points, values, strict=True)))
     max_points = 1200
     if len(plotted) > max_points:
         bucket_size = max(1, (len(plotted) - 2) // ((max_points // 2) - 1))
@@ -547,7 +547,7 @@ def _equity_curve_svg(
 
     label_indices = [0] if len(points) == 1 else [0, len(points) // 2, len(points) - 1]
     anchors = ["middle"] if len(label_indices) == 1 else ["start", "middle", "end"]
-    for index, anchor in zip(label_indices, anchors):
+    for index, anchor in zip(label_indices, anchors, strict=True):
         stamp = datetime.fromtimestamp(
             int(points[index]["timestamp_ms"]) / 1000,
             tz=UTC,
@@ -565,6 +565,52 @@ def _equity_curve_svg(
         "",
     ])
     return "".join(parts)
+
+
+def _metric(metrics: dict[str, Any], name: str, kind: str = "ratio") -> str:
+    item = metrics.get(name)
+    if not item:
+        reasons = {
+            "sortino": "at least 20 daily returns and 5 negative returns required",
+            "sharpe": "at least 30 daily returns required",
+            "cagr": "at least 365 elapsed calendar days required",
+            "annualized_daily_volatility": "at least 30 daily returns required",
+        }
+        return f"Unavailable — {reasons.get(name, 'sample gate not met')}"
+    value = item.get("value")
+    if value is None:
+        return f"Unavailable — {item.get('reason') or 'sample gate not met'}"
+    if kind == "percent":
+        return f"{float(value) * 100:+.3f}%"
+    if kind == "days":
+        return f"{float(value):.2f} days"
+    if kind == "count":
+        return str(int(value))
+    if kind == "factor":
+        return f"{float(value):.3f}×"
+    return f"{float(value):.3f}"
+
+
+def _open_positions(positions: list[dict[str, Any]]) -> list[str]:
+    rows = [
+        "| Symbol | Side | Quantity | Entry | Mark | Notional (USDT) | "
+        "Unrealized P&L (USDT) | Entry UTC |",
+        "|---|---|---:|---:|---:|---:|---:|---|",
+    ]
+    for position in positions:
+        qty = _decimal(position.get("quantity"))
+        entry = _decimal(position.get("entry_price"))
+        mark = _decimal(position.get("last_mark_price"), str(entry))
+        pnl = (
+            (mark - entry) * qty if position.get("side") == "long"
+            else (entry - mark) * qty
+        )
+        rows.append(
+            f"| {_cell(position.get('symbol'))} | {_cell(position.get('side'))} "
+            f"| {qty} | {entry} | {mark} | {_money(qty * mark)} | {_money(pnl)} "
+            f"| {_utc(position.get('entry_timestamp_ms'))} |"
+        )
+    return rows
 
 
 def render_performance_report(
