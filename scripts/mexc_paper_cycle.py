@@ -1686,57 +1686,85 @@ def _run() -> int:
                 if rankings.executable_longs and rankings.executable_shorts
                 else None
             )
-            wanted: set[tuple[int, str]] = set()
+            pair_rebalance_actions: list[dict[str, Any]] = []
+            risk_window_reset: dict[str, Any] | None = None
             if pair is not None:
-                proposed, fills, _ = pair
+                proposed, pair_candidate_fills, _ = pair
+                prior_keys = {
+                    (int(row["instrument_id"]), str(row["side"]))
+                    for row in portfolio.get("positions", [])
+                }
                 wanted = {
                     (int(row["instrument"]["instrument_id"]), str(row["side"]))
                     for row in proposed
                 }
-            current = {
-                (int(row["instrument_id"]), str(row["side"]))
-                for row in portfolio.get("positions", [])
-            }
-            if current == wanted and current:
-                portfolio["pending_entry_signal"] = None
-                paper_decision_status = "PAIR_HELD"
-            else:
+                same_pair = bool(prior_keys) and prior_keys == wanted
                 trial = deepcopy(portfolio)
                 try:
-                    closed = _close_all(
-                        client, trial, instrument_by_id, server_ms
-                    ) if trial.get("positions") else []
-                    opened: list[dict[str, Any]] = []
-                    if pair is not None:
-                        proposed, fills, _ = pair
-                        for row in proposed:
-                            position = open_paper_position(
-                                trial,
-                                row["instrument"],
-                                row["ticker"],
-                                row["side"],
-                                row["atr"],
-                                row["fill"],
-                                server_ms,
-                                stop_atr_multiple=STOP_ATR_MULTIPLE,
-                            )
-                            opened.append(position)
-                    trial["positions"] = opened
+                    closed_details, resize_details = _apply_selected_pair(
+                        client, trial, proposed, instrument_by_id, server_ms
+                    )
                     portfolio = trial
-                    if opened:
-                        portfolio["pending_entry_signal"] = None
-                    fills = closed + fills
-                    paper_decision_status = (
-                        "PAIR_OPENED_OR_REPLACED"
-                        if opened else "FLAT_NO_EXECUTABLE_PAIR"
+                    fills = closed_details + resize_details
+                    pair_rebalance_actions = resize_details
+                    actual_delta = any(
+                        row.get("action") in {"OPENED", "INCREASED", "REDUCED"}
+                        for row in resize_details
+                    )
+                    if same_pair:
+                        paper_decision_status = (
+                            "PAIR_REBALANCED" if actual_delta else "PAIR_HELD"
+                        )
+                    else:
+                        paper_decision_status = "PAIR_OPENED_OR_REPLACED"
+                    portfolio["pending_entry_signal"] = None
+
+                    # A successful daily rebalance starts a fresh combined-book
+                    # risk window, like a new trade. The pre-rebalance snapshot
+                    # above has already had a chance to trigger the emergency stop.
+                    post_nav = portfolio_nav(portfolio, ticker_by_id)
+                    post_long_notional = Decimal("0")
+                    post_short_notional = Decimal("0")
+                    for position in portfolio.get("positions", []):
+                        mark = dec(ticker_by_id.get(
+                            int(position["instrument_id"]), {}
+                        ).get("mark_price", position.get("last_mark_price")))
+                        notional = dec(position["quantity"]) * mark
+                        if position["side"] == "long":
+                            post_long_notional += notional
+                        else:
+                            post_short_notional += notional
+                    risk_window_reset = reset_daily_risk_window(
+                        portfolio, server_ms, post_nav,
+                        reference="daily_portfolio_rebalance",
+                    )
+                    daily_risk_snapshot = append_equity_snapshot(
+                        portfolio, server_ms, post_nav,
+                        post_long_notional, post_short_notional,
                     )
                     state_changed = True
                 except Exception as exc:
                     paper_decision_status = (
                         f"REBALANCE_BLOCKED:{type(exc).__name__}:{str(exc)[:180]}"
                     )
+            else:
+                trial = deepcopy(portfolio)
+                try:
+                    closed = _close_all(
+                        client, trial, instrument_by_id, server_ms
+                    ) if trial.get("positions") else []
+                    trial["positions"] = []
+                    portfolio = trial
+                    fills = closed
+                    paper_decision_status = "FLAT_NO_EXECUTABLE_PAIR"
+                    state_changed = True
+                except Exception as exc:
+                    paper_decision_status = (
+                        f"REBALANCE_BLOCKED:{type(exc).__name__}:{str(exc)[:180]}"
+                    )
             if paper_decision_status in {
-                "PAIR_HELD", "PAIR_OPENED_OR_REPLACED", "FLAT_NO_EXECUTABLE_PAIR"
+                "PAIR_HELD", "PAIR_REBALANCED", "PAIR_OPENED_OR_REPLACED",
+                "FLAT_NO_EXECUTABLE_PAIR"
             }:
                 nav = portfolio_nav(portfolio, ticker_by_id)
                 append_daily_equity(portfolio, latest_bar_ms, nav)
@@ -1776,6 +1804,8 @@ def _run() -> int:
                 "missing_position_marks": position_mark_gaps,
                 "unresolved_funding_count": unresolved_funding,
                 "portfolio_daily_risk_snapshot": daily_risk_snapshot,
+                "portfolio_daily_risk_reset": risk_window_reset,
+                "rebalance_actions": pair_rebalance_actions,
                 "emergency_risk_status": (
                     paper_decision_status
                     if str(paper_decision_status).startswith("EMERGENCY_")
@@ -1796,7 +1826,8 @@ def _run() -> int:
                 key = (
                     f"daily-{latest_bar_ms}"
                     if paper_decision_status in {
-                        "PAIR_HELD", "PAIR_OPENED_OR_REPLACED", "FLAT_NO_EXECUTABLE_PAIR"
+                        "PAIR_HELD", "PAIR_REBALANCED",
+                        "PAIR_OPENED_OR_REPLACED", "FLAT_NO_EXECUTABLE_PAIR"
                     }
                     else f"risk-{server_ms}"
                 )
