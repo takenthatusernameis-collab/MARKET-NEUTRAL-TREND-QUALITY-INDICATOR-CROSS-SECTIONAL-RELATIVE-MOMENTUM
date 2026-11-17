@@ -117,3 +117,44 @@ This section supersedes older cadence, bootstrap and CI statements above.
 - CI [43985254705](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43985254705): Ruff passed; 142 tests passed. The latest scheduled snapshot-only run [43985254683](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43985254683) also completed successfully on the final code revision.
 
 **Forward paper account remains NOT INITIALIZED.** PAPER_STATE_WRITE_ENABLED remains false, so no positions or financial events have been created and no portfolio NAV, equity curve or performance result is verified. State-branch protection, restricted writers and the real publisher/recovery gate are still required before any paper-account state transitions. Live trading, private endpoints, credentials and exchange orders remain prohibited.
+
+
+
+## 2026-11-17 — 1 USDT activation readiness and protection blocker
+
+**Configured forward seed:** 1 USDT.  
+**Forward paper account:** NOT INITIALIZED.  
+**State branch:** exists, but UNPROTECTED.  
+**Financial ledger writes:** disabled; no event files exist on the state branch.
+
+### Code and test work completed
+
+- Portfolio and MEXC cycle defaults are both 1 USDT.
+- At 50% NAV margin per leg and 2× leverage, target notional is approximately 1 USDT per leg; the simulator must remain flat if MEXC minimum-size constraints prevent a valid pair.
+- The workflow's PAPER_STATE_WRITE_ENABLED repository variable defaults to false.
+- The workflow reads a separate STATE_PROTECTION_TOKEN secret solely to inspect the detailed branch-protection endpoint (Administration: read). The regular GITHUB_TOKEN remains the event publisher credential (Contents: write).
+- Runtime protection validation requires branch protection, administrator enforcement, force-push prohibition, deletion prohibition, linear history and nonempty writer restrictions.
+- The event publisher verifies exact canonical event contents and the complete remote hash chain after a new write and on idempotent replay.
+- Account activation is two-stage: first append a non-financial recovery probe; then require a fresh scheduled checkout to verify it before the 1 USDT paper-account initialization event can be created.
+- Tests cover 1 USDT initial cash, 1 USDT target leg notional, protection-token separation, force-push/linear-history fail-closed checks, recovery-probe recognition and publisher read-back/replay validation.
+
+**Final CI:** [run 43986748619](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43986748619) — Ruff passed; 150 tests passed.
+
+**Latest scheduled MEXC run:** [run 43986724889](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43986724889) — success; snapshot-only mode; PAPER_STATE_WRITE_ENABLED=false; paper_simulation_enabled=false; zero orders.
+
+### Remaining administrator-only activation
+
+A current live read of the repository confirms:
+
+- GET state branch summary: protected=false.
+- Branch-protection summary: protection.enabled=false.
+- Repository rulesets: empty.
+- State branch event tree: no events/ files.
+- Detailed GET branch-protection endpoint: 403 from the connected GitHub App integration because it lacks Administration access.
+
+The connected GitHub integration can commit source files and normal Git refs, but does not expose a branch-protection/ruleset mutation action or the Administration permission needed to configure this repository's protected branch. This is an integration permission boundary, not a code/test failure. Do not bypass it with an unprotected financial write.
+
+The one remaining external action is to apply the settings and add the least-privilege protection-read secret described in [STATE_PROTECTION_SETUP.md](STATE_PROTECTION_SETUP.md). Keep PAPER_STATE_WRITE_ENABLED absent or false until that is complete. The first enabled run must publish only the non-financial recovery probe. A later fresh checkout must verify it. Only then can a distinct 1 USDT account-initialization event be appended and subsequently restored.
+
+No financial event, position, NAV, equity or performance observation has been created. No live orders, private MEXC endpoints, exchange credentials or wallet access were used.
+
