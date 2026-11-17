@@ -681,6 +681,8 @@ def _snapshot_only_cycle(
     snapshot: dict[str, Any] | None = None
     state_event: dict[str, Any] | None = None
     portfolio_report: dict[str, Any] | None = None
+    funding_events: list[dict[str, Any]] = []
+    unresolved_funding = 0
     risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
     if portfolio is not None:
         positions = list(portfolio.get("positions", []))
@@ -702,6 +704,10 @@ def _snapshot_only_cycle(
                 instrument = store.manifest["instruments"].get(str(position["instrument_id"]))
                 if instrument is not None:
                     position_instruments.append(instrument)
+        if writer_enabled:
+            funding_events, unresolved_funding = _process_funding(
+                client, store, portfolio, server_ms
+            )
         if missing_symbols:
             risk_status = "UNAVAILABLE_STALE_OR_MISSING_POSITION_MARK"
         elif not writer_enabled:
@@ -753,9 +759,13 @@ def _snapshot_only_cycle(
             portfolio_report = account_report(portfolio, ticker_by_id)
             details = {
                 "provider": "mexc",
+                "funding_events": funding_events,
+                "unresolved_funding_count": unresolved_funding,
                 "workflow_mode": "FIVE_MINUTE_PORTFOLIO_SNAPSHOT",
                 "portfolio_snapshot": snapshot,
                 "emergency_risk_status": risk_status,
+        "funding_events": funding_events,
+        "unresolved_funding_count": unresolved_funding,
                 "missing_position_marks": missing_symbols,
                 "ordinary_strategy_decisions": False,
                 "live_orders_submitted": 0,
@@ -1027,18 +1037,23 @@ def _run() -> int:
             portfolio["emergency_liquidation_pending"] = False
             paper_decision_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
         else:
-            stop_exits, trailing_updates = _process_stops(
-                client,
-                portfolio,
-                instrument_by_id,
-                ticker_by_id,
-                history,
-                latest_bar_ms,
-                server_ms,
-            )
+            if history_coverage_pass:
+                stop_exits, trailing_updates = _process_stops(
+                    client,
+                    portfolio,
+                    instrument_by_id,
+                    ticker_by_id,
+                    history,
+                    latest_bar_ms,
+                    server_ms,
+                )
             state_changed = bool(state_changed or funding_events or stop_exits or trailing_updates)
 
-        if new_daily_bar and not portfolio.get("daily_risk", {}).get("stop_triggered"):
+        if (
+            new_daily_bar
+            and not portfolio.get("daily_risk", {}).get("stop_triggered")
+            and not portfolio.get("emergency_liquidation_pending")
+        ):
             pair = (
                 _try_pair(
                     client,
