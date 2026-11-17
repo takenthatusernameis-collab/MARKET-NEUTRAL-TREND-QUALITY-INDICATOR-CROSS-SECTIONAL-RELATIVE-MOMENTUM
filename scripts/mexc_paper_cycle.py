@@ -913,7 +913,6 @@ def _snapshot_only_cycle(
         "execution_short_top": [],
         "excluded_or_unranked_sample": [],
         "portfolio": portfolio_report,
-        "missing_position_marks": locals().get("position_mark_gaps", []),
         "portfolio_snapshot": snapshot,
         "funding_events": funding_events,
         "unresolved_funding_count": unresolved_funding,
@@ -1169,7 +1168,9 @@ def _run() -> int:
                         latest_bar_ms,
                         server_ms,
                     )
-                state_changed = bool(state_changed or funding_events or stop_exits or trailing_updates)
+                state_changed = bool(
+                    state_changed or funding_events or stop_exits or trailing_updates
+                )
     
     
         if (
