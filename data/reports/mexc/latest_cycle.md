@@ -1,9 +1,9 @@
 # MEXC Trend-Quality Paper Research
 
-- Run (UTC): 2026-11-17T00:03:45.502088+00:00
+- Run (UTC): 2026-11-17T00:04:40.590854+00:00
 - Active cross-margin USDT perpetuals: 1061
-- Bootstrap remaining: 93
-- History coverage gate: False
+- Bootstrap remaining: 0
+- History coverage gate: True
 - Paper-state write gate: PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION
 - Paper simulation enabled: False
 - Decision: BLOCKED_STATE_WRITE_GATE

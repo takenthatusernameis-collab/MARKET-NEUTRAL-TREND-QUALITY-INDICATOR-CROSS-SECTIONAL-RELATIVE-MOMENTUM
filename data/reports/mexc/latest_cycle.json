@@ -10,18 +10,19 @@
     "fx": 7,
     "unclassified": 201
   },
-  "bootstrap_completed_this_run": 150,
-  "bootstrap_remaining": 93,
-  "candle_rows_stored": 250752,
+  "bootstrap_completed_this_run": 93,
+  "bootstrap_remaining": 0,
+  "candle_rows_stored": 273160,
   "credentials_used": false,
+  "daily_decision_due": true,
   "excluded_or_unranked_sample": [
     "ZEC_USDT:NO_VALID_Q",
     "UNI_USDT:NO_VALID_Q",
-    "BTC_USD:INSUFFICIENT_HISTORY:0",
-    "ETH_USD:INSUFFICIENT_HISTORY:0",
-    "LTC_USD:INSUFFICIENT_HISTORY:0",
-    "XRP_USD:INSUFFICIENT_HISTORY:0",
-    "ADA_USD:INSUFFICIENT_HISTORY:0",
+    "BTC_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "ETH_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "LTC_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "XRP_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "ADA_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
     "LIT_USDT:NO_VALID_Q",
     "ONE_USDT:NO_VALID_Q",
     "HOT_USDT:NO_VALID_Q",
@@ -45,11 +46,11 @@
     "HMSTR_USDT:NO_VALID_Q",
     "ACT_USDT:NO_VALID_Q",
     "CLANKER_USDT:NO_VALID_Q",
-    "LINK_USD:INSUFFICIENT_HISTORY:0",
-    "AVAX_USD:INSUFFICIENT_HISTORY:0",
-    "SOL_USD:INSUFFICIENT_HISTORY:0",
-    "DOGE_USD:INSUFFICIENT_HISTORY:0",
-    "SUI_USD:INSUFFICIENT_HISTORY:0",
+    "LINK_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "AVAX_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "SOL_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "DOGE_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "SUI_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
     "USUAL_USDT:NO_VALID_Q",
     "FLUID_USDT:NO_VALID_Q",
     "HYPE_USDT:NO_VALID_Q",
@@ -60,11 +61,11 @@
     "SHELL_USDT:NO_VALID_Q",
     "RED_USDT:NO_VALID_Q",
     "BMT_USDT:NO_VALID_Q",
-    "BTC_USDC:INSUFFICIENT_HISTORY:0",
-    "ETH_USDC:INSUFFICIENT_HISTORY:0",
-    "SOL_USDC:INSUFFICIENT_HISTORY:0",
-    "TRUMP_USDC:INSUFFICIENT_HISTORY:0",
-    "PEPE_USDC:INSUFFICIENT_HISTORY:0"
+    "BTC_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "ETH_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "SOL_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "TRUMP_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "PEPE_USDC:NO_VALID_Q"
   ],
   "execution_long_top": [
     {
@@ -391,7 +392,7 @@
     }
   ],
   "funding_events": [],
-  "history_coverage_pass": false,
+  "history_coverage_pass": true,
   "instrument_count_all": 1152,
   "latest_completed_daily_bar_ms": 1794787200000,
   "lifecycle_counts": {
@@ -401,14 +402,16 @@
   "missing_latest_bar_sample": [],
   "missing_ticker_count": 0,
   "missing_ticker_sample": [],
-  "mode": "PUBLIC_DATA_AND_Q_RANKING_PAPER_ONLY",
+  "mode": "DAILY_CLOSE_RESEARCH_AND_DECISION",
   "orders_submitted": 0,
+  "ordinary_strategy_decisions": false,
   "paper_decision_status": "BLOCKED_STATE_WRITE_GATE",
   "paper_simulation_enabled": false,
   "paper_state_write_requested": false,
   "portfolio": null,
   "private_endpoints_used": false,
   "provider": "mexc",
+  "q_rankings_recalculated": true,
   "research_long_top": [
     {
       "b": 96.99368260653328,
@@ -591,6 +594,7 @@
       "symbol": "INDA_USDT"
     }
   ],
+  "research_refresh_performed": true,
   "research_short_top": [
     {
       "b": 99.50246096016213,
@@ -773,7 +777,7 @@
       "symbol": "FOGO_USDT"
     }
   ],
-  "run_utc": "2026-11-17T00:03:45.502088+00:00",
+  "run_utc": "2026-11-17T00:04:40.590854+00:00",
   "snapshot_partition": "../market-data/data/snapshots/2026-11-17/00.jsonl.gz",
   "state_branch_protection": "PAPER_STATE_WRITES_DISABLED_BY_CONFIGURATION",
   "state_event": null,
@@ -782,5 +786,6 @@
   "ticker_coverage": 1143,
   "trailing_stop_updates": [],
   "unresolved_funding_count": 0,
-  "wallet_used": false
+  "wallet_used": false,
+  "workflow_mode": "DAILY_CLOSE_RESEARCH_AND_DECISION"
 }
