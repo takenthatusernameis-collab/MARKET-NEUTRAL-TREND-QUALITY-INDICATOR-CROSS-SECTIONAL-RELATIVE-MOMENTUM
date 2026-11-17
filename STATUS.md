@@ -261,3 +261,26 @@ The first $10 initialization cycle reports one daily equity observation, so CAGR
 **Final implementation validation:** CI [run 43994339602](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43994339602) on commit `b5311cf83dd30fd6d9ef8c9308ded54e5ce2b458` — Ruff passed; **155 tests passed**. This includes the regression test for serialization and restoration of the frozen daily entry shortlist used by five-minute retries.
 
 **Scheduling evidence:** the workflow YAML contains both `schedule: "*/5 * * * *"` and `workflow_dispatch`. Recent Actions run history through 2026-11-17 01:17 UTC showed successful push-triggered runs, including the independent $10 account restore, but no schedule-originated run. The cron is configured; automatic scheduled execution has not yet been independently observed. The manual launcher is available for immediate starts.
+
+
+
+## 2026-11-17 — Daily equal-notional rebalance and fresh risk window
+
+The daily-close strategy decision now rebalances the selected long and short legs toward equal USDT notional even when the same contracts remain selected.
+
+- Target per leg remains 50% NAV margin at 2× leverage, or approximately 1× NAV notional per leg.
+- A retained contract is resized using only `target_quantity - current_quantity`. Increases add the required quantity; reductions close only the required slice, realize P&L on that slice, allocate entry fees proportionally and leave the remainder open with its original entry identity.
+- When one contract is replaced, only that contract is closed and replaced. The other retained position remains open and is independently resized.
+- If the adjustment is below MEXC's minimum lot or current public depth cannot fill it within the impact limit, no forced trade occurs; the residual imbalance and reason remain reportable.
+- After the pre-rebalance equity/risk check passes, every successful daily pair decision starts a fresh 25% combined drawdown window from post-rebalance NAV. A latched emergency stop or pending flatten cannot be reset. Five-minute pending-entry retries also reset the risk window when they first open the pair.
+
+The event report now includes `rebalance_actions` and `portfolio_daily_risk_reset`. Partial increases/decreases update weighted-average entry price, entry fees, margin, realized P&L, partial realized net P&L and funding watermarks.
+
+### Verification
+
+- Integration regression: an existing 0.8-unit long and 1.2-unit short are moved to 1.0 each by simulating only +0.2 long and -0.2 short. Both original position timestamps remain intact, and no full close event is generated.
+- Accounting tests cover partial realized P&L, entry-fee allocation, margin updates, a new drawdown reference after rebalance, and refusal to reset an emergency latch.
+- CI [run 43995442791](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43995442791) on commit `f8955977feee5e202fdaf6922413dae076513fe0`: Ruff passed; **159 tests passed**.
+- The latest observed MEXC run during implementation remained `PORTFOLIO_SNAPSHOT_ONLY`; the already-open VSTOCK_USDT / BILL_USDT pair was marked and not modified by a daily decision in that snapshot. The new rebalance behaviour is therefore code- and test-verified, but has not yet been exercised by a subsequent completed daily-candle decision in the forward account.
+
+No live orders, private endpoints, credentials or wallet access were introduced.
