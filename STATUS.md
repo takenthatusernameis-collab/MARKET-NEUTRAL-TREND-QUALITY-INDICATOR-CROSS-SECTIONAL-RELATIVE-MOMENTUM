@@ -55,7 +55,7 @@ Romanian derivatives-product/account eligibility has not been independently conf
 | MEXC read-only preflight | Successful hosted-runner integration workflow and UTC daily-bar boundary sample |
 | Five-minute cycle | New MEXC market-data/ranking workflow configured; first cycle completed a 150-instrument bootstrap batch, but its first data-branch commit failed because the branch ignored the data directory. Workflow was changed to force-add public data; a subsequent successful branch commit is still required before treating persistence as operational. |
 
-Latest fully successful CI evidence before the human-readable ticker-reporting test and MEXC per-cycle metadata cache: [run 43976943722](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976943722). A subsequent regression fix removed a duplicate normalized metadata key. Current CI is queued/pending for the latest main revision and must pass before the final code state is called green.
+Historical CI checkpoint (superseded): [run 43976943722](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976943722) predates the subsequent MEXC paper-account activation, partial-rebalance work and later regression tests. Current final CI evidence is recorded in the latest dated section at the bottom of this file.
 
 ## Market-data bootstrap and cadence
 
@@ -69,7 +69,9 @@ Latest fully successful CI evidence before the human-readable ticker-reporting t
 
 The first MEXC data/ranking cycle failed to commit because Git ignored data/. The workflow was corrected to force-add the dedicated public data directory. Successful commits were then verified in runs [43976810498](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976810498) and [43977234937](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43977234937). After widening research to every settlement type, run [43977854892](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43977854892) completed successfully and pushed the new report/data snapshot. It shows 231,692 daily-candle rows, full 1,143/1,143 ticker coverage, zero missing latest completed bars, zero reported API failures, 750 instruments bootstrapped and 393 pending. The ranking is recalculated across whatever instruments have enough valid completed history; it is therefore preliminary until all eligible histories bootstrap. It now prints human-readable tickers and separates all-settlement research lists from the USDT-only executable lists. The full-history gate remains false.
 
-## Portfolio state and no-write gate
+## Historical checkpoint — pre-activation paper-state gate (superseded)
+
+The following checkpoint records an earlier repository state before the paper publisher was enabled and the $10 account was initialized. It is historical, not the current operating state; see the later dated sections below.
 
 **The forward paper account remains uninitialized.**
 
@@ -120,7 +122,7 @@ This section supersedes older cadence, bootstrap and CI statements above.
 
 
 
-## 2026-11-17 — 1 USDT activation readiness and protection blocker
+## Historical 1 USDT activation readiness and protection blocker (superseded after later activation)
 
 **Configured forward seed:** 1 USDT.  
 **Forward paper account:** NOT INITIALIZED.  
@@ -176,7 +178,7 @@ The repository no longer requires state-branch protection, a repository ruleset,
 CI and the first workflow recovery-probe run must be checked after this commit before the account is reported as initialized.
 
 
-## 2026-11-17 — Forward paper account initialized and independently restored
+## 2026-11-17 — Initial 1 USDT generation initialized, then archived
 
 **Final state: INITIALIZED, 1 USDT cash/NAV, flat, paper-only.**
 
