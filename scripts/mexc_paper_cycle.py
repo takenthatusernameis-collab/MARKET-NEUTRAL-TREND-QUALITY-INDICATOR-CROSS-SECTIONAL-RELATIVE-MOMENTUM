@@ -27,6 +27,7 @@ from trend_quality.market_data_store import MarketDataStore
 from trend_quality.mexc_api import MEXCPublicClient
 from trend_quality.mexc_paper import (
     MEXCRankings,
+    base_quantity_rules,
     rank_mexc_universe,
     simulate_mexc_fill,
     size_mexc_leg,
@@ -38,8 +39,11 @@ from trend_quality.mexc_portfolio import (
     apply_confirmed_funding,
     close_paper_position,
     initial_portfolio_state,
+    increase_paper_position,
     open_paper_position,
     portfolio_nav,
+    reduce_paper_position,
+    reset_daily_risk_window,
     stop_is_triggered,
     update_trailing_stop,
 )
@@ -639,9 +643,14 @@ def _try_pair(
     *,
     max_pairs: int = 100,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], tuple[str, str]] | None:
+    """Find a valid pair and simulate only each leg's required quantity delta."""
     nav = portfolio_nav(state, tickers)
     if nav <= 0 or max_pairs < 1:
         return None
+    current_by_id = {
+        int(row["instrument_id"]): row
+        for row in state.get("positions", [])
+    }
     attempted_pairs = 0
     for long_candidate in rankings.executable_longs[:10]:
         for short_candidate in rankings.executable_shorts[:10]:
@@ -655,7 +664,7 @@ def _try_pair(
             proposed: list[dict[str, Any]] = []
             fills: list[dict[str, Any]] = []
             valid = True
-            for _candidate, instrument, side in (
+            for candidate, instrument, side in (
                 (long_candidate, long_instrument, "long"),
                 (short_candidate, short_instrument, "short"),
             ):
@@ -669,36 +678,88 @@ def _try_pair(
                 if mid <= 0:
                     valid = False
                     break
-                quantity = size_mexc_leg(instrument, nav, mid)
-                if quantity <= 0:
+                target_qty = size_mexc_leg(instrument, nav, mid)
+                if target_qty <= 0:
                     valid = False
                     break
-                order_side = "buy" if side == "long" else "sell"
-                try:
-                    simulated, book = _fill(
-                        client, instrument, order_side, quantity, now_ms
+
+                existing = current_by_id.get(iid)
+                retained = existing is not None and existing.get("side") == side
+                current_qty = dec(existing["quantity"]) if retained else Decimal("0")
+                requested_delta = target_qty - current_qty if retained else target_qty
+                executable_delta = requested_delta
+                simulated = None
+                book = None
+                rebalance_constraint = None
+
+                if retained and requested_delta != 0:
+                    _step, minimum_qty, _maximum, _contract_size = (
+                        base_quantity_rules(instrument, mid)
                     )
-                except Exception:
-                    valid = False
-                    break
+                    if abs(requested_delta) < minimum_qty:
+                        executable_delta = Decimal("0")
+                        rebalance_constraint = "DELTA_BELOW_VENUE_MINIMUM"
+                    else:
+                        entry_order_side = "buy" if side == "long" else "sell"
+                        order_side = (
+                            entry_order_side
+                            if requested_delta > 0
+                            else ("sell" if entry_order_side == "buy" else "buy")
+                        )
+                        try:
+                            simulated, book = _fill(
+                                client, instrument, order_side,
+                                abs(requested_delta), now_ms,
+                            )
+                        except Exception as exc:
+                            # Retaining a valid existing contract is preferable
+                            # to liquidating it just because a small rebalance
+                            # delta cannot currently be filled from public depth.
+                            executable_delta = Decimal("0")
+                            rebalance_constraint = (
+                                f"DELTA_FILL_UNAVAILABLE:{type(exc).__name__}"
+                            )
+                else:
+                    order_side = "buy" if side == "long" else "sell"
+                    try:
+                        simulated, book = _fill(
+                            client, instrument, order_side, target_qty, now_ms
+                        )
+                    except Exception:
+                        valid = False
+                        break
+
                 proposed.append({
                     "instrument": instrument,
                     "ticker": ticker,
                     "side": side,
                     "atr": atr,
                     "fill": simulated,
+                    "target_quantity": str(target_qty),
+                    "current_quantity": str(current_qty),
+                    "quantity_delta": str(executable_delta),
+                    "retained_position": retained,
+                    "rebalance_constraint": rebalance_constraint,
                 })
-                fills.append({
-                    "instrument_id": iid,
-                    "symbol": instrument["symbol"],
-                    "side": side,
-                    "quantity_base": str(simulated.filled_quantity),
-                    "entry_price": str(simulated.average_price),
-                    "notional_usdt": str(simulated.notional),
-                    "fee_usdt": str(simulated.fee),
-                    "shortfall_bps": str(simulated.shortfall_bps),
-                    "book_timestamp_ms": book["timestamp_ms"],
-                })
+                if simulated is not None and book is not None:
+                    action = (
+                        "OPEN" if not retained
+                        else "INCREASE" if executable_delta > 0
+                        else "REDUCE"
+                    )
+                    fills.append({
+                        "instrument_id": iid,
+                        "symbol": instrument["symbol"],
+                        "side": side,
+                        "action": action,
+                        "quantity_base": str(simulated.filled_quantity),
+                        "quantity_delta": str(executable_delta),
+                        "entry_or_exit_price": str(simulated.average_price),
+                        "notional_usdt": str(simulated.notional),
+                        "fee_usdt": str(simulated.fee),
+                        "shortfall_bps": str(simulated.shortfall_bps),
+                        "book_timestamp_ms": book["timestamp_ms"],
+                    })
             if valid and len(proposed) == 2:
                 return proposed, fills, (
                     long_candidate.symbol,
@@ -706,6 +767,108 @@ def _try_pair(
                 )
     return None
 
+
+def _apply_selected_pair(
+    client: MEXCPublicClient,
+    state: dict[str, Any],
+    proposed: list[dict[str, Any]],
+    instruments_by_id: dict[int, dict[str, Any]],
+    now_ms: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Replace only changed contracts and resize retained legs by the needed delta."""
+    trial = deepcopy(state)
+    close_details: list[dict[str, Any]] = []
+    resize_details: list[dict[str, Any]] = []
+    wanted = {
+        (int(row["instrument"]["instrument_id"]), str(row["side"]))
+        for row in proposed
+    }
+
+    for position in list(trial.get("positions", [])):
+        key = (int(position["instrument_id"]), str(position["side"]))
+        if key in wanted:
+            continue
+        instrument = instruments_by_id.get(key[0])
+        if instrument is None:
+            raise RuntimeError(
+                f"Cannot replace missing MEXC instrument {position['symbol']}"
+            )
+        quantity = dec(position["quantity"])
+        order_side = "sell" if key[1] == "long" else "buy"
+        simulated, _ = _fill(
+            client, instrument, order_side, quantity, now_ms
+        )
+        close_details.append(
+            close_paper_position(trial, position, simulated, now_ms)
+        )
+
+    for row in proposed:
+        instrument = row["instrument"]
+        iid = int(instrument["instrument_id"])
+        side = str(row["side"])
+        existing = next(
+            (
+                position for position in trial.get("positions", [])
+                if int(position["instrument_id"]) == iid
+                and str(position["side"]) == side
+            ),
+            None,
+        )
+        delta = dec(row["quantity_delta"])
+        simulated = row.get("fill")
+        if existing is None:
+            if simulated is None or delta <= 0:
+                raise RuntimeError(
+                    f"Missing full entry fill for new paper position {instrument['symbol']}"
+                )
+            resize_details.append(open_paper_position(
+                trial,
+                instrument,
+                row["ticker"],
+                side,
+                row["atr"],
+                simulated,
+                now_ms,
+                stop_atr_multiple=STOP_ATR_MULTIPLE,
+            ) | {"action": "OPENED"})
+        elif delta > 0:
+            if simulated is None:
+                raise RuntimeError(
+                    f"Missing incremental fill for {instrument['symbol']} increase"
+                )
+            resize_details.append(increase_paper_position(
+                trial,
+                existing,
+                instrument,
+                row["ticker"],
+                row["atr"],
+                simulated,
+                now_ms,
+                stop_atr_multiple=STOP_ATR_MULTIPLE,
+            ))
+        elif delta < 0:
+            if simulated is None:
+                raise RuntimeError(
+                    f"Missing incremental fill for {instrument['symbol']} reduction"
+                )
+            resize_details.append(reduce_paper_position(
+                trial, existing, simulated, now_ms
+            ))
+        elif row.get("rebalance_constraint"):
+            resize_details.append({
+                "instrument_id": iid,
+                "symbol": instrument["symbol"],
+                "side": side,
+                "action": "REBALANCE_UNCHANGED",
+                "quantity_delta": "0",
+                "constraint": row["rebalance_constraint"],
+                "current_quantity": row["current_quantity"],
+                "target_quantity": row["target_quantity"],
+            })
+
+    state.clear()
+    state.update(trial)
+    return close_details, resize_details
 
 def _close_all(
     client: MEXCPublicClient,
