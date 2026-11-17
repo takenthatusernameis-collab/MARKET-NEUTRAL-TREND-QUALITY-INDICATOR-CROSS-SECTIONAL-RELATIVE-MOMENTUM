@@ -383,7 +383,7 @@ def test_successful_daily_rebalance_resets_drawdown_baseline_but_not_lifetime_cu
     assert after_reset["daily_drawdown_pct"] == "-25.00"
     assert after_reset["drawdown_window_starting_nav"] == "85"
     assert after_reset["daily_starting_nav"] == "100"
-    assert after_reset["daily_return_pct"] == "-36.25"
+    assert Decimal(after_reset["daily_return_pct"]) == Decimal("-36.25")
     assert after_reset["emergency_stop_newly_triggered"]
     assert lifetime_max_drawdown(state) == Decimal("-0.3625")
 
