@@ -33,6 +33,7 @@ jobs:
       PAPER_STATE_WRITE_ENABLED: "false"
       GITHUB_REPOSITORY: ${{ github.repository }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      STATE_PROTECTION_TOKEN: ${{ secrets.STATE_PROTECTION_TOKEN }}
     steps:
       - name: Check out strategy source
         uses: actions/checkout@v4
