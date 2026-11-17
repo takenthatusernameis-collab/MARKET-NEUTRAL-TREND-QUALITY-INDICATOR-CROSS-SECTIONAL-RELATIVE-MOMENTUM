@@ -7,16 +7,16 @@ from typing import Any
 
 from trend_quality.execution import SimulatedFill
 from trend_quality.indicators import QObservation
-from trend_quality.mexc_portfolio import (
-    initial_portfolio_state,
-    open_paper_position,
-)
 from trend_quality.mexc_paper import (
     MEXCRankings,
     mexc_book_levels,
     rank_mexc_universe,
     simulate_mexc_fill,
     size_mexc_leg,
+)
+from trend_quality.mexc_portfolio import (
+    initial_portfolio_state,
+    open_paper_position,
 )
 from trend_quality.ranking import Candidate
 
