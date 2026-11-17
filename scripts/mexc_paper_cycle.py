@@ -31,6 +31,7 @@ from trend_quality.mexc_paper import (
     simulate_mexc_fill,
     size_mexc_leg,
 )
+from trend_quality.ranking import Candidate
 from trend_quality.mexc_portfolio import (
     account_report,
     append_daily_equity,
@@ -49,9 +50,9 @@ BOOTSTRAP_DAYS = 365
 DEFAULT_BOOTSTRAP_BATCH_SIZE = 150
 MAX_SHORTFALL_BPS = Decimal("10")
 STOP_ATR_MULTIPLE = Decimal("3")
-INITIAL_CAPITAL = Decimal("1")
-ACCOUNT_ID = "mexc-usdt-forward"
-STRATEGY_ID = "trend-quality-daily-cross-sectional-v1"
+INITIAL_CAPITAL = Decimal("10")
+ACCOUNT_ID = "mexc-usdt-forward-10usdt-v2"
+STRATEGY_ID = "trend-quality-daily-cross-sectional-v2-10usdt"
 
 
 def dec(value: object, default: str = "0") -> Decimal:
@@ -178,6 +179,151 @@ def _ranking_report_rows(
             row["b"] = str(candidate.b)
         rows.append(row)
     return rows
+
+
+def _pending_entry_signal(
+    rankings: MEXCRankings,
+    daily_bar_timestamp_ms: int,
+) -> dict[str, Any] | None:
+    """Persist the candle-stamped execution shortlist for five-minute retries."""
+    def encode(candidates: list[Candidate]) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for candidate in candidates[:10]:
+            instrument = rankings.instruments_by_key.get(candidate.symbol)
+            if instrument is None:
+                continue
+            rows.append({
+                "candidate_key": candidate.symbol,
+                "instrument_id": int(instrument["instrument_id"]),
+                "q": str(candidate.q),
+                "b": None if candidate.b is None else str(candidate.b),
+                "direction": candidate.direction,
+                "cycle_age": candidate.cycle_age,
+                "semi_cycle_direction": candidate.semi_cycle_direction,
+            })
+        return rows
+
+    longs = encode(rankings.executable_longs)
+    shorts = encode(rankings.executable_shorts)
+    if not longs or not shorts:
+        return None
+    return {
+        "daily_bar_timestamp_ms": int(daily_bar_timestamp_ms),
+        "attempt_count": 0,
+        "last_attempt_ms": None,
+        "executable_longs": longs,
+        "executable_shorts": shorts,
+    }
+
+
+def _restore_pending_rankings(
+    pending: dict[str, Any],
+    manifest_instruments: dict[str, dict[str, Any]],
+) -> MEXCRankings | None:
+    """Rehydrate the frozen daily ranking without recalculating Q."""
+    instruments_by_key: dict[str, dict[str, Any]] = {}
+
+    def decode(side: str) -> list[Candidate]:
+        rows: list[Candidate] = []
+        for item in pending.get(side, []):
+            iid = int(item["instrument_id"])
+            instrument = manifest_instruments.get(str(iid))
+            if instrument is None:
+                continue
+            key = str(item["candidate_key"])
+            instruments_by_key[key] = instrument
+            b_value = item.get("b")
+            rows.append(Candidate(
+                symbol=key,
+                q=float(item["q"]),
+                b=None if b_value is None else float(b_value),
+                direction=str(item["direction"]),
+                cycle_age=(
+                    None if item.get("cycle_age") is None else int(item["cycle_age"])
+                ),
+                semi_cycle_direction=item.get("semi_cycle_direction"),
+            ))
+        return rows
+
+    longs = decode("executable_longs")
+    shorts = decode("executable_shorts")
+    if not longs or not shorts:
+        return None
+    return MEXCRankings(
+        research_longs=longs,
+        research_shorts=shorts,
+        executable_longs=longs,
+        executable_shorts=shorts,
+        instruments_by_key=instruments_by_key,
+        excluded=[],
+    )
+
+
+def _minimum_order_size_diagnostics(
+    instruments: list[dict[str, Any]],
+    ticker_by_id: dict[int, dict[str, Any]],
+) -> dict[str, Any]:
+    """Measure minVol × contractSize × live mid-price for USDT contracts."""
+    notionals: list[Decimal] = []
+    affordable = {"1": 0, "10": 0}
+    evaluated = 0
+    for instrument in instruments:
+        if not instrument.get("usdt_account_eligible"):
+            continue
+        iid = int(instrument["instrument_id"])
+        ticker = ticker_by_id.get(iid)
+        if ticker is None:
+            continue
+        mid = dec(ticker.get("mid_price"))
+        if mid <= 0:
+            continue
+        minimum_base = (
+            dec(instrument.get("min_contracts"))
+            * dec(instrument.get("contract_size"))
+        )
+        notionals.append(minimum_base * mid)
+        evaluated += 1
+        for capital in ("1", "10"):
+            try:
+                quantity = size_mexc_leg(instrument, Decimal(capital), mid)
+            except Exception:
+                quantity = Decimal("0")
+            if quantity > 0:
+                affordable[capital] += 1
+
+    if not notionals:
+        return {"status": "NO_CURRENT_USDT_TICKERS", "evaluated_contracts": 0}
+    ordered = sorted(notionals)
+
+    def percentile(fraction: float) -> str:
+        index = min(len(ordered) - 1, max(0, int((len(ordered) - 1) * fraction)))
+        return str(ordered[index])
+
+    return {
+        "status": "MEASURED_FROM_CURRENT_PUBLIC_TICKERS",
+        "evaluated_contracts": evaluated,
+        "minimum_order_notional_usdt": {
+            "p10": percentile(0.10),
+            "median": percentile(0.50),
+            "p75": percentile(0.75),
+            "p90": percentile(0.90),
+            "maximum": str(ordered[-1]),
+        },
+        "contracts_satisfying_minimum_quantity_and_step": {
+            "at_1_usdt_per_leg": affordable["1"],
+            "at_10_usdt_per_leg": affordable["10"],
+        },
+        "contracts_with_minimum_notional_above_1_usdt": sum(
+            value > Decimal("1") for value in notionals
+        ),
+        "contracts_with_minimum_notional_above_10_usdt": sum(
+            value > Decimal("10") for value in notionals
+        ),
+        "scope_note": (
+            "Minimum quantity and lot-step affordability only; turnover, book depth, "
+            "fees and shortfall remain separate execution gates."
+        ),
+    }
 
 
 def _snapshot_rows(
@@ -490,12 +636,18 @@ def _try_pair(
     tickers: dict[int, dict[str, Any]],
     state: dict[str, Any],
     now_ms: int,
+    *,
+    max_pairs: int = 100,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], tuple[str, str]] | None:
     nav = portfolio_nav(state, tickers)
-    if nav <= 0:
+    if nav <= 0 or max_pairs < 1:
         return None
+    attempted_pairs = 0
     for long_candidate in rankings.executable_longs[:10]:
         for short_candidate in rankings.executable_shorts[:10]:
+            if attempted_pairs >= max_pairs:
+                return None
+            attempted_pairs += 1
             if long_candidate.symbol == short_candidate.symbol:
                 continue
             long_instrument = rankings.instruments_by_key[long_candidate.symbol]
@@ -732,9 +884,97 @@ def _snapshot_only_cycle(
     unresolved_funding = 0
     risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
     state_changed = False
+    entry_retry_report: dict[str, Any] | None = None
 
     if portfolio is not None:
         positions = list(portfolio.get("positions", []))
+        pending_entry = portfolio.get("pending_entry_signal")
+        if (
+            writer_enabled
+            and not positions
+            and isinstance(pending_entry, dict)
+            and int(pending_entry.get("daily_bar_timestamp_ms", 0)) == latest_bar_ms
+            and not portfolio.get("daily_risk", {}).get("stop_triggered")
+            and not portfolio.get("emergency_liquidation_pending")
+        ):
+            retry_rankings = _restore_pending_rankings(
+                pending_entry, store.manifest.get("instruments", {})
+            )
+            if retry_rankings is not None:
+                retry_instruments = list(retry_rankings.instruments_by_key.values())
+                retry_tickers, retry_missing = _ticker_maps(
+                    retry_instruments, client.tickers()
+                )
+                if retry_missing:
+                    entry_retry_report = {
+                        "status": "RETRY_BLOCKED_MISSING_TICKER",
+                        "missing_instrument_ids": retry_missing,
+                        "daily_bar_timestamp_ms": latest_bar_ms,
+                    }
+                else:
+                    retry_history = store.load_all_candles(
+                        start_timestamp_ms=max(0, server_ms - BOOTSTRAP_DAYS * DAY_MS)
+                    )
+                    pair = _try_pair(
+                        client,
+                        retry_rankings,
+                        retry_history,
+                        retry_tickers,
+                        portfolio,
+                        server_ms,
+                        max_pairs=5,
+                    )
+                    pending_entry["attempt_count"] = (
+                        int(pending_entry.get("attempt_count", 0)) + 1
+                    )
+                    pending_entry["last_attempt_ms"] = server_ms
+                    if pair is None:
+                        entry_retry_report = {
+                            "status": "RETRY_NO_EXECUTABLE_PAIR",
+                            "daily_bar_timestamp_ms": latest_bar_ms,
+                            "attempt_count": pending_entry["attempt_count"],
+                            "pairs_checked_this_run": 5,
+                        }
+                    else:
+                        proposed, retry_fills, pair_symbols = pair
+                        trial = deepcopy(portfolio)
+                        opened: list[dict[str, Any]] = []
+                        for row in proposed:
+                            opened.append(open_paper_position(
+                                trial,
+                                row["instrument"],
+                                row["ticker"],
+                                row["side"],
+                                row["atr"],
+                                row["fill"],
+                                server_ms,
+                                stop_atr_multiple=STOP_ATR_MULTIPLE,
+                            ))
+                        trial["positions"] = opened
+                        trial["pending_entry_signal"] = None
+                        portfolio.clear()
+                        portfolio.update(trial)
+                        positions = list(portfolio.get("positions", []))
+                        entry_retry_report = {
+                            "status": "RETRY_PAIR_OPENED",
+                            "daily_bar_timestamp_ms": latest_bar_ms,
+                            "attempt_count": pending_entry["attempt_count"],
+                            "pair": list(pair_symbols),
+                            "fills": retry_fills,
+                        }
+                    state_changed = True
+        elif (
+            writer_enabled
+            and isinstance(pending_entry, dict)
+            and int(pending_entry.get("daily_bar_timestamp_ms", 0)) < latest_bar_ms
+        ):
+            portfolio["pending_entry_signal"] = None
+            entry_retry_report = {
+                "status": "PENDING_SIGNAL_EXPIRED_ON_NEW_DAILY_CANDLE",
+                "daily_bar_timestamp_ms": latest_bar_ms,
+            }
+            state_changed = True
+
         if positions:
             ticker_rows = client.tickers()
             ticker_by_symbol = {str(row["symbol"]): row for row in ticker_rows}
@@ -865,13 +1105,17 @@ def _snapshot_only_cycle(
                 "funding_events": funding_events,
                 "unresolved_funding_count": unresolved_funding,
                 "missing_position_marks": missing_symbols,
-                "ordinary_strategy_decisions": False,
+                "ordinary_strategy_decisions": entry_retry_report is not None,
+                "entry_retry": entry_retry_report,
                 "live_orders_submitted": 0,
             }
             state_event = _publish_event(
                 portfolio,
                 details,
-                "paper_portfolio_snapshot",
+                (
+                    "paper_entry_retry" if entry_retry_report is not None
+                    else "paper_portfolio_snapshot"
+                ),
                 f"snapshot-{server_ms}",
                 server_ms,
                 previous_hash,
@@ -928,7 +1172,10 @@ def _snapshot_only_cycle(
             else "NOT_INITIALIZED"
         ),
         "state_write_mode": state_write_mode,
-        "paper_decision_status": risk_status,
+        "paper_decision_status": (
+            entry_retry_report["status"] if entry_retry_report is not None else risk_status
+        ),
+        "entry_retry": entry_retry_report,
         "ticker_coverage": len(ticker_by_id),
         "missing_ticker_count": len(missing_symbols),
         "missing_position_marks": missing_symbols,
@@ -1038,7 +1285,9 @@ def _run() -> int:
     )
     portfolio = previous_state
     if account_initialization_due:
-        portfolio = initial_portfolio_state(INITIAL_CAPITAL)
+        portfolio = initial_portfolio_state(
+            INITIAL_CAPITAL, account_id=ACCOUNT_ID, strategy_id=STRATEGY_ID
+        )
     elif portfolio is not None and portfolio.get("currency") != "USDT":
         raise RuntimeError("Existing paper account currency is not USDT")
 
@@ -1253,6 +1502,9 @@ def _run() -> int:
             and not portfolio.get("emergency_liquidation_pending")
             and not position_mark_gaps
         ):
+            portfolio["pending_entry_signal"] = _pending_entry_signal(
+                rankings, latest_bar_ms
+            )
             pair = (
                 _try_pair(
                     client,
@@ -1277,6 +1529,7 @@ def _run() -> int:
                 for row in portfolio.get("positions", [])
             }
             if current == wanted and current:
+                portfolio["pending_entry_signal"] = None
                 paper_decision_status = "PAIR_HELD"
             else:
                 trial = deepcopy(portfolio)
@@ -1301,6 +1554,8 @@ def _run() -> int:
                             opened.append(position)
                     trial["positions"] = opened
                     portfolio = trial
+                    if opened:
+                        portfolio["pending_entry_signal"] = None
                     fills = closed + fills
                     paper_decision_status = (
                         "PAIR_OPENED_OR_REPLACED"
@@ -1453,6 +1708,11 @@ def _run() -> int:
         "api_failure_count": len(api_failures),
         "api_failure_sample": api_failures[:20],
         "history_coverage_pass": history_coverage_pass,
+        "minimum_order_size_diagnostics": _minimum_order_size_diagnostics(
+            instruments, ticker_by_id
+        ),
+        "initial_capital_usdt": str(INITIAL_CAPITAL),
+        "account_id": ACCOUNT_ID,
         "research_long_top": _ranking_report_rows(
             rankings.research_longs[:20], rankings.instruments_by_key
         ),
