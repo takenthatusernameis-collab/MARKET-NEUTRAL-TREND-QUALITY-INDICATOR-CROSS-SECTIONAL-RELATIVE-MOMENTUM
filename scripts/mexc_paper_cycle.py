@@ -408,6 +408,8 @@ def _state_branch_protection(
         return False, "STATE_BRANCH_FORCE_PUSH_PROHIBITION_NOT_CONFIRMED"
     if (protection.get("allow_deletions") or {}).get("enabled") is not False:
         return False, "STATE_BRANCH_DELETION_PROHIBITION_NOT_CONFIRMED"
+    if (protection.get("required_linear_history") or {}).get("enabled") is not True:
+        return False, "STATE_BRANCH_LINEAR_HISTORY_NOT_ENFORCED"
     restrictions = protection.get("restrictions")
     if not isinstance(restrictions, dict) or not any(
         restrictions.get(key) for key in ("users", "teams", "apps")
