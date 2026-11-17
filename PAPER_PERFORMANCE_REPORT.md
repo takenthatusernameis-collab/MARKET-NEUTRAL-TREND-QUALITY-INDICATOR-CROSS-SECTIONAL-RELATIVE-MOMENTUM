@@ -64,7 +64,9 @@ Lifetime drawdown trough: 2026-11-17 14:19:07.961 UTC (NAV 9.63749972 USDT).
 
 All persisted mark-to-market observations (19 points):
 
-Sparkline: ▇▇▇▇▇▇▇▇█▇▇▇▇▃▄▄▁▆▆
+![Trend-Quality paper portfolio equity curve](equity_curve.svg)
+
+The SVG uses the same hash-chain-verified mark-to-market NAV observations shown in the full history below. The dashed line marks original account capital.
 
 Observed NAV range: 9.63749972 to 10.02969460 USDT.
 Daily-equity observations: 1; daily metric status: INSUFFICIENT_DAILY_EQUITY_HISTORY (1 daily return observations).
