@@ -272,7 +272,7 @@ The daily-close strategy decision now rebalances the selected long and short leg
 - A retained contract is resized using only `target_quantity - current_quantity`. Increases add the required quantity; reductions close only the required slice, realize P&L on that slice, allocate entry fees proportionally and leave the remainder open with its original entry identity.
 - When one contract is replaced, only that contract is closed and replaced. The other retained position remains open and is independently resized.
 - If the adjustment is below MEXC's minimum lot or current public depth cannot fill it within the impact limit, no forced trade occurs; the residual imbalance and reason remain reportable.
-- After the pre-rebalance equity/risk check passes, every successful daily pair decision starts a fresh 25% combined drawdown window from post-rebalance NAV. A latched emergency stop or pending flatten cannot be reset. Five-minute pending-entry retries also reset the risk window when they first open the pair.
+- After the pre-rebalance equity/risk check passes, every successful daily pair decision starts a fresh 25% combined drawdown window from post-rebalance NAV. The separate daily-return metric remains anchored to UTC-day opening NAV, even after a delayed rebalance. A latched emergency stop or pending flatten cannot be reset. Five-minute pending-entry retries also reset the drawdown window when they first open the pair.
 
 The event report now includes `rebalance_actions` and `portfolio_daily_risk_reset`. Partial increases/decreases update weighted-average entry price, entry fees, margin, realized P&L, partial realized net P&L and funding watermarks.
 
@@ -280,7 +280,7 @@ The event report now includes `rebalance_actions` and `portfolio_daily_risk_rese
 
 - Integration regression: an existing 0.8-unit long and 1.2-unit short are moved to 1.0 each by simulating only +0.2 long and -0.2 short. Both original position timestamps remain intact, and no full close event is generated.
 - Accounting tests cover partial realized P&L, entry-fee allocation, margin updates, a new drawdown reference after rebalance, and refusal to reset an emergency latch.
-- CI [run 43995442791](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43995442791) on commit `f8955977feee5e202fdaf6922413dae076513fe0`: Ruff passed; **159 tests passed**.
+- Final CI [run 43995767758](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43995767758) on commit `6b3fd06022be1f590e04686e853a268c37357e8d`: Ruff passed; **159 tests passed**, including preservation of the UTC daily-return reference after a drawdown-window reset.
 - The latest observed MEXC run during implementation remained `PORTFOLIO_SNAPSHOT_ONLY`; the already-open VSTOCK_USDT / BILL_USDT pair was marked and not modified by a daily decision in that snapshot. The new rebalance behaviour is therefore code- and test-verified, but has not yet been exercised by a subsequent completed daily-candle decision in the forward account.
 
 No live orders, private endpoints, credentials or wallet access were introduced.
