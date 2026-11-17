@@ -471,7 +471,10 @@ def account_report(
         "short_margin_used_usdt": str(short_margin),
         "total_margin_used_usdt": str(long_margin + short_margin),
         "effective_gross_leverage": str(exposure["gross_exposure"]),
-        "roi_pct": str((nav / _decimal(state["initial_capital"], "initial capital") - ONE) * Decimal("100")),
+        "roi_pct": str(
+            (nav / _decimal(state["initial_capital"], "initial capital") - ONE)
+            * Decimal("100")
+        ),
         "lifetime_max_drawdown_pct": (
             None if lifetime_max_drawdown(state) is None
             else str(lifetime_max_drawdown(state) * Decimal("100"))
