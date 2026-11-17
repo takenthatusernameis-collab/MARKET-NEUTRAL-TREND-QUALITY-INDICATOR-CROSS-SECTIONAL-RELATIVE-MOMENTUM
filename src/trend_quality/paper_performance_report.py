@@ -779,8 +779,8 @@ def render_performance_report(
         "",
         "![Trend-Quality paper portfolio equity curve](equity_curve.svg)",
         "",
-        "The SVG uses the same hash-chain-verified mark-to-market NAV observations shown in the full history below. "
-        "The dashed line marks original account capital.",
+        "The SVG uses the same hash-chain-verified mark-to-market NAV observations "
+        "shown in the full history below. The dashed line marks original account capital.",
         "",
         f"Observed NAV range: {_money(min(curve_values)) if curve_values else '—'} to "
         f"{_money(max(curve_values)) if curve_values else '—'} USDT.",
