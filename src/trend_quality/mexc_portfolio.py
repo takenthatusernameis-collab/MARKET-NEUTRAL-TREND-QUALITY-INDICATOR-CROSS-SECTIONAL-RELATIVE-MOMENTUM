@@ -15,7 +15,7 @@ from .portfolio import Position, funding_cashflow, portfolio_exposure
 
 ZERO = Decimal("0")
 ONE = Decimal("1")
-DEFAULT_INITIAL_CAPITAL = Decimal("1")
+DEFAULT_INITIAL_CAPITAL = Decimal("10")
 DEFAULT_DAILY_DRAWDOWN_LIMIT = Decimal("0.25")
 DEFAULT_LEVERAGE = Decimal("2")
 
@@ -32,13 +32,16 @@ def _decimal(value: object, field: str) -> Decimal:
 
 def initial_portfolio_state(
     initial_capital: Decimal = DEFAULT_INITIAL_CAPITAL,
+    *,
+    account_id: str = "mexc-usdt-forward-10usdt-v2",
+    strategy_id: str = "trend-quality-daily-cross-sectional-v2-10usdt",
 ) -> dict[str, Any]:
     if not initial_capital.is_finite() or initial_capital <= ZERO:
         raise ValueError("Initial capital must be finite and positive")
     return {
         "schema_version": 1,
-        "account_id": "mexc-usdt-forward",
-        "strategy_id": "trend-quality-daily-cross-sectional-v1",
+        "account_id": account_id,
+        "strategy_id": strategy_id,
         "currency": "USDT",
         "initial_capital": str(initial_capital),
         "cash": str(initial_capital),
