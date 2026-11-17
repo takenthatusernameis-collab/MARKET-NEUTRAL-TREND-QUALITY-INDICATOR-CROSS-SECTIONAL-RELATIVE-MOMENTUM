@@ -138,6 +138,7 @@ def test_state_branch_protection_reads_separate_admin_endpoint(monkeypatch) -> N
                 "enforce_admins": {"enabled": True},
                 "allow_force_pushes": {"enabled": False},
                 "allow_deletions": {"enabled": False},
+                "required_linear_history": {"enabled": True},
                 "restrictions": {"users": [], "teams": [], "apps": [
                     {"slug": "github-actions"}
                 ]},
@@ -159,6 +160,47 @@ def test_state_branch_protection_reads_separate_admin_endpoint(monkeypatch) -> N
             "Bearer admin-read-token",
         ),
     ]
+
+
+def test_state_branch_protection_fails_closed_without_linear_history(monkeypatch) -> None:
+    import json
+    import urllib.request
+
+    cycle = load_cycle_module()
+    monkeypatch.setenv("STATE_PROTECTION_TOKEN", "admin-read-token")
+
+    class FakeResponse:
+        def __init__(self, value: dict[str, object]) -> None:
+            self.value = value
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self, _limit: int) -> bytes:
+            return json.dumps(self.value).encode("utf-8")
+
+    def fake_urlopen(request, timeout: int):
+        value = (
+            {"protected": True}
+            if request.full_url.endswith("/branches/state")
+            else {
+                "enforce_admins": {"enabled": True},
+                "allow_force_pushes": {"enabled": False},
+                "allow_deletions": {"enabled": False},
+                "required_linear_history": {"enabled": False},
+                "restrictions": {"apps": [{"slug": "github-actions"}]},
+            }
+        )
+        return FakeResponse(value)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert cycle._state_branch_protection("owner/repo", "contents-token") == (
+        False,
+        "STATE_BRANCH_LINEAR_HISTORY_NOT_ENFORCED",
+    )
 
 
 def test_state_branch_protection_fails_closed_when_force_push_is_allowed(monkeypatch) -> None:
