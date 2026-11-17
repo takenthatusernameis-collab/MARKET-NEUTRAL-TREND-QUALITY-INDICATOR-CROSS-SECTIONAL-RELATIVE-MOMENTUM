@@ -49909,9 +49909,9 @@
   "last_daily_workflow_bar_ms": 1794787200000,
   "last_processed_daily_bar_ms": null,
   "last_research_daily_bar_ms": 1794787200000,
-  "last_snapshot_ms": 1794874109862,
+  "last_snapshot_ms": 1794874154708,
   "provider": "mexc",
   "schema_version": 1,
   "selected_provider": "mexc",
-  "updated_at_ms": 1794874109862
+  "updated_at_ms": 1794874154708
 }
