@@ -715,6 +715,7 @@ def _snapshot_only_cycle(
     writer_enabled: bool,
     writer_requested: bool,
     state_write_mode: str,
+    paper_account_restored_from_state_branch: bool,
     previous_hash: str | None,
     latest_bar_ms: int,
     server_ms: int,
@@ -920,6 +921,12 @@ def _snapshot_only_cycle(
         "ordinary_strategy_decisions": False,
         "paper_state_write_requested": writer_requested,
         "paper_simulation_enabled": writer_enabled,
+        "paper_account_restored_from_state_branch": paper_account_restored_from_state_branch,
+        "paper_account_recovery_status": (
+            "RESTORED_FROM_VERIFIED_EVENT_CHAIN"
+            if paper_account_restored_from_state_branch
+            else "NOT_INITIALIZED"
+        ),
         "state_write_mode": state_write_mode,
         "paper_decision_status": risk_status,
         "ticker_coverage": len(ticker_by_id),
@@ -1066,6 +1073,7 @@ def _run() -> int:
             writer_enabled=writer_enabled,
             writer_requested=writer_requested,
             state_write_mode=state_write_mode,
+            paper_account_restored_from_state_branch=previous_state is not None,
             previous_hash=previous_hash,
             latest_bar_ms=latest_bar_ms,
             server_ms=server_ms,
@@ -1408,6 +1416,16 @@ def _run() -> int:
         "q_rankings_recalculated": True,
         "ordinary_strategy_decisions": bool(writer_enabled),
         "state_recovery_probe_verified_from_prior_checkout": recovery_probe_verified,
+        "paper_account_restored_from_state_branch": previous_state is not None,
+        "paper_account_recovery_status": (
+            "RESTORED_FROM_VERIFIED_EVENT_CHAIN"
+            if previous_state is not None
+            else (
+                "INITIALIZED_THIS_CYCLE"
+                if account_initialization_due
+                else "NOT_INITIALIZED"
+            )
+        ),
         "paper_account_initialized_this_cycle": account_initialization_due,
         "paper_account_initial_capital_usdt": (
             str(INITIAL_CAPITAL) if account_initialization_due else None

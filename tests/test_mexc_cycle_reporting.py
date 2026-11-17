@@ -239,3 +239,72 @@ def test_recovery_probe_with_orders_does_not_unlock_initialization(tmp_path) -> 
     portfolio, _previous_hash, recovered = cycle._load_state(tmp_path)
     assert portfolio is None
     assert recovered is False
+
+
+def test_initialized_paper_account_restores_from_probe_chained_state(tmp_path) -> None:
+    from trend_quality.event_journal import build_event_batch, write_batch_atomic
+
+    cycle = load_cycle_module()
+    stamp = 1_800_000_000_000
+    probe_event = {
+        "event_id": "probe-before-init",
+        "idempotency_key": "probe-before-init",
+        "account_id": cycle.ACCOUNT_ID,
+        "strategy_id": cycle.STRATEGY_ID,
+        "occurred_at_ms": stamp,
+        "event_type": "paper_state_recovery_probe",
+        "payload": {
+            "details": {
+                "protocol": "PUBLISH_READBACK_THEN_FRESH_CHECKOUT",
+                "financial_state_created": False,
+                "account_initialized": False,
+                "orders_submitted": 0,
+            }
+        },
+    }
+    probe = build_event_batch("probe-before-init", stamp, [probe_event])
+    write_batch_atomic(tmp_path, probe)
+
+    initialized_state = {
+        "account_id": cycle.ACCOUNT_ID,
+        "currency": "USDT",
+        "initial_capital": "1",
+        "cash": "1",
+        "positions": [],
+        "status": "INITIALIZED_PAPER_ONLY",
+    }
+    init_event = {
+        "event_id": "init-after-probe",
+        "idempotency_key": "init-after-probe",
+        "account_id": cycle.ACCOUNT_ID,
+        "strategy_id": cycle.STRATEGY_ID,
+        "occurred_at_ms": stamp + 1,
+        "event_type": "paper_account_initialized",
+        "payload": {
+            "portfolio_state": initialized_state,
+            "details": {
+                "account_initialization": {
+                    "initial_capital_usdt": "1",
+                    "starting_cash_usdt": "1",
+                    "account_mode": "FORWARD_PAPER_ONLY",
+                    "historical_equity_imported": False,
+                    "historical_trades_imported": False,
+                }
+            },
+        },
+    }
+    init_batch = build_event_batch(
+        "init-after-probe",
+        stamp + 1,
+        [init_event],
+        previous_batch_hash=str(probe["batch_hash"]),
+    )
+    write_batch_atomic(tmp_path, init_batch)
+
+    restored, latest_hash, probe_verified = cycle._load_state(tmp_path)
+
+    assert restored == initialized_state
+    assert latest_hash == init_batch["batch_hash"]
+    assert probe_verified is True
+
+
