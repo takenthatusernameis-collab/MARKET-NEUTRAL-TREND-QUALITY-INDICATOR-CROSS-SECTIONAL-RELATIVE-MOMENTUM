@@ -52,7 +52,7 @@ def btc_instrument() -> dict[str, object]:
 
 
 def test_open_mark_close_accounts_pnl_and_both_fees_once() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     position = open_paper_position(
         state,
         btc_instrument(),
@@ -82,7 +82,7 @@ def test_open_mark_close_accounts_pnl_and_both_fees_once() -> None:
 
 
 def test_funding_cashflow_respects_side_and_signed_funding_rate() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     position = open_paper_position(
         state,
         btc_instrument(),
@@ -104,7 +104,7 @@ def test_funding_cashflow_respects_side_and_signed_funding_rate() -> None:
 
 
 def test_trailing_stop_only_moves_in_favourable_direction() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     position = open_paper_position(
         state,
         btc_instrument(),
@@ -125,7 +125,7 @@ def test_trailing_stop_only_moves_in_favourable_direction() -> None:
 
 
 def test_daily_equity_and_risk_metrics_show_sample_gates() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     append_daily_equity(state, 1_700_000_000_000, Decimal("100"))
     append_daily_equity(state, 1_700_086_400_000, Decimal("101"))
     summary = performance_summary(state)
@@ -139,7 +139,7 @@ def test_daily_equity_and_risk_metrics_show_sample_gates() -> None:
 
 
 def test_daily_equity_is_idempotent_for_same_completed_bar() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     timestamp = 1_700_000_000_000
     append_daily_equity(state, timestamp, Decimal("100"))
     append_daily_equity(state, timestamp, Decimal("101"))
@@ -147,7 +147,7 @@ def test_daily_equity_is_idempotent_for_same_completed_bar() -> None:
 
 
 def test_account_report_discloses_exposure_and_ledgers() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     position = open_paper_position(
         state,
         btc_instrument(),
@@ -167,7 +167,7 @@ def test_account_report_discloses_exposure_and_ledgers() -> None:
 
 
 def test_two_x_default_leverage_and_balanced_margin_report() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     position = open_paper_position(
         state,
         btc_instrument(),
@@ -185,7 +185,7 @@ def test_two_x_default_leverage_and_balanced_margin_report() -> None:
 
 
 def test_combined_portfolio_daily_drawdown_triggers_even_when_legs_are_each_below_25pct() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     first = append_equity_snapshot(
         state, 1_700_000_000_000, Decimal("100"),
         Decimal("100"), Decimal("100"),
@@ -205,7 +205,7 @@ def test_combined_portfolio_daily_drawdown_triggers_even_when_legs_are_each_belo
 
 
 def test_daily_stop_uses_intraday_peak_not_lifetime_high_water_mark() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     append_equity_snapshot(
         state, 1_700_000_000_000, Decimal("100"),
         Decimal("100"), Decimal("100"),
@@ -224,7 +224,7 @@ def test_daily_stop_uses_intraday_peak_not_lifetime_high_water_mark() -> None:
 
 
 def test_daily_risk_resets_at_utc_rollover_but_lifetime_mdd_can_exceed_25pct() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     append_equity_snapshot(
         state, 1_700_000_000_000, Decimal("100"),
         Decimal("100"), Decimal("100"),
@@ -244,7 +244,7 @@ def test_daily_risk_resets_at_utc_rollover_but_lifetime_mdd_can_exceed_25pct() -
 
 
 def test_equity_snapshot_is_idempotent_and_rejects_time_reversal() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     timestamp = 1_700_000_000_000
     append_equity_snapshot(
         state, timestamp, Decimal("100"),
@@ -269,7 +269,7 @@ def test_equity_snapshot_is_idempotent_and_rejects_time_reversal() -> None:
 
 
 def test_new_utc_day_uses_previous_day_last_nav_when_first_cron_is_delayed() -> None:
-    state = initial_portfolio_state()
+    state = initial_portfolio_state(Decimal("100"))
     first_timestamp = 1_700_000_000_000
     append_equity_snapshot(
         state, first_timestamp, Decimal("100"),
@@ -287,3 +287,12 @@ def test_new_utc_day_uses_previous_day_last_nav_when_first_cron_is_delayed() -> 
     assert snapshot["daily_return_pct"] == "-30.0"
     assert snapshot["daily_drawdown_pct"] == "-30.0"
     assert snapshot["emergency_stop_newly_triggered"]
+
+
+
+def test_new_forward_account_default_is_one_usdt() -> None:
+    state = initial_portfolio_state()
+    assert state["initial_capital"] == "1"
+    assert state["cash"] == "1"
+    assert state["currency"] == "USDT"
+    assert state["positions"] == []
