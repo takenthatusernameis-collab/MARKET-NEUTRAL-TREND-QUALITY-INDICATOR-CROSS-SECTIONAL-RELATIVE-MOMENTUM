@@ -714,8 +714,8 @@ def _snapshot_only_cycle(
             risk_status = "READ_ONLY_ONLY_STATE_WRITE_GATE_CLOSED"
         else:
             nav = portfolio_nav(portfolio, ticker_by_id)
-            long_notional = ZERO
-            short_notional = ZERO
+            long_notional = Decimal("0")
+            short_notional = Decimal("0")
             for position in portfolio.get("positions", []):
                 iid = int(position["instrument_id"])
                 ticker = ticker_by_id.get(iid, {})
@@ -731,7 +731,10 @@ def _snapshot_only_cycle(
             risk = portfolio["daily_risk"]
             if risk.get("stop_triggered"):
                 portfolio["emergency_liquidation_pending"] = bool(portfolio.get("positions"))
-            if (risk.get("stop_triggered") or portfolio.get("emergency_liquidation_pending")) and portfolio.get("positions"):
+            if (
+                risk.get("stop_triggered")
+                or portfolio.get("emergency_liquidation_pending")
+            ) and portfolio.get("positions"):
                 portfolio["emergency_liquidation_pending"] = True
                 try:
                     instruments_by_id = {
@@ -748,7 +751,9 @@ def _snapshot_only_cycle(
                     portfolio["daily_risk"]["flatten_attempts"] = int(
                         portfolio["daily_risk"].get("flatten_attempts", 0)
                     ) + 1
-                    portfolio["daily_risk"]["flatten_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                    portfolio["daily_risk"]["flatten_error"] = (
+                        f"{type(exc).__name__}: {str(exc)[:200]}"
+                    )
                     risk_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
             elif risk.get("stop_triggered"):
                 portfolio["daily_risk"]["flattened"] = True
@@ -1013,7 +1018,10 @@ def _run() -> int:
             long_notional_before, short_notional_before,
         )
         state_changed = True
-        if (portfolio["daily_risk"].get("stop_triggered") or portfolio.get("emergency_liquidation_pending")) and portfolio.get("positions"):
+        if (
+            portfolio["daily_risk"].get("stop_triggered")
+            or portfolio.get("emergency_liquidation_pending")
+        ) and portfolio.get("positions"):
             try:
                 stop_exits.extend(_close_all(
                     client, portfolio, instrument_by_id, server_ms
@@ -1152,7 +1160,11 @@ def _run() -> int:
                 "history_coverage_pass": history_coverage_pass,
                 "unresolved_funding_count": unresolved_funding,
                 "portfolio_daily_risk_snapshot": daily_risk_snapshot,
-                "emergency_risk_status": paper_decision_status if str(paper_decision_status).startswith("EMERGENCY_") else "WITHIN_DAILY_LIMIT",
+                "emergency_risk_status": (
+                    paper_decision_status
+                    if str(paper_decision_status).startswith("EMERGENCY_")
+                    else "WITHIN_DAILY_LIMIT"
+                ),
             }
             key = (
                 f"daily-{latest_bar_ms}"
