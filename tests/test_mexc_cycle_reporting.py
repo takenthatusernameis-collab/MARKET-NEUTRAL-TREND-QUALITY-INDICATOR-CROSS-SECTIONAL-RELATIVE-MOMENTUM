@@ -68,3 +68,27 @@ def test_execution_ranking_report_can_omit_supplementary_b() -> None:
     )
     assert rows[0]["symbol"] == "ETH_USDT"
     assert "b" not in rows[0]
+
+
+
+def test_daily_risk_path_rejects_missing_stale_and_nonpositive_position_marks() -> None:
+    cycle = load_cycle_module()
+    positions = [{"instrument_id": 7, "symbol": "TEST_USDT"}]
+    assert cycle._stale_or_missing_position_marks(
+        positions,
+        {7: {"timestamp_ms": 1_000_000, "mark_price": "10"}},
+        1_100_000,
+    ) == []
+    assert cycle._stale_or_missing_position_marks(
+        positions,
+        {7: {"timestamp_ms": 1_000_000, "mark_price": "10"}},
+        1_400_001,
+    ) == ["TEST_USDT"]
+    assert cycle._stale_or_missing_position_marks(positions, {}, 1_100_000) == [
+        "TEST_USDT"
+    ]
+    assert cycle._stale_or_missing_position_marks(
+        positions,
+        {7: {"timestamp_ms": 1_100_000, "mark_price": "0"}},
+        1_100_000,
+    ) == ["TEST_USDT"]
