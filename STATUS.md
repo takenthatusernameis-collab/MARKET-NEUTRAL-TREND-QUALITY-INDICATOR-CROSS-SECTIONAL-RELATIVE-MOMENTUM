@@ -36,7 +36,7 @@ Romanian derivatives-product/account eligibility has not been independently conf
 | Correction factor | 1.0 | Provisional |
 | ATR | Wilder 14 | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial paper capital | 100 USDT | Account code only; account not initialized |
+| Initial paper capital | 1 USDT | Configured default; account not initialized |
 | Long / short allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
 
 ## Implemented on main
