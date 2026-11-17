@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-17T01:11:31.864000+00:00",
+  "last_run_utc": "2026-11-17T01:12:02.711000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-10usdt-v2",
     "cash": "9.99829460",
@@ -42,13 +42,30 @@
         "short_notional_usdt": "0",
         "timestamp_ms": 1794877891864,
         "utc_date": "2026-11-17"
+      },
+      {
+        "daily_drawdown_pct": "-0.08605400",
+        "daily_peak_nav": "10",
+        "daily_return_pct": "-0.08605400",
+        "daily_starting_nav": "10",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.847599933646900503759505205",
+        "long_notional_usdt": "8.5226",
+        "nav": "9.99139460",
+        "roi_pct": "-0.08605400",
+        "short_notional_usdt": "9.937500",
+        "timestamp_ms": 1794877922711,
+        "utc_date": "2026-11-17"
       }
     ],
     "fees_paid": "0.00170540",
     "initial_capital": "10",
     "last_decision_attempt_daily_bar_ms": 1794787200000,
     "last_processed_daily_bar_ms": 1794787200000,
-    "last_snapshot_ms": 1794877891864,
+    "last_snapshot_ms": 1794877922711,
     "pending_entry_signal": null,
     "positions": [
       {
@@ -60,7 +77,7 @@
         "initial_margin_usdt": "4.2635",
         "instrument_id": 1595,
         "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "426.2",
+        "last_mark_price": "426.13",
         "leverage": "2",
         "lowest_since_entry": "426.35",
         "quantity": "0.02",
@@ -78,7 +95,7 @@
         "initial_margin_usdt": "4.967500",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "0.003974",
+        "last_mark_price": "0.003975",
         "leverage": "2",
         "lowest_since_entry": "0.003974",
         "quantity": "2500",
@@ -96,9 +113,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "45974be192090b0a88017bd2009076e20e4b471319b4bba1fbd6cb1ad138e9dd",
-    "commit_sha": "b6b4f76bed882d94adccca0ed07119921f0136d5",
+    "batch_hash": "71400ed314111845d556825d1ef09c1cef034110caa55b81d21a91ba746f2eb6",
+    "commit_sha": "7fd0fda4d6a6663bcdf605054f6fe134e077ccf3",
     "created": true,
-    "path": "events/2026/11/account-init-1794877891864.json"
+    "path": "events/2026/11/snapshot-1794877922711.json"
   }
 }
