@@ -328,11 +328,15 @@ def test_daily_pair_rebalance_trades_only_required_position_deltas() -> None:
     )
     assert pair is not None
     proposed, proposed_fills, _ = pair
-    assert [row["quantity_delta"] for row in proposed] == ["0.2000", "-0.2000"]
-    assert [row["fill"].filled_quantity for row in proposed] == [
-        Decimal("0.2000"), Decimal("0.2000")
+    assert [Decimal(row["quantity_delta"]) for row in proposed] == [
+        Decimal("0.2"), Decimal("-0.2")
     ]
-    assert [row["quantity_base"] for row in proposed_fills] == ["0.2000", "0.2000"]
+    assert [row["fill"].filled_quantity for row in proposed] == [
+        Decimal("0.2"), Decimal("0.2")
+    ]
+    assert [Decimal(row["quantity_base"]) for row in proposed_fills] == [
+        Decimal("0.2"), Decimal("0.2")
+    ]
 
     close_details, resize_details = cycle._apply_selected_pair(
         client,
