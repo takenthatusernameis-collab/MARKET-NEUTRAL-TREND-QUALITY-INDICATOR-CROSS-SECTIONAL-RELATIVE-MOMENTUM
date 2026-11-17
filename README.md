@@ -47,20 +47,23 @@ MEXC contract volume is denominated in contracts. Convert it using each instrume
 - Public MEXC adapter for contract metadata, bulk ticker, order book, daily Klines and funding history.
 - Contract-multiplier-aware quantity conversion, book VWAP fills, taker fees and impact caps.
 - Incremental, provider-isolated market-data persistence: up to 365 days of initial daily history, in resumable batches of 150 instruments, then only missing daily candles. Five-minute ticker snapshots are stored separately.
-- USDT paper-account accounting primitives for cash, realized/unrealized P&L, fees, funding, ATR stops, daily NAV and sample-gated performance metrics.
+- USDT paper-account accounting primitives for cash, realized/unrealized P&L, fees, funding, ATR stops, five-minute equity snapshots, combined daily drawdown control and sample-gated performance metrics.
+- Margin-aware default sizing: 50% NAV margin per leg at 2× leverage, targeting 1× NAV notional per leg and 2× total gross notional.
 - Immutable event journal and GitHub state publisher with remote hash-chain validation.
 
 Key files: src/trend_quality/mexc_api.py, mexc_paper.py, mexc_portfolio.py, market_data_store.py and scripts/mexc_paper_cycle.py.
 
 ## Operating state and account safety gate
 
-The five-minute workflow is configured in [.github/workflows/mexc-paper-cycle.yml](.github/workflows/mexc-paper-cycle.yml). It collects public market data, incrementally updates history and publishes Q rankings to the separate market-data branch. The latest verified all-settlement cycle [43977854892](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43977854892) completed successfully: 231,692 daily-candle rows stored, 1,143/1,143 ticker coverage, zero missing latest bars, zero API failures, 750 instruments bootstrapped and 393 still pending. Full-universe history coverage remains incomplete.
+The single five-minute workflow in [.github/workflows/mexc-paper-cycle.yml](.github/workflows/mexc-paper-cycle.yml) now has two explicit modes, selected by the latest completed UTC daily candle. The first invocation after a new daily close performs the full market-data refresh, one bounded bootstrap/incremental batch, Q rankings and (only when the paper-state gate is open) the daily portfolio decision. Other five-minute invocations are portfolio-monitoring snapshots only: no universe refresh, Q recalculation, ATR decision or ordinary rebalance. The authoritative specification is [OPERATING_MODEL.md](OPERATING_MODEL.md).
 
-**The forward paper account has not been initialized.** The state branch is currently unprotected and the repository has no rulesets. Therefore the workflow explicitly sets PAPER_STATE_WRITE_ENABLED=false. It will not open, close or carry simulated positions, publish financial state events or claim portfolio NAV. The runtime protection check also fails closed.
+**Latest full daily-close MEXC run:** [43984343892](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984343892) completed successfully with 1,143 active cross-margin perpetuals, 273,160 stored daily-candle rows, 93 instruments completed in the final bootstrap batch, zero bootstrap instruments remaining, zero missing tickers, zero missing latest completed bars and zero reported API failures. The history-coverage gate passed. Q rankings were recalculated. The routine follow-up snapshot run [43984739626](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984739626) reported PORTFOLIO_SNAPSHOT_ONLY, daily_decision_due=false and q_rankings_recalculated=false. These are public-data workflow checks, not portfolio-performance evidence.
 
-Account initialization requires server-side state-branch protection, force-push/deletion restrictions, restricted writers, and a real publisher/recovery test. The portfolio accounting code is implemented and unit-tested, but the durable persistence/forward-operation gate remains closed.
+**The forward paper account has not been initialized.** PAPER_STATE_WRITE_ENABLED remains false. The state branch protection and restricted-writer/publisher recovery gate is not yet open, so the workflow must not create or persist simulated positions or claim portfolio NAV. The runtime protection check remains fail-closed.
 
-Historical replay is not implemented. No equity curve, trade count, return, CAGR, Sharpe, drawdown or profitability claim is available until actual persisted paper-account observations exist.
+The 25% emergency stop is a combined portfolio daily drawdown stop, measured from the highest observed NAV in the UTC day; it closes both simulated legs. It does not cap lifetime MDD. Default leverage is 2× on 50% NAV margin per leg (1× NAV notional each, 2× combined gross). Five-minute monitoring is sampled and cannot guarantee detection at the exact threshold between invocations.
+
+CI on [run 43984752103](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984752103) passed Ruff and 141 tests. This is implementation validation only. Historical replay is not implemented, and no realized forward equity curve, trade count, return, CAGR, Sharpe, drawdown or profitability claim is available until the paper account has passed its persistence gate and accumulated actual observations.
 
 ## Safety boundary
 
