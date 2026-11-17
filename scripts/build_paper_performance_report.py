@@ -29,17 +29,24 @@ def main() -> int:
         )),
         help="Markdown report destination",
     )
+    parser.add_argument(
+        "--equity-svg-output",
+        type=Path,
+        default=Path(os.environ.get("PAPER_EQUITY_CURVE_SVG_PATH", "equity_curve.svg")),
+        help="SVG chart destination; normally published beside the Markdown report",
+    )
     args = parser.parse_args()
     report = render_performance_report(
         args.state_dir,
         build_workflow_metadata(dict(os.environ)),
         generated_at_ms=int(datetime.now(UTC).timestamp() * 1000),
+        equity_svg_path=args.equity_svg_output,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report, encoding="utf-8")
     print(
         f"Built paper performance report: {args.output} "
-        f"({len(report.splitlines())} lines)"
+        f"({len(report.splitlines())} lines); SVG chart: {args.equity_svg_output}"
     )
     return 0
 
