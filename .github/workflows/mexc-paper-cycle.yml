@@ -1,4 +1,4 @@
-name: MEXC Trend-Quality — 5-Minute Data and Paper Research
+name: ▶ START PAPER SIMULATION — MEXC (PAPER ONLY)
 
 on:
   push:
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   cycle:
-    name: Snapshot, increment history and rank MEXC contracts
+    name: ▶ Manual start, five-minute entry retries and portfolio monitoring
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
