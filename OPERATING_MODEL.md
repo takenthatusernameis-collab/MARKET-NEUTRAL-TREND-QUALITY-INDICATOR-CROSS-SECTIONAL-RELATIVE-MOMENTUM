@@ -22,7 +22,7 @@ The first workflow invocation that observes a newly completed UTC daily candle r
 3. Refresh instrument lifecycle and perform one bounded, resumable candle-bootstrap/incremental-history batch.
 4. Validate completed daily candles and data coverage.
 5. Recalculate exchange-neutral Q/B/ATR features and cross-sectional research/execution rankings.
-6. If the paper-account state-write gate is open and the data gate passes, process due funding, assess the portfolio-level emergency limit, evaluate daily ATR/trailing exits and make the ordinary daily portfolio decision/rebalance.
+6. If the paper-account state-write gate is open and the data gate passes, process due funding, assess the portfolio-level emergency limit, evaluate daily ATR/trailing exits, then select the daily pair and rebalance both retained legs toward equal USDT notional using only the required quantity deltas. Close/reopen only the contract(s) actually replaced.
 7. Persist the daily decision/risk event and human-readable research/performance reports.
 
 The daily workload is keyed to the completed UTC daily candle timestamp, not the cron start minute. A given daily candle must not cause duplicate heavy work or duplicate portfolio decisions. The bootstrap batch is deliberately bounded; incomplete bootstrap is resumed on a later daily-close cycle, not by repeating the heavy workload every five minutes.
@@ -62,6 +62,21 @@ The active forward account is denominated entirely in USDT. The current generati
 Sizing is calculated as NAV × margin allocation × leverage ÷ reference price, then rounded down to the exchange contract increment. Instrument maximum leverage and minimum/maximum contract constraints remain binding. The two positions are one combined portfolio; margin allocations do not mean that notional is capped at 50% of NAV.
 
 Only USDT-quoted and USDT-settled contracts can enter this homogeneous paper account. Other settlement types may remain in research rankings, but must not be mixed into USDT NAV without a separately validated conversion and settlement model.
+
+
+### Daily pair maintenance and equal-notional rebalance
+
+Every eligible completed daily candle is a fresh sizing checkpoint, even when the selected long and short contracts are unchanged.
+
+- The two legs target equal USDT notional: each target is `NAV × 50% margin allocation × 2× leverage` (approximately 1× current NAV per leg). This is dollar-notional neutrality, not beta neutrality.
+- If the selected instrument and side are already held, calculate `target_quantity − current_quantity` and simulate only that signed delta. A positive delta adds quantity; a negative delta reduces quantity and realizes P&L only on the reduced slice. Entry fees, weighted-average entry price, margin, partial realized P&L and funding watermarks are updated proportionally.
+- Do not close and reopen an unchanged contract just to rebalance it. A retained leg keeps its original position identity/entry timestamp; only the changed quantity is added or removed.
+- If the long or short contract is replaced, close only the replaced position and open its replacement. The other retained leg stays open and is independently resized toward its target.
+- MEXC lot increments, minimum quantity, current book depth and impact limits remain binding. When the required adjustment is below the venue's minimum executable quantity, or the current book cannot fill it, leave that leg unchanged and report the constraint. Never round the delta up or force a full close merely to make the exposure numbers look equal. Any remaining imbalance caused by venue precision/minimums must remain visible in the report.
+- The workflow reports the action and signed quantity delta for every leg under `rebalance_actions`, alongside the simulated fills and costs.
+
+After a successful daily pair decision/rebalance—including a decision that retains the same pair with no executable quantity change—the 25% drawdown window is reset to the post-rebalance NAV and peak NAV, with the reset timestamp recorded. This treats the maintained pair as a fresh daily trade window. The pre-rebalance equity/risk snapshot is evaluated **before** this reset. If that check has already triggered the emergency stop, or an emergency flatten remains pending, the daily rebalance is blocked and the reset helper refuses to clear the latch. A later five-minute retry that opens a previously pending daily signal likewise starts the new risk window at its post-fill NAV.
+
 
 ## 3. Combined portfolio emergency stop
 
@@ -115,7 +130,7 @@ Prohibited in this research workflow:
 
 ## 7. Acceptance tests and report evidence
 
-The test suite must prove: 2× margin-aware sizing; 50/50 margin allocation; combined-leg losses trigger the whole-book stop; a lifetime MDD greater than 25% does not itself stop the account; daily risk resets at UTC rollover; delayed first cron uses the previous day's last NAV; five-minute snapshots do not recalculate Q or rebalance; frozen daily entry shortlists serialize/restore correctly for five-minute retries; candidate retries are bounded and expire on a new daily candle; duplicate daily candle/snapshot events are idempotent; pending emergency flatten survives restart/rollover and is retried; missing marks are disclosed without fabricating NAV; funding/fees are reconciled exactly once; event-chain corruption fails closed.
+The test suite must prove: 2× margin-aware sizing; 50/50 margin allocation; combined-leg losses trigger the whole-book stop; a lifetime MDD greater than 25% does not itself stop the account; daily risk resets at UTC rollover; delayed first cron uses the previous day's last NAV; five-minute snapshots do not recalculate Q or rebalance; frozen daily entry shortlists serialize/restore correctly for five-minute retries; candidate retries are bounded and expire on a new daily candle; retained pair legs rebalance by signed quantity deltas with partial realized-P&L/fee accounting; replacing one contract does not close the retained opposite leg; successful rebalance resets the risk baseline only after the prior risk check; a latched emergency stop cannot be cleared; duplicate daily candle/snapshot events are idempotent; pending emergency flatten survives restart/rollover and is retried; missing marks are disclosed without fabricating NAV; funding/fees are reconciled exactly once; event-chain corruption fails closed.
 
 CI evidence is not performance evidence. Report separately: source-data coverage, unit/integration test results, state-write readiness, forward account initialization, actual persisted portfolio observations, and any independently audited performance.
 
