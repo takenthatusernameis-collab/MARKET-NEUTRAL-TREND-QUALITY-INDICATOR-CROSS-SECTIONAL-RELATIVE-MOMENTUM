@@ -1199,7 +1199,9 @@ def _snapshot_only_cycle(
                         int(key): value
                         for key, value in store.manifest["instruments"].items()
                     }
-                    emergency_exits.extend(_close_all(client, portfolio, instruments_by_id, server_ms))
+                    emergency_exits.extend(
+                        _close_all(client, portfolio, instruments_by_id, server_ms)
+                    )
                     portfolio["daily_risk"]["flattened"] = True
                     portfolio["daily_risk"]["flatten_error"] = (None)
                     portfolio["emergency_liquidation_pending"] = False
@@ -1253,7 +1255,9 @@ def _snapshot_only_cycle(
                         int(key): value
                         for key, value in store.manifest["instruments"].items()
                     }
-                    emergency_exits.extend(_close_all(client, portfolio, instruments_by_id, server_ms))
+                    emergency_exits.extend(
+                        _close_all(client, portfolio, instruments_by_id, server_ms)
+                    )
                     portfolio["daily_risk"]["flattened"] = True
                     portfolio["daily_risk"]["flatten_error"] = (None)
                     portfolio["emergency_liquidation_pending"] = False
