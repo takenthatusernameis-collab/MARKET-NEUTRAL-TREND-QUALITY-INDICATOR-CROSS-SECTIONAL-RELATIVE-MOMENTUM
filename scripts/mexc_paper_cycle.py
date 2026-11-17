@@ -1121,6 +1121,13 @@ def _snapshot_only_cycle(
                             ))
                         trial["positions"] = opened
                         trial["pending_entry_signal"] = None
+                        retry_nav = portfolio_nav(trial, retry_tickers)
+                        risk_window_reset = reset_daily_risk_window(
+                            trial,
+                            server_ms,
+                            retry_nav,
+                            reference="new_pair_opened_after_daily_signal",
+                        )
                         portfolio.clear()
                         portfolio.update(trial)
                         positions = list(portfolio.get("positions", []))
@@ -1130,6 +1137,7 @@ def _snapshot_only_cycle(
                             "attempt_count": pending_entry["attempt_count"],
                             "pair": list(pair_symbols),
                             "fills": retry_fills,
+                            "risk_window_reset": risk_window_reset,
                         }
                     state_changed = True
         elif (
