@@ -62,6 +62,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
       - name: Run five-minute public-data and ranking cycle
+        id: cycle
         working-directory: strategy
         shell: bash
         run: |
@@ -82,6 +83,51 @@ jobs:
             git commit -m "Append MEXC market data and research snapshot"
             git push origin HEAD:market-data
           fi
+      - name: Refresh immutable state checkout after this cycle
+        id: refresh_state
+        if: always()
+        working-directory: state
+        shell: bash
+        run: |
+          git fetch origin state
+          git reset --hard FETCH_HEAD
+      - name: Build standalone performance report from verified state history
+        id: performance_report
+        if: always() && steps.refresh_state.outcome == 'success'
+        working-directory: strategy
+        env:
+          PAPER_STATE_DIR: ../state
+          PAPER_PERFORMANCE_REPORT_PATH: ../PAPER_PERFORMANCE_REPORT.md
+          PAPER_WORKFLOW_OUTCOME: ${{ steps.cycle.outcome }}
+          PAPER_WORKFLOW_RUN_ID: ${{ github.run_id }}
+          PAPER_WORKFLOW_RUN_NUMBER: ${{ github.run_number }}
+          PAPER_WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          PAPER_WORKFLOW_SERVER_URL: ${{ github.server_url }}
+          PAPER_WORKFLOW_REPOSITORY: ${{ github.repository }}
+        run: python scripts/build_paper_performance_report.py
+      - name: Publish standalone performance report to main
+        if: always() && steps.performance_report.outcome == 'success'
+        shell: bash
+        run: |
+          git -C strategy config user.name "github-actions[bot]"
+          git -C strategy config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git -C strategy fetch origin main
+            git -C strategy checkout -B main origin/main
+            cp PAPER_PERFORMANCE_REPORT.md strategy/PAPER_PERFORMANCE_REPORT.md
+            git -C strategy add PAPER_PERFORMANCE_REPORT.md
+            if git -C strategy diff --cached --quiet; then
+              echo "Standalone performance report is unchanged."
+              exit 0
+            fi
+            git -C strategy commit -m "Refresh MEXC paper performance report [skip ci]"
+            if git -C strategy push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Report push raced with another main update; retrying from latest main."
+          done
+          echo "Unable to publish report after three fast-forward retries."
+          exit 1
       - name: Upload MEXC research report
         if: always()
         uses: actions/upload-artifact@v4

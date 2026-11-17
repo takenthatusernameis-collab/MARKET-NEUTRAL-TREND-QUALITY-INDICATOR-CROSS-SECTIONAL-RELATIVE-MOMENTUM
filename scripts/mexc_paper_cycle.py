@@ -1043,6 +1043,7 @@ def _snapshot_only_cycle(
     snapshot: dict[str, Any] | None = None
     state_event: dict[str, Any] | None = None
     portfolio_report: dict[str, Any] | None = None
+    emergency_exits: list[dict[str, Any]] = []
     funding_events: list[dict[str, Any]] = []
     unresolved_funding = 0
     risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
@@ -1198,7 +1199,7 @@ def _snapshot_only_cycle(
                         int(key): value
                         for key, value in store.manifest["instruments"].items()
                     }
-                    _close_all(client, portfolio, instruments_by_id, server_ms)
+                    emergency_exits.extend(_close_all(client, portfolio, instruments_by_id, server_ms))
                     portfolio["daily_risk"]["flattened"] = True
                     portfolio["daily_risk"]["flatten_error"] = None
                     portfolio["emergency_liquidation_pending"] = False
@@ -1252,7 +1253,7 @@ def _snapshot_only_cycle(
                         int(key): value
                         for key, value in store.manifest["instruments"].items()
                     }
-                    _close_all(client, portfolio, instruments_by_id, server_ms)
+                    emergency_exits.extend(_close_all(client, portfolio, instruments_by_id, server_ms))
                     portfolio["daily_risk"]["flattened"] = True
                     portfolio["daily_risk"]["flatten_error"] = None
                     portfolio["emergency_liquidation_pending"] = False
@@ -1280,6 +1281,7 @@ def _snapshot_only_cycle(
                 "portfolio_snapshot": snapshot,
                 "emergency_risk_status": risk_status,
                 "funding_events": funding_events,
+                "emergency_exits": emergency_exits,
                 "unresolved_funding_count": unresolved_funding,
                 "missing_position_marks": missing_symbols,
                 "ordinary_strategy_decisions": entry_retry_report is not None,
@@ -1369,6 +1371,7 @@ def _snapshot_only_cycle(
         "portfolio": portfolio_report,
         "portfolio_snapshot": snapshot,
         "funding_events": funding_events,
+                "emergency_exits": emergency_exits,
         "unresolved_funding_count": unresolved_funding,
         "emergency_risk_status": risk_status,
         "state_event": state_event,

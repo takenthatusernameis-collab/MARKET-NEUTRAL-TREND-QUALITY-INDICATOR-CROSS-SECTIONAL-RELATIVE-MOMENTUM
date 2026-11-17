@@ -2,6 +2,8 @@
 
 A paper-only research system for the Sepiashvili Trend-Quality Indicator (Q), ranking active cross-margin perpetual contracts and eventually maintaining one long and one short. The indicator engine is exchange-neutral; the selected market-data adapter is **MEXC Futures, USDT-settled cross-margin perpetuals**.
 
+**Standalone account performance ledger:** [PAPER_PERFORMANCE_REPORT.md](PAPER_PERFORMANCE_REPORT.md) — equity curve, per-session and lifetime maximum drawdown, sample-gated Sortino/Sharpe/CAGR metrics, account snapshot and full timestamped trade/funding activity. It is rebuilt from the verified state event chain and committed to `main` after every MEXC paper workflow run.
+
 ## ▶ START PAPER SIMULATION MANUALLY
 
 <badge>Paper only</badge> **[Open the MEXC paper workflow in GitHub Actions](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)**

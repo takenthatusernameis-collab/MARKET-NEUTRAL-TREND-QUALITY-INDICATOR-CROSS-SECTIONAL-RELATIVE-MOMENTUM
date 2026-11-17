@@ -286,3 +286,17 @@ The event report now includes `rebalance_actions` and `portfolio_daily_risk_rese
 - The latest observed MEXC run during implementation remained `PORTFOLIO_SNAPSHOT_ONLY`; the already-open VSTOCK_USDT / BILL_USDT pair was marked and not modified by a daily decision in that snapshot. The new rebalance behaviour is therefore code- and test-verified, but has not yet been exercised by a subsequent completed daily-candle decision in the forward account.
 
 No live orders, private endpoints, credentials or wallet access were introduced.
+
+ 
+## 2026-11-17 — Standalone paper performance ledger
+
+The root-level [PAPER_PERFORMANCE_REPORT.md](PAPER_PERFORMANCE_REPORT.md) is the independent human-readable performance file.
+
+- Each MEXC workflow run refreshes the state-branch checkout, verifies the full hash-chained event ledger, rebuilds the report and publishes it to main. A bounded fast-forward retry handles concurrent main updates; the report commit skips redundant CI and does not retrigger the MEXC workflow.
+- It contains the full mark-to-market equity curve, daily equity marks, drawdown by risk session and lifetime/cross-session maximum drawdown, sample-gated Sortino/Sharpe/CAGR/Calmar and other statistics, cash/NAV/P&L/fees/funding/exposure, open positions, and timestamped opening, increase, reduction, close, funding and risk-reset records.
+- Session drawdown is kept separate from lifetime drawdown; resetting the operational risk window cannot erase historical MDD.
+- Trade history uses explicit fill and funding payloads. Persisted position changes are a backstop and are labelled when exact execution details were not stored.
+- Only active account generation `mexc-usdt-forward-10usdt-v2` is included; the archived $1 generation is excluded. Invalid batches, broken links, duplicate IDs and forks stop publication rather than generating a misleading report.
+- Sortino and other daily statistics remain unavailable until their existing sample thresholds are satisfied.
+
+The report does not imply any live trading. The strategy uses public data and simulated fills only.

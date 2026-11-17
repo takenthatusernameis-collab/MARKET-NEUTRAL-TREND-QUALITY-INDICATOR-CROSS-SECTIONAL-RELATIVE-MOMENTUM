@@ -431,7 +431,13 @@ def _sparkline(values: list[Decimal]) -> str:
 def _metric(metrics: dict[str, Any], name: str, kind: str = "ratio") -> str:
     item = metrics.get(name)
     if not item:
-        return "Unavailable — sample gate not met"
+        reasons = {
+            "sortino": "at least 20 daily returns and 5 negative returns required",
+            "sharpe": "at least 30 daily returns required",
+            "cagr": "at least 365 elapsed calendar days required",
+            "annualized_daily_volatility": "at least 30 daily returns required",
+        }
+        return f"Unavailable — {reasons.get(name, 'sample gate not met')}"
     value = item.get("value")
     if value is None:
         return f"Unavailable — {item.get('reason') or 'sample gate not met'}"
