@@ -133,6 +133,14 @@ def test_publish_creates_append_only_batch_with_fast_forward_ref_update() -> Non
     patch_calls = [call for call in fake.calls if call[0] == "PATCH"]
     assert len(patch_calls) == 1
     assert patch_calls[0][2] == {"sha": result.commit_sha, "force": False}
+    # Successful publication requires remote read-back of the updated ref,
+    # its full event chain, and exact canonical contents.
+    patch_index = fake.calls.index(patch_calls[0])
+    readback_calls = fake.calls[patch_index + 1:]
+    assert any(method == "GET" and path.endswith("/git/ref/heads/state")
+               for method, path, _payload in readback_calls)
+    assert any(method == "GET" and "/contents/events/" in path
+               for method, path, _payload in readback_calls)
 
 
 def test_second_batch_must_extend_the_verified_remote_chain_tip() -> None:
