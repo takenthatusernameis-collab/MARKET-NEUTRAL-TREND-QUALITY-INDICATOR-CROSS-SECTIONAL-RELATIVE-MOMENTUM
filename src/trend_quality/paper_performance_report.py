@@ -508,8 +508,14 @@ def _equity_curve_svg(
         ])
 
     parts.extend([
-        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{plot_bottom}" stroke="#777" stroke-width="1"/>',
-        f'<line x1="{left}" y1="{plot_bottom}" x2="{plot_right}" y2="{plot_bottom}" stroke="#777" stroke-width="1"/>',
+        (
+            f'<line x1="{left}" y1="{top}" x2="{left}" y2="{plot_bottom}" '
+            'stroke="#777" stroke-width="1"/>'
+        ),
+        (
+            f'<line x1="{left}" y1="{plot_bottom}" x2="{plot_right}" y2="{plot_bottom}" '
+            'stroke="#777" stroke-width="1"/>'
+        ),
     ])
 
     if reference > ZERO:
