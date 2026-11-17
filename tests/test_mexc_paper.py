@@ -163,3 +163,48 @@ def test_ten_usdt_seed_clears_a_ten_unit_contract_minimum_that_blocks_one_usdt()
     assert one_usdt_quantity == Decimal("0")
     assert ten_usdt_quantity == Decimal("20")
     assert ten_usdt_quantity * Decimal("0.5") == Decimal("10")
+
+
+
+def test_frozen_daily_entry_shortlist_round_trips_for_five_minute_retries() -> None:
+    from scripts.mexc_paper_cycle import (
+        _pending_entry_signal,
+        _restore_pending_rankings,
+    )
+    from trend_quality.mexc_paper import MEXCRankings
+    from trend_quality.ranking import Candidate
+
+    long_instrument = instrument(101, "LONG_USDT")
+    short_instrument = instrument(202, "SHORT_USDT")
+    rankings = MEXCRankings(
+        research_longs=[],
+        research_shorts=[],
+        executable_longs=[
+            Candidate("mexc:101", 3.5, 88.0, "long", 41, "bullish")
+        ],
+        executable_shorts=[
+            Candidate("mexc:202", -4.2, 91.0, "short", 36, "bearish")
+        ],
+        instruments_by_key={
+            "mexc:101": long_instrument,
+            "mexc:202": short_instrument,
+        },
+        excluded=[],
+    )
+
+    pending = _pending_entry_signal(rankings, 1_800_000_000_000)
+    assert pending is not None
+    assert pending["daily_bar_timestamp_ms"] == 1_800_000_000_000
+    assert pending["attempt_count"] == 0
+    assert pending["executable_longs"][0]["q"] == "3.5"
+    assert pending["executable_shorts"][0]["q"] == "-4.2"
+
+    restored = _restore_pending_rankings(
+        pending,
+        {"101": long_instrument, "202": short_instrument},
+    )
+    assert restored is not None
+    assert [row.symbol for row in restored.executable_longs] == ["mexc:101"]
+    assert [row.symbol for row in restored.executable_shorts] == ["mexc:202"]
+    assert restored.instruments_by_key["mexc:101"]["symbol"] == "LONG_USDT"
+    assert restored.instruments_by_key["mexc:202"]["symbol"] == "SHORT_USDT"
