@@ -99,3 +99,21 @@ Before enabling paper-account transitions, configure and verify server-side stat
 ## Safety and disclosure
 
 No live trading, Testnet, private account endpoints, exchange credentials, wallet, proxy/VPN or paid infrastructure were used. No exchange orders were submitted. The paper modules only simulate hypothetical fills. MEXC account access in Romania remains unverified. No historical or forward profitability claim is made.
+
+
+## 2026-11-17 — Authoritative cadence and risk implementation update
+
+This section supersedes older cadence, bootstrap and CI statements above.
+
+- **One five-minute cron, two modes:** the first invocation observing a newly completed UTC daily candle performs the full research/data/ranking and daily portfolio-decision workflow. Other invocations run portfolio-snapshot-only mode; they do not refresh the research universe, recalculate Q, run ordinary ATR decisions or rebalance.
+- The heavy workflow is keyed by a persistent daily-candle watermark and runs one bounded resumable bootstrap batch per new completed daily candle. Routine snapshots do not repeatedly perform bootstrap work.
+- **Leverage and sizing:** 50% of NAV is allocated as margin to each leg at 2× leverage. Each leg targets 1× NAV notional; combined target gross exposure is 2× NAV. Contract maximum leverage and lot rules remain binding.
+- **Emergency stop:** a 25% combined portfolio drawdown from the observed UTC-day NAV peak triggers full-book simulated flattening. The stop includes realized/unrealized P&L, fees and confirmed funding through combined NAV. It is not a lifetime MDD cap. A pending flatten is persisted and retried on later five-minute runs; a missing mark cannot suppress an already-latched emergency exit.
+- Daily return uses the previous UTC day's last stored NAV when available, preventing a delayed first daily invocation from resetting the baseline to an already-damaged mark. Five-minute drawdown remains sampled and can exceed the nominal threshold due to scheduling and execution delay.
+
+**Verified execution evidence:**
+- Full daily-close MEXC public-data/ranking workflow [43984343892](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984343892): 1,143 active cross-margin perpetuals, 273,160 daily-candle rows, 93 instruments completed in the final bootstrap batch, zero remaining bootstrap instruments, zero missing tickers, zero missing latest completed bars, zero API failures, and history coverage gate passed.
+- Follow-up monitoring workflow [43984739626](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984739626): PORTFOLIO_SNAPSHOT_ONLY, daily_decision_due=false, q_rankings_recalculated=false, no missing position marks, zero orders.
+- CI [43984752103](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43984752103): Ruff passed; 141 tests passed.
+
+**Forward paper account remains NOT INITIALIZED.** PAPER_STATE_WRITE_ENABLED remains false, so no positions or financial events have been created and no portfolio NAV, equity curve or performance result is verified. State-branch protection, restricted writers and the real publisher/recovery gate are still required before any paper-account state transitions. Live trading, private endpoints, credentials and exchange orders remain prohibited.
