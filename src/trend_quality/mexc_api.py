@@ -173,7 +173,13 @@ def _normalize_ticker_row(
     index = _optional_decimal(row.get("indexPrice"), f"{symbol}.indexPrice")
     usable_mark = fair if fair > 0 else last
     mid = (bid + ask) / Decimal("2") if bid > 0 and ask > bid else usable_mark
-    timestamp = row.get("timestamp", timestamp_fallback_ms)
+    # The all-market WS envelope timestamp is the exchange server clock.
+    # Prefer it even if a ticker row also contains an older last-trade timestamp.
+    timestamp = (
+        timestamp_fallback_ms
+        if timestamp_fallback_ms is not None
+        else row.get("timestamp")
+    )
     timestamp_ms = _integer(timestamp, f"{symbol}.timestamp", minimum=1)
     return {
         "symbol": symbol,
