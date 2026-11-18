@@ -1,14 +1,8 @@
-name: "DIAGNOSTIC ONLY — READ-ONLY MEXC PREFLIGHT — NOT THE $50 PAPER ACCOUNT"
+name: "DIAGNOSTIC ONLY — MANUAL READ-ONLY MEXC PREFLIGHT — NOT THE $50 PAPER ACCOUNT"
 
-run-name: "READ-ONLY DIAGNOSTIC — NO PAPER ACCOUNT OR STATE — run #${{ github.run_number }}"
+run-name: "MANUAL READ-ONLY DIAGNOSTIC — NO PAPER ACCOUNT OR STATE — run #${{ github.run_number }}"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/trend_quality/mexc_api.py"
-      - "scripts/mexc_public_preflight.py"
-      - ".github/workflows/mexc-public-preflight.yml"
   workflow_dispatch:
 
 permissions:
