@@ -174,6 +174,10 @@ def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     assert "I_CONFIRM_ACTIVE_100_USDT_PAPER_ONLY" in mexc
     assert "group: paper-state-branch-single-writer" in mexc
     assert "cancel-in-progress: false" in mexc
+    assert "timeout-minutes: 355" in mexc
+    assert "timeout-minutes: 340" in mexc
+    assert 'BOOTSTRAP_BATCH_SIZE: "0"' in mexc
+    assert "git add -f data/" in mexc
     assert "  push:" not in mexc
     assert '- cron: "*/5 * * * *"' in mexc
     assert '- cron: "1 0 * * *"' in mexc
@@ -443,6 +447,17 @@ def test_bootstrap_stops_after_first_http_403_instead_of_hammering_endpoints() -
         )
     assert client.calls == ["AAA_USDT"]
 
+
+
+def test_full_universe_batch_selection_includes_every_available_perpetual() -> None:
+    cycle = load_cycle_module()
+    assert cycle._resolve_batch_size(0, 1_153) == 1_153
+    assert cycle._resolve_batch_size(150, 1_153) == 150
+    assert cycle._resolve_batch_size(2_000, 1_153) == 1_153
+    with pytest.raises(ValueError, match="cannot be negative"):
+        cycle._resolve_batch_size(-1, 1_153)
+    with pytest.raises(ValueError, match="universe is empty"):
+        cycle._resolve_batch_size(0, 0)
 
 
 def test_daily_refresh_candidates_include_missing_latest_candles() -> None:
