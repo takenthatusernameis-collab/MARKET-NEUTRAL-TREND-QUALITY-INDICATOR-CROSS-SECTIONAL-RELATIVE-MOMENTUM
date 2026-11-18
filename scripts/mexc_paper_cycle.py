@@ -24,7 +24,7 @@ from trend_quality.event_journal import (
 from trend_quality.github_state import GitHubStatePublisher
 from trend_quality.indicators import wilder_atr
 from trend_quality.market_data_store import MarketDataStore
-from trend_quality.mexc_api import MEXCPublicClient
+from trend_quality.mexc_api import MEXCForbiddenError, MEXCPublicClient
 from trend_quality.mexc_paper import (
     MEXCRankings,
     base_quantity_rules,
@@ -718,6 +718,15 @@ def _bootstrap_or_increment(
             record["last_checked_daily_bar_ms"] = latest_completed_bar_ms
             record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
             record["last_bootstrap_error"] = None
+        except MEXCForbiddenError as exc:
+            record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
+            record["last_bootstrap_error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
+            # A 403 is an access denial, not an ordinary per-contract data gap.
+            # Stop immediately rather than issuing the rest of the batch into a
+            # potentially denied/rate-limited endpoint.
+            raise MEXCForbiddenError(
+                f"Stopping MEXC bootstrap at {instrument['symbol']}: {exc}"
+            ) from exc
         except Exception as exc:
             record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
             record["last_bootstrap_error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
