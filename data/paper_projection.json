@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-18T08:05:34.824000+00:00",
+  "last_run_utc": "2026-11-18T08:12:35.494000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-50usdt-v3",
     "cash": "49.93412776",
@@ -257,13 +257,32 @@
         "short_notional_usdt": "45.754200",
         "timestamp_ms": 1794989134824,
         "utc_date": "2026-11-18"
+      },
+      {
+        "daily_drawdown_pct": "-4.075935647692690439166370640",
+        "daily_peak_nav": "50.13572776",
+        "daily_return_pct": "-3.8155444800",
+        "daily_starting_nav": "50",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "drawdown_window_reference": "daily_portfolio_rebalance",
+        "drawdown_window_starting_nav": "50.01072776",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.906624090229086114600069423",
+        "long_notional_usdt": "45.9063",
+        "nav": "48.09222776",
+        "roi_pct": "-3.8155444800",
+        "short_notional_usdt": "45.787500",
+        "timestamp_ms": 1794989555494,
+        "utc_date": "2026-11-18"
       }
     ],
     "fees_paid": "0.00917224",
     "initial_capital": "50",
     "last_decision_attempt_daily_bar_ms": 1794873600000,
     "last_processed_daily_bar_ms": 1794873600000,
-    "last_snapshot_ms": 1794989134824,
+    "last_snapshot_ms": 1794989555494,
     "partial_realized_net_pnls": [
       "-0.001800",
       "-0.024400",
@@ -281,7 +300,7 @@
         "initial_margin_usdt": "22.9306",
         "instrument_id": 1595,
         "last_funding_timestamp_ms": 1794976007111,
-        "last_mark_price": "416.94",
+        "last_mark_price": "417.33",
         "leverage": "2",
         "lowest_since_entry": "416.92",
         "quantity": "0.11",
@@ -299,7 +318,7 @@
         "initial_margin_usdt": "21.950250",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1794989133300,
-        "last_mark_price": "0.004122",
+        "last_mark_price": "0.004125",
         "last_rebalanced_at_ms": 1794989133300,
         "leverage": "2",
         "lowest_since_entry": "0.003955",
@@ -314,13 +333,13 @@
     "schema_version": 1,
     "status": "INITIALIZED_PAPER_ONLY",
     "strategy_id": "trend-quality-daily-cross-sectional-v3-50usdt",
-    "unresolved_funding_count": 2
+    "unresolved_funding_count": 1
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "850e0be7d30fc23b673d9bd27fccbfcf321c9af6818a7bbf086def9c557599c2",
-    "commit_sha": "20929e4ac7b2c0be6696962c9d891edbd7f245f4",
+    "batch_hash": "21930e2ad4ab259f3520105d523aba7f094abd0f0b279c12c78037fb1f5831e6",
+    "commit_sha": "688c1a37d56fe17689c0a8da1f375a48c98c5a58",
     "created": true,
-    "path": "events/2026/11/snapshot-1794989134824.json"
+    "path": "events/2026/11/snapshot-1794989555494.json"
   }
 }
