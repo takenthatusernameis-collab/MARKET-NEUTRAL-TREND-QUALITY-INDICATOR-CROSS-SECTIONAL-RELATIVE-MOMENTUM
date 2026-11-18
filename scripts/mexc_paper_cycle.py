@@ -685,6 +685,28 @@ def _try_pair(
     }
     attempted_pairs = 0
     execution_failures: list[str] = []
+    fill_cache: dict[
+        tuple[int, str, str], tuple[Any, dict[str, Any]] | Exception
+    ] = {}
+
+    def cached_fill(
+        instrument: dict[str, Any],
+        order_side: str,
+        quantity: Decimal,
+    ) -> tuple[Any, dict[str, Any]]:
+        key = (int(instrument["instrument_id"]), order_side, str(quantity))
+        if key not in fill_cache:
+            try:
+                fill_cache[key] = _fill(
+                    client, instrument, order_side, quantity, now_ms
+                )
+            except Exception as exc:
+                fill_cache[key] = exc
+        result = fill_cache[key]
+        if isinstance(result, Exception):
+            raise result
+        return result
+
     for long_candidate in rankings.executable_longs[:10]:
         if attempted_pairs >= max_pairs:
             break
@@ -742,23 +764,20 @@ def _try_pair(
                             else ("sell" if entry_order_side == "buy" else "buy")
                         )
                         try:
-                            simulated, book = _fill(
-                                client, instrument, order_side,
-                                abs(requested_delta), now_ms,
+                            simulated, book = cached_fill(
+                                instrument, order_side, abs(requested_delta)
                             )
                         except Exception as exc:
-                            # Retaining a valid existing contract is preferable
-                            # to liquidating it just because a small rebalance
-                            # delta cannot currently be filled from public depth.
-                            executable_delta = Decimal("0")
-                            rebalance_constraint = (
-                                f"DELTA_FILL_UNAVAILABLE:{type(exc).__name__}"
+                            execution_failures.append(
+                                f"{instrument['symbol']}: {type(exc).__name__}: {str(exc)[:120]}"
                             )
+                            valid = False
+                            break
                 else:
                     order_side = "buy" if side == "long" else "sell"
                     try:
-                        simulated, book = _fill(
-                            client, instrument, order_side, target_qty, now_ms
+                        simulated, book = cached_fill(
+                            instrument, order_side, target_qty
                         )
                     except Exception as exc:
                         execution_failures.append(
