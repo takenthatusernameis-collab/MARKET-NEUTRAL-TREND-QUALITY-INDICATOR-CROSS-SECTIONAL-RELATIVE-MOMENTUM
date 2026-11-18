@@ -117,7 +117,7 @@ def _risk_profile(
         long_weight = short_weight = Decimal("0.5")
     else:
         long_weight = short_vol / (long_vol + short_vol)
-        short_weight = long_vol / (long_vol + short_vol)
+        short_weight = ONE - long_weight
 
     equal_returns = [long_return - short_return for long_return, short_return in returns]
     alternative_returns = [
