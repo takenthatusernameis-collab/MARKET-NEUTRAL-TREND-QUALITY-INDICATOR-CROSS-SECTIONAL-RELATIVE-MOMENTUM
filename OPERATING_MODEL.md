@@ -45,6 +45,17 @@ This mode does not refresh the full research universe, backfill candles, recalcu
 
 Open the [GitHub Actions paper workflow](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml), select the workflow named **▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO**, choose branch `main`, then select **Run workflow** and confirm the required choice `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`. The run title begins **▶ MANUAL PAPER RUN — MEXC $50 USDT**. This invokes the same existing $50 v3 account cycle immediately; it does not create a new account or bypass the data, ranking, execution, persistence or risk gates. The YAML retains the automatic five-minute schedule, which is best-effort rather than a continuous service. The separate MEXC public preflight is read-only and the retired Polymarket state-writer workflow has been removed.
 
+### Public API pacing and access-denial handling
+
+MEXC's official [Contract API documentation](https://mexcdevelop.github.io/apidocs/contract_v1_en/) lists a 20-request-per-two-second limit for relevant public market endpoints. The adapter deliberately targets **5 requests per second** (one request every 0.20 seconds) to leave headroom rather than operating at the documented ceiling.
+
+The read-only MEXC preflight shares the paper cycle's non-cancelling `paper-state-branch-single-writer` concurrency group. It must not issue a concurrent burst of public requests while the portfolio workflow is backfilling history or marking positions.
+
+An HTTP 403 is treated as an access denial, not retried or bypassed. Diagnostics record the endpoint path without query parameters, response server/content type/retry-after headers when available, and a short response-body/provider-message excerpt. A 403 during bootstrap stops the batch immediately; do not continue issuing requests to the denied endpoint. The workflow must remain paper-only and must not use proxies, VPNs, alternate IPs, private endpoints, credentials or other circumvention methods.
+
+A successful read-only preflight proves only the tested endpoint samples at the reported time. It does not prove that all 1,064 eligible contracts or the full 365-day candle bootstrap are accessible. Keep sampled preflight success, full-cycle success, market-data coverage, state persistence and portfolio performance as separate evidence categories. Do not infer the cause of a 403 (rate restriction, edge/WAF policy, contract-specific restriction or other denial) until endpoint-level diagnostics support it.
+
+
 ## 2. Portfolio construction and leverage
 
 The active forward account is denominated entirely in USDT. The only active generation ID is `mexc-usdt-forward-50usdt-v3`; its strategy generation is `trend-quality-daily-cross-sectional-v3-50usdt`. The prior 1 USDT `mexc-usdt-forward` and 10 USDT `mexc-usdt-forward-10usdt-v2` accounts remain archived, separate, immutable events in the append-only state history and are not merged into the active account.
