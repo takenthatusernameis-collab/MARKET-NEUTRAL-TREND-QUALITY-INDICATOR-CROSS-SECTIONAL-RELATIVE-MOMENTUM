@@ -20,7 +20,7 @@ python -m pip install -e .
 python scripts/mexc_public_preflight.py
 ```
 
-The preflight reads only official public MEXC Futures endpoints through `https://api.mexc.com` (current server-time, `/api/v1/contract/detail/country`, bulk tickers, sampled depth, daily candles and funding history). The former `contract.mexc.com` Futures REST host was discontinued on 2026-01-19. The shared public client waits at least 1.5 seconds between requests and uses long exponential backoff after 429 / code 510 responses. It discovers contract details, bulk tickers, server time, sampled depth, daily candles and funding history. It emits a JSON report and returns nonzero if mandatory technical checks fail. It does not query account endpoints or place orders.
+The preflight reads only official public MEXC Futures endpoints through `https://api.mexc.com` (current server-time, `/api/v1/contract/detail`, bulk tickers, sampled depth, daily candles and funding history). The former `contract.mexc.com` Futures REST host was discontinued on 2026-01-19. The shared public client waits at least 1.5 seconds between requests and uses long exponential backoff after 429 / code 510 responses. It discovers contract details, bulk tickers, server time, sampled depth, daily candles and funding history. It emits a JSON report and returns nonzero if mandatory technical checks fail. It does not query account endpoints or place orders.
 
 Successful preflight and UTC daily boundary evidence: [GitHub Actions run 43976183941](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43976183941).
 
