@@ -27,17 +27,19 @@ The ordered technical search was Polymarket Perps → MEXC → Bitget. MEXC was 
 
 ### MEXC verification
 
-The hosted-runner public API preflight (run 43977889004) established:
+**Current supported-host public preflight (2026-11-18, automatic run #16)** used `https://api.mexc.com` and reported:
 
-- 1,152 instruments discovered; **1,143 active cross-margin perpetuals** across all settlement types.
-- **1,061 active USDT/USDT quote-and-settlement contracts** are the subset eligible for the current homogeneous USDT paper account.
-- 1,161 bulk ticker rows returned, with no missing ticker for any of the 1,143 research instruments.
-- Sampled ticker, book, daily-candle and funding-history requests passed for every reported category: commodity, crypto, equity, FX and unclassified.
-- Settlement groups: 1,061 USDT/USDT, 41 USDC/USDC, 31 USD1/USD1 and 10 USD-quoted coin-settled contracts.
-- Sampled daily candles opened at 00:00 UTC.
-- No credentials or private endpoints were used; no orders were submitted.
+- 690 raw instrument records; **684 active cross-margin perpetuals** returned by the current endpoint and accepted by the adapter's active/cross/API-allowed filter.
+- **612 active USDT/USDT quote-and-settlement contracts** in the current paper-execution subset.
+- 1,166 all-market ticker rows; **zero unmatched symbols** across all 684 active cross-margin instruments.
+- Sampled order-book, daily-candle and funding-history checks passed across commodity, crypto, equity and unclassified categories.
+- No credentials or private endpoints were used; no wallet or orders were used.
 
-[Successful all-settlement MEXC public API preflight](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43977889004)
+[Automatic current-host MEXC preflight run #16](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44256962226) · `TECHNICAL_PUBLIC_DATA_PASS`
+
+**Historical count comparison:** run [43977889004](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43977889004) on 2026-11-16 used the former `https://contract.mexc.com` host and reported 1,143 active cross-margin / 1,061 USDT contracts. MEXC had already announced that this old host would be discontinued from 2026-01-19; do not treat that legacy-host result as the current universe baseline. The two outputs differ materially (1,143 vs. 684 cross-margin contracts). The current supported-host preflight proves complete ticker coverage for the 684 instruments returned to the hosted runner, but does **not** explain the full universe-count difference or establish a global, region-independent instrument set. This discrepancy is retained as an open scope/coverage question rather than silently treated as delistings or as equivalent data.
+
+MEXC's current contract-info endpoint includes country-configured leverage metadata, and the exchange notes that API product availability can vary by region. Technical reachability from a GitHub-hosted runner therefore does not establish the universe available to an individual Romanian account. See the [current contract-info endpoint](https://www.mexc.io/api-docs/futures/market-endpoints/get-contract-info), [Futures API domain update](https://www.mexc.com/announcements/article/futures-api-access-domain-update-17827791532974), and [MEXC API regional-availability notice](https://www.mexc.com/announcements/api-updates).
 
 Bitget's independent curiosity run found 886 active cross-margin USDT perpetuals and passed its sampled public-data checks. This did not change the ordered selection: MEXC remains selected.
 
