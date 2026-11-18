@@ -59,6 +59,10 @@ ACCOUNT_ID = "mexc-usdt-forward-10usdt-v2"
 STRATEGY_ID = "trend-quality-daily-cross-sectional-v2-10usdt"
 
 
+class MEXCExecutionUnavailable(RuntimeError):
+    """Public order-book data could not support a safe paper execution decision."""
+
+
 def dec(value: object, default: str = "0") -> Decimal:
     try:
         parsed = Decimal(str(default if value is None else value))
@@ -69,6 +73,31 @@ def dec(value: object, default: str = "0") -> Decimal:
 
 def _last_completed_daily_bar(server_ms: int) -> int:
     return (server_ms // DAY_MS) * DAY_MS - DAY_MS
+
+
+def _daily_decision_is_due(
+    history_coverage_pass: bool,
+    latest_bar_ms: int,
+    last_attempt_ms: int | None,
+) -> bool:
+    """Only make a candle decision eligible after its required history is complete."""
+    return bool(
+        history_coverage_pass
+        and (last_attempt_ms is None or latest_bar_ms > int(last_attempt_ms))
+    )
+
+
+def _cycle_status_requires_attention(status: str) -> bool:
+    """Keep blocked decisions visible as failed workflow runs, not green monitoring."""
+    return status.startswith((
+        "BLOCKED_",
+        "REBALANCE_BLOCKED:",
+        "RETRY_BLOCKED_",
+        "RETRY_EXECUTION_BLOCKED",
+        "RETRY_NO_EXECUTABLE_PAIR",
+        "EMERGENCY_FLATTEN_PENDING_RETRY",
+        "UNAVAILABLE_",
+    ))
 
 
 def _history_row(instrument: dict[str, Any], candle: dict[str, Any]) -> dict[str, Any]:
@@ -622,12 +651,15 @@ def _fill(
     now_ms: int,
 ) -> tuple[Any, dict[str, Any]]:
     book = client.orderbook(str(instrument["symbol"]), depth=50)
+    # The cycle-start clock can be several minutes old after universe backfill.
+    # Validate depth against MEXC server time sampled after the book was fetched.
+    book_reference_ms = client.server_time_ms()
     result = simulate_mexc_fill(
         book,
         instrument,
         side,
         quantity,
-        now_ms,
+        book_reference_ms,
         max_shortfall_bps=MAX_SHORTFALL_BPS,
     )
     return result, book
@@ -652,10 +684,35 @@ def _try_pair(
         for row in state.get("positions", [])
     }
     attempted_pairs = 0
+    execution_failures: list[str] = []
+    fill_cache: dict[
+        tuple[int, str, str], tuple[Any, dict[str, Any]] | Exception
+    ] = {}
+
+    def cached_fill(
+        instrument: dict[str, Any],
+        order_side: str,
+        quantity: Decimal,
+    ) -> tuple[Any, dict[str, Any]]:
+        key = (int(instrument["instrument_id"]), order_side, str(quantity))
+        if key not in fill_cache:
+            try:
+                fill_cache[key] = _fill(
+                    client, instrument, order_side, quantity, now_ms
+                )
+            except Exception as exc:
+                fill_cache[key] = exc
+        result = fill_cache[key]
+        if isinstance(result, Exception):
+            raise result
+        return result
+
     for long_candidate in rankings.executable_longs[:10]:
+        if attempted_pairs >= max_pairs:
+            break
         for short_candidate in rankings.executable_shorts[:10]:
             if attempted_pairs >= max_pairs:
-                return None
+                break
             attempted_pairs += 1
             if long_candidate.symbol == short_candidate.symbol:
                 continue
@@ -707,25 +764,25 @@ def _try_pair(
                             else ("sell" if entry_order_side == "buy" else "buy")
                         )
                         try:
-                            simulated, book = _fill(
-                                client, instrument, order_side,
-                                abs(requested_delta), now_ms,
+                            simulated, book = cached_fill(
+                                instrument, order_side, abs(requested_delta)
                             )
                         except Exception as exc:
-                            # Retaining a valid existing contract is preferable
-                            # to liquidating it just because a small rebalance
-                            # delta cannot currently be filled from public depth.
-                            executable_delta = Decimal("0")
-                            rebalance_constraint = (
-                                f"DELTA_FILL_UNAVAILABLE:{type(exc).__name__}"
+                            execution_failures.append(
+                                f"{instrument['symbol']}: {type(exc).__name__}: {str(exc)[:120]}"
                             )
+                            valid = False
+                            break
                 else:
                     order_side = "buy" if side == "long" else "sell"
                     try:
-                        simulated, book = _fill(
-                            client, instrument, order_side, target_qty, now_ms
+                        simulated, book = cached_fill(
+                            instrument, order_side, target_qty
                         )
-                    except Exception:
+                    except Exception as exc:
+                        execution_failures.append(
+                            f"{instrument['symbol']}: {type(exc).__name__}: {str(exc)[:120]}"
+                        )
                         valid = False
                         break
 
@@ -765,6 +822,12 @@ def _try_pair(
                     long_candidate.symbol,
                     short_candidate.symbol,
                 )
+    if execution_failures:
+        raise MEXCExecutionUnavailable(
+            "No candidate pair could be validated from public depth; "
+            f"{len(execution_failures)} fill attempt(s) failed; "
+            f"last failure: {execution_failures[-1]}"
+        )
     return None
 
 
@@ -869,6 +932,82 @@ def _apply_selected_pair(
     state.clear()
     state.update(trial)
     return close_details, resize_details
+
+
+def _retry_pending_pair(
+    client: MEXCPublicClient,
+    portfolio: dict[str, Any],
+    pending_entry: dict[str, Any],
+    rankings: MEXCRankings,
+    history: dict[int, list[dict[str, Any]]],
+    tickers: dict[int, dict[str, Any]],
+    instruments_by_id: dict[int, dict[str, Any]],
+    latest_bar_ms: int,
+    server_ms: int,
+) -> dict[str, Any]:
+    """Retry a frozen daily pair against the current book, including open positions."""
+    pending_entry["attempt_count"] = int(pending_entry.get("attempt_count", 0)) + 1
+    pending_entry["last_attempt_ms"] = server_ms
+    try:
+        pair = _try_pair(
+            client,
+            rankings,
+            history,
+            tickers,
+            portfolio,
+            server_ms,
+            max_pairs=5,
+        )
+        if pair is None:
+            return {
+                "status": "RETRY_NO_EXECUTABLE_PAIR",
+                "daily_bar_timestamp_ms": latest_bar_ms,
+                "attempt_count": pending_entry["attempt_count"],
+                "pairs_checked_this_run": 5,
+            }
+
+        proposed, proposed_fills, pair_symbols = pair
+        execution_ms = client.server_time_ms()
+        trial = deepcopy(portfolio)
+        close_details, resize_details = _apply_selected_pair(
+            client,
+            trial,
+            proposed,
+            instruments_by_id,
+            execution_ms,
+        )
+        trial["pending_entry_signal"] = None
+        retry_nav = portfolio_nav(trial, tickers)
+        risk_window_reset = reset_daily_risk_window(
+            trial,
+            execution_ms,
+            retry_nav,
+            reference="daily_pair_rebalance_retry",
+        )
+        portfolio.clear()
+        portfolio.update(trial)
+        changed = bool(close_details) or any(
+            row.get("action") in {"OPENED", "INCREASED", "REDUCED", "CLOSED"}
+            for row in resize_details
+        )
+        return {
+            "status": "RETRY_PAIR_REBALANCED" if changed else "RETRY_PAIR_HELD",
+            "daily_bar_timestamp_ms": latest_bar_ms,
+            "attempt_count": pending_entry["attempt_count"],
+            "pair": list(pair_symbols),
+            "candidate_fill_estimates": proposed_fills,
+            "close_actions": close_details,
+            "fills": resize_details,
+            "risk_window_reset": risk_window_reset,
+        }
+    except Exception as exc:
+        return {
+            "status": "RETRY_EXECUTION_BLOCKED",
+            "daily_bar_timestamp_ms": latest_bar_ms,
+            "attempt_count": pending_entry["attempt_count"],
+            "error": f"{type(exc).__name__}: {str(exc)[:200]}",
+        }
+
 
 def _close_all(
     client: MEXCPublicClient,
@@ -1055,7 +1194,6 @@ def _snapshot_only_cycle(
         pending_entry = portfolio.get("pending_entry_signal")
         if (
             writer_enabled
-            and not positions
             and isinstance(pending_entry, dict)
             and int(pending_entry.get("daily_bar_timestamp_ms", 0)) == latest_bar_ms
             and not portfolio.get("daily_risk", {}).get("stop_triggered")
@@ -1065,82 +1203,61 @@ def _snapshot_only_cycle(
                 pending_entry, store.manifest.get("instruments", {})
             )
             if retry_rankings is not None:
-                retry_instruments = list(retry_rankings.instruments_by_key.values())
+                retry_instruments_by_id = {
+                    int(row["instrument_id"]): row
+                    for row in retry_rankings.instruments_by_key.values()
+                }
+                for position in positions:
+                    iid = int(position["instrument_id"])
+                    instrument = store.manifest.get("instruments", {}).get(str(iid))
+                    if instrument is not None:
+                        retry_instruments_by_id[iid] = instrument
+                retry_instruments = list(retry_instruments_by_id.values())
                 retry_tickers, retry_missing = _ticker_maps(
                     retry_instruments, client.tickers()
                 )
-                if retry_missing:
+                retry_position_gaps = _stale_or_missing_position_marks(
+                    positions, retry_tickers, server_ms
+                )
+                if retry_missing or retry_position_gaps:
                     pending_entry["attempt_count"] = (
                         int(pending_entry.get("attempt_count", 0)) + 1
                     )
                     pending_entry["last_attempt_ms"] = server_ms
                     entry_retry_report = {
-                        "status": "RETRY_BLOCKED_MISSING_TICKER",
+                        "status": "RETRY_BLOCKED_MISSING_MARKET_DATA",
                         "missing_instrument_ids": retry_missing,
+                        "missing_position_marks": retry_position_gaps,
                         "daily_bar_timestamp_ms": latest_bar_ms,
                         "attempt_count": pending_entry["attempt_count"],
                     }
-                    state_changed = True
                 else:
                     retry_history = store.load_all_candles(
                         start_timestamp_ms=max(0, server_ms - BOOTSTRAP_DAYS * DAY_MS)
                     )
-                    pair = _try_pair(
+                    entry_retry_report = _retry_pending_pair(
                         client,
+                        portfolio,
+                        pending_entry,
                         retry_rankings,
                         retry_history,
                         retry_tickers,
-                        portfolio,
+                        retry_instruments_by_id,
+                        latest_bar_ms,
                         server_ms,
-                        max_pairs=5,
                     )
-                    pending_entry["attempt_count"] = (
-                        int(pending_entry.get("attempt_count", 0)) + 1
-                    )
-                    pending_entry["last_attempt_ms"] = server_ms
-                    if pair is None:
-                        entry_retry_report = {
-                            "status": "RETRY_NO_EXECUTABLE_PAIR",
-                            "daily_bar_timestamp_ms": latest_bar_ms,
-                            "attempt_count": pending_entry["attempt_count"],
-                            "pairs_checked_this_run": 5,
-                        }
-                    else:
-                        proposed, retry_fills, pair_symbols = pair
-                        trial = deepcopy(portfolio)
-                        opened: list[dict[str, Any]] = []
-                        for row in proposed:
-                            opened.append(open_paper_position(
-                                trial,
-                                row["instrument"],
-                                row["ticker"],
-                                row["side"],
-                                row["atr"],
-                                row["fill"],
-                                server_ms,
-                                stop_atr_multiple=STOP_ATR_MULTIPLE,
-                            ))
-                        trial["positions"] = opened
-                        trial["pending_entry_signal"] = None
-                        retry_nav = portfolio_nav(trial, retry_tickers)
-                        risk_window_reset = reset_daily_risk_window(
-                            trial,
-                            server_ms,
-                            retry_nav,
-                            reference="new_pair_opened_after_daily_signal",
-                        )
-                        portfolio.clear()
-                        portfolio.update(trial)
-                        positions = list(portfolio.get("positions", []))
-                        entry_retry_report = {
-                            "status": "RETRY_PAIR_OPENED",
-                            "daily_bar_timestamp_ms": latest_bar_ms,
-                            "attempt_count": pending_entry["attempt_count"],
-                            "pair": list(pair_symbols),
-                            "fills": retry_fills,
-                            "risk_window_reset": risk_window_reset,
-                        }
-                    state_changed = True
+                state_changed = True
+            else:
+                pending_entry["attempt_count"] = (
+                    int(pending_entry.get("attempt_count", 0)) + 1
+                )
+                pending_entry["last_attempt_ms"] = server_ms
+                entry_retry_report = {
+                    "status": "RETRY_BLOCKED_INVALID_PENDING_SIGNAL",
+                    "daily_bar_timestamp_ms": latest_bar_ms,
+                    "attempt_count": pending_entry["attempt_count"],
+                }
+                state_changed = True
         elif (
             writer_enabled
             and isinstance(pending_entry, dict)
@@ -1394,7 +1511,7 @@ def _snapshot_only_cycle(
         _markdown_report(report), encoding="utf-8"
     )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
-    return 0
+    return 1 if _cycle_status_requires_attention(str(report["paper_decision_status"])) else 0
 
 def _paper_state_writer_requested() -> bool:
     """Require an explicit true flag; the scheduled workflow supplies the default."""
@@ -1514,16 +1631,11 @@ def _run() -> int:
         )
 
     instruments = client.instruments()
-    ticker_rows = client.tickers()
-    ticker_by_id, missing_tickers = _ticker_maps(instruments, ticker_rows)
     instrument_by_id = {
         int(row["instrument_id"]): row for row in instruments
     }
     lifecycle_counts = store.sync_universe(instruments, server_ms)
     latest_bar_ms = _last_completed_daily_bar(server_ms)
-
-    snapshot_rows = _snapshot_rows(instruments, ticker_by_id, server_ms)
-    snapshot_path = store.save_snapshot(server_ms, snapshot_rows)
     bootstrap_completed, bootstrap_remaining, api_failures = _bootstrap_or_increment(
         client,
         store,
@@ -1532,6 +1644,15 @@ def _run() -> int:
         latest_bar_ms,
         batch_size,
     )
+
+    # Backfill can take minutes. Refresh the exchange clock and bulk tickers after
+    # that work so marks and order-sizing inputs are current when decisions begin.
+    server_ms = client.server_time_ms()
+    latest_bar_ms = _last_completed_daily_bar(server_ms)
+    ticker_rows = client.tickers()
+    ticker_by_id, missing_tickers = _ticker_maps(instruments, ticker_rows)
+    snapshot_rows = _snapshot_rows(instruments, ticker_by_id, server_ms)
+    snapshot_path = store.save_snapshot(server_ms, snapshot_rows)
     history = store.load_all_candles(
         start_timestamp_ms=max(0, server_ms - BOOTSTRAP_DAYS * DAY_MS)
     )
@@ -1578,12 +1699,16 @@ def _run() -> int:
             "last_decision_attempt_daily_bar_ms",
             portfolio.get("last_processed_daily_bar_ms"),
         )
-        new_daily_bar = (
-            history_coverage_pass
-            and (old_last_attempt is None or latest_bar_ms > int(old_last_attempt))
+        new_daily_bar = _daily_decision_is_due(
+            history_coverage_pass,
+            latest_bar_ms,
+            old_last_attempt,
         )
-        if old_last_attempt is None or latest_bar_ms > int(old_last_attempt):
-            portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
+        state_changed = False
+        daily_risk_snapshot: dict[str, Any] | None = None
+        risk_window_reset: dict[str, Any] | None = None
+        pair_rebalance_actions: list[dict[str, Any]] = []
+        position_mark_gaps: list[str] = []
         funding_events, unresolved_funding = _process_funding(
             client, store, portfolio, server_ms
         )
@@ -1592,7 +1717,6 @@ def _run() -> int:
             ticker_by_id,
             server_ms,
         )
-        daily_risk_snapshot: dict[str, Any] | None = None
         if position_mark_gaps:
             state_changed = True
             paper_decision_status = "BLOCKED_MISSING_POSITION_MARK"
@@ -1686,23 +1810,29 @@ def _run() -> int:
             and not portfolio.get("emergency_liquidation_pending")
             and not position_mark_gaps
         ):
+            portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
             portfolio["pending_entry_signal"] = _pending_entry_signal(
                 rankings, latest_bar_ms
             )
-            pair = (
-                _try_pair(
-                    client,
-                    rankings,
-                    history,
-                    ticker_by_id,
-                    portfolio,
-                    server_ms,
+            pair_selection_error: str | None = None
+            try:
+                pair = (
+                    _try_pair(
+                        client,
+                        rankings,
+                        history,
+                        ticker_by_id,
+                        portfolio,
+                        server_ms,
+                    )
+                    if rankings.executable_longs and rankings.executable_shorts
+                    else None
                 )
-                if rankings.executable_longs and rankings.executable_shorts
-                else None
-            )
-            pair_rebalance_actions: list[dict[str, Any]] = []
-            risk_window_reset: dict[str, Any] | None = None
+            except Exception as exc:
+                pair = None
+                pair_selection_error = (
+                    f"{type(exc).__name__}: {str(exc)[:180]}"
+                )
             if pair is not None:
                 proposed, _pair_candidate_fills, _ = pair
                 prior_keys = {
@@ -1762,6 +1892,9 @@ def _run() -> int:
                     paper_decision_status = (
                         f"REBALANCE_BLOCKED:{type(exc).__name__}:{str(exc)[:180]}"
                     )
+            elif pair_selection_error is not None:
+                paper_decision_status = f"REBALANCE_BLOCKED:{pair_selection_error}"
+                state_changed = True
             else:
                 trial = deepcopy(portfolio)
                 try:
@@ -1786,6 +1919,7 @@ def _run() -> int:
                 portfolio["last_processed_daily_bar_ms"] = latest_bar_ms
                 state_changed = True
         if new_daily_bar and portfolio.get("daily_risk", {}).get("stop_triggered"):
+            portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
             nav = portfolio_nav(portfolio, ticker_by_id)
             append_daily_equity(portfolio, latest_bar_ms, nav)
             portfolio["last_processed_daily_bar_ms"] = latest_bar_ms
@@ -1982,7 +2116,7 @@ def _run() -> int:
     store.save_manifest(server_ms)
     store.prune_snapshots(server_ms)
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
-    return 0
+    return 1 if _cycle_status_requires_attention(paper_decision_status) else 0
 
 
 def _markdown_report(report: dict[str, Any]) -> str:
