@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   cycle:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm_paper_account == 'I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm_paper_account == 'I_CONFIRM_ACTIVE_100_USDT_PAPER_ONLY' }}
     name: "ACTIVE $100 USDT PAPER ACCOUNT — daily full refresh / five-minute monitoring and retries"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -71,7 +71,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
       # MEXC Futures REST now uses api.mexc.com with 1.5-second minimum request pacing.
-      # This is the sole active $50 USDT paper-account writer; no live orders are sent.
+      # This is the sole active $100 USDT paper-account writer; no live orders are sent.
       - name: Run MEXC data, daily full portfolio refresh and five-minute monitoring/retry cycle
         id: cycle
         working-directory: strategy

@@ -4,8 +4,8 @@
 
 **Correct workflow:** [▶ ACTIVE PAPER ACCOUNT — MEXC $100 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
 
-- Account: \`mexc-usdt-forward-100usdt-v4\`
-- Strategy generation: \`trend-quality-daily-cross-sectional-v4-100usdt\`
+- Account: `mexc-usdt-forward-100usdt-v4`
+- Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
 - Account state: **READY — AWAITING FIRST FINANCIAL WORKFLOW EVENT**
 - First eligible candle: latest genuinely completed UTC daily candle; no account candle watermark has been consumed.
