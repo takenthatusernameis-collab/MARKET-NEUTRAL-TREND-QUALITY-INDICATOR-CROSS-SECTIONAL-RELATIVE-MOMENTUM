@@ -106,21 +106,31 @@ def test_paper_state_writer_requires_explicit_true_flag(monkeypatch) -> None:
     assert cycle._paper_state_writer_requested() is False
 
 
-def test_state_branch_writers_share_one_non_cancelling_concurrency_group() -> None:
+def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     root = Path(__file__).resolve().parents[1]
     mexc = (root / ".github" / "workflows" / "mexc-paper-cycle.yml").read_text()
-    polymarket = (
-        root / ".github" / "workflows" / "polymarket-paper-cycle.yml"
+    preflight = (
+        root / ".github" / "workflows" / "mexc-public-preflight.yml"
     ).read_text()
+    retired_polymarket = (
+        root / ".github" / "workflows" / "polymarket-paper-cycle.yml"
+    )
     cycle_source = (root / "scripts" / "mexc_paper_cycle.py").read_text()
 
-    for workflow in (mexc, polymarket):
-        assert "group: paper-state-branch-single-writer" in workflow
-        assert "cancel-in-progress: false" in workflow
+    assert "ACTIVE MEXC $50 USDT PAPER ONLY" in mexc
+    assert "▶ MANUAL PAPER RUN — MEXC $50 USDT" in mexc
+    assert "I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY" in mexc
+    assert "group: paper-state-branch-single-writer" in mexc
+    assert "cancel-in-progress: false" in mexc
     assert "PAPER_STATE_WRITE_ENABLED: ${{ vars.PAPER_STATE_WRITE_ENABLED || 'true' }}" in mexc
     assert "STATE_PROTECTION_TOKEN" not in mexc
     assert "STATE_PROTECTION_TOKEN" not in cycle_source
     assert "def _state_branch_protection" not in cycle_source
+
+    assert not retired_polymarket.exists()
+    assert "DIAGNOSTIC ONLY — READ-ONLY MEXC PREFLIGHT" in preflight
+    assert "permissions:\n  contents: read" in preflight
+    assert "contents: write" not in preflight
 
 
 def test_recovery_probe_requires_fresh_checkout_and_does_not_initialize_account(tmp_path) -> None:
