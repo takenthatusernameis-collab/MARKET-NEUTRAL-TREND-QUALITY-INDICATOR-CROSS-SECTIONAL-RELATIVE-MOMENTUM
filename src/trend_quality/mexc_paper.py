@@ -257,7 +257,6 @@ def size_neutral_mexc_pair(
         primary_price = long_price
         other_step = short_step
         other_min = short_min
-        other_max = short_max
         other_max_target = short_max_target
         other_price = short_price
     else:
@@ -267,7 +266,6 @@ def size_neutral_mexc_pair(
         primary_price = short_price
         other_step = long_step
         other_min = long_min
-        other_max = long_max
         other_max_target = long_max_target
         other_price = long_price
 
