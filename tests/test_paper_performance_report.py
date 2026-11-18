@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from decimal import Decimal
 import xml.etree.ElementTree as ET
+from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -437,7 +437,7 @@ def test_one_point_equity_curve_uses_one_centered_utc_label() -> None:
         node for node in root.findall(".//svg:text", namespace)
         if "".join(node.itertext()) in {"2026-11-18", "04:26:47 UTC"}
     ]
-    assert [ "".join(node.itertext()) for node in labels ] == [
+    assert ["".join(node.itertext()) for node in labels] == [
         "2026-11-18",
         "04:26:47 UTC",
     ]
@@ -447,8 +447,12 @@ def test_one_point_equity_curve_uses_one_centered_utc_label() -> None:
 def test_dense_equity_history_suppresses_crowded_interior_time_ticks() -> None:
     start = 1794976007111
     points = [
-        {"timestamp_ms": start + index * 1_000, "nav": str(50 + index / 100)}
-        for index in range(20)
+        {"timestamp_ms": start, "nav": "50.00"},
+        *[
+            {"timestamp_ms": start + index * 1_000, "nav": str(50 + index / 100)}
+            for index in range(1, 19)
+        ],
+        {"timestamp_ms": start + 3_600_000, "nav": "50.19"},
     ]
     svg = _equity_curve_svg(points, Decimal("50"))
     root = ET.fromstring(svg)
