@@ -122,6 +122,8 @@ def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     assert "I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY" in mexc
     assert "group: paper-state-branch-single-writer" in mexc
     assert "cancel-in-progress: false" in mexc
+    assert "group: paper-state-branch-single-writer" in preflight
+    assert "cancel-in-progress: false" in preflight
     assert "PAPER_STATE_WRITE_ENABLED: ${{ vars.PAPER_STATE_WRITE_ENABLED || 'true' }}" in mexc
     assert "STATE_PROTECTION_TOKEN" not in mexc
     assert "STATE_PROTECTION_TOKEN" not in cycle_source
