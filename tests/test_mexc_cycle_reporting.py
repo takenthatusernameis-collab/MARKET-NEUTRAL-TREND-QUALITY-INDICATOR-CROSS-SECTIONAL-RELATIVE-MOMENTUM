@@ -5,6 +5,8 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from trend_quality.ranking import Candidate
 
 
