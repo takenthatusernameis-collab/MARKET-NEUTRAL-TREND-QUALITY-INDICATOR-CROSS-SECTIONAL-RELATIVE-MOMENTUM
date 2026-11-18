@@ -1,8 +1,8 @@
 {
-  "last_run_utc": "2026-11-18T06:46:25.386000+00:00",
+  "last_run_utc": "2026-11-18T07:25:56.825000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-50usdt-v3",
-    "cash": "49.96462776",
+    "cash": "49.95092776",
     "closed_trade_net_pnls": [],
     "confirmed_funding": "0",
     "currency": "USDT",
@@ -181,16 +181,55 @@
         "short_notional_usdt": "45.889300",
         "timestamp_ms": 1794984385386,
         "utc_date": "2026-11-18"
+      },
+      {
+        "daily_drawdown_pct": "-3.436670966955960668795525630",
+        "daily_peak_nav": "50.13572776",
+        "daily_return_pct": "-3.1745444800",
+        "daily_starting_nav": "50",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "drawdown_window_reference": "daily_portfolio_rebalance",
+        "drawdown_window_starting_nav": "50.01072776",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.901396683457606520950969031",
+        "long_notional_usdt": "45.8348",
+        "nav": "48.41272776",
+        "roi_pct": "-3.1745444800",
+        "short_notional_usdt": "46.21700",
+        "timestamp_ms": 1794986747876,
+        "utc_date": "2026-11-18"
+      },
+      {
+        "daily_drawdown_pct": "-3.437069884073425086748955170",
+        "daily_peak_nav": "50.13572776",
+        "daily_return_pct": "-3.1749444800",
+        "daily_starting_nav": "50",
+        "daily_starting_reference": "first_observation_of_utc_day",
+        "drawdown_window_reference": "daily_portfolio_rebalance",
+        "drawdown_window_starting_nav": "50.01072776",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.892956311934578480683736147",
+        "long_notional_usdt": "45.8348",
+        "nav": "48.41252776",
+        "roi_pct": "-3.1749444800",
+        "short_notional_usdt": "45.80800",
+        "timestamp_ms": 1794986756825,
+        "utc_date": "2026-11-18"
       }
     ],
     "fees_paid": "0.00917224",
     "initial_capital": "50",
     "last_decision_attempt_daily_bar_ms": 1794873600000,
     "last_processed_daily_bar_ms": 1794873600000,
-    "last_snapshot_ms": 1794984385386,
+    "last_snapshot_ms": 1794986756825,
     "partial_realized_net_pnls": [
       "-0.001800",
-      "-0.024400"
+      "-0.024400",
+      "-0.013700"
     ],
     "pending_entry_signal": null,
     "positions": [
@@ -203,7 +242,7 @@
         "initial_margin_usdt": "22.9306",
         "instrument_id": 1595,
         "last_funding_timestamp_ms": 1794976007111,
-        "last_mark_price": "416.84",
+        "last_mark_price": "416.68",
         "leverage": "2",
         "lowest_since_entry": "416.92",
         "quantity": "0.11",
@@ -218,21 +257,21 @@
         "entry_price": "0.003955",
         "entry_timestamp_ms": 1794976007111,
         "highest_since_entry": "0.003955",
-        "initial_margin_usdt": "22.345750",
+        "initial_margin_usdt": "22.148000",
         "instrument_id": 1899,
-        "last_funding_timestamp_ms": 1794983276388,
-        "last_mark_price": "0.004061",
-        "last_rebalanced_at_ms": 1794983276388,
+        "last_funding_timestamp_ms": 1794986755253,
+        "last_mark_price": "0.00409",
+        "last_rebalanced_at_ms": 1794986755253,
         "leverage": "2",
         "lowest_since_entry": "0.003955",
-        "quantity": "11300",
+        "quantity": "11200",
         "side": "short",
         "stop_price": "0.0055453523775596812",
         "symbol": "BILL_USDT",
         "unresolved_funding_count": 0
       }
     ],
-    "realized_gross_pnl": "-0.026200",
+    "realized_gross_pnl": "-0.039900",
     "schema_version": 1,
     "status": "INITIALIZED_PAPER_ONLY",
     "strategy_id": "trend-quality-daily-cross-sectional-v3-50usdt",
@@ -240,9 +279,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "2863fa132c1a6d85b38eff1bae4f3cb0678111fb86ea622ad5b560618289f088",
-    "commit_sha": "defffb698b20f61d876bf61dd91427dd3180889c",
+    "batch_hash": "4935103d562806e4d00bfd2c459bca9e66138ee2b5a16c41ffbe4a4872e62928",
+    "commit_sha": "60cfda2414e8d62533c36e2a659038a9537ecbcb",
     "created": true,
-    "path": "events/2026/11/snapshot-1794984385386.json"
+    "path": "events/2026/11/snapshot-1794986756825.json"
   }
 }
