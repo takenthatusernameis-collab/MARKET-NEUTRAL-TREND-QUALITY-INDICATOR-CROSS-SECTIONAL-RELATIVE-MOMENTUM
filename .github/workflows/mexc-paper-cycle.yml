@@ -16,7 +16,11 @@ on:
       - "scripts/mexc_paper_cycle.py"
       - ".github/workflows/mexc-paper-cycle.yml"
   schedule:
+    # Frequent monitoring and delayed-data recovery.
     - cron: "*/5 * * * *"
+    # Dedicated UTC daily-close attempt; the candle watermark keeps this idempotent
+    # if a five-minute poll has already processed the same completed candle.
+    - cron: "1 0 * * *"
   workflow_dispatch:
     inputs:
       confirm_paper_account:
