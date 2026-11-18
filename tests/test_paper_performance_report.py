@@ -488,8 +488,8 @@ def test_equity_curve_uses_phone_legible_svg_typography() -> None:
 
     assert root.attrib["viewBox"] == "0 0 1120 500"
     assert int(by_text["Trend-Quality Paper Portfolio — Equity Curve"].attrib["font-size"]) >= 26
-    assert int(by_text["2026-11-13"].attrib["font-size"]) >= 19
-    assert int(by_text["2026-11-13"].attrib["font-size"]) == 19
+    assert int(by_text["2027-01-15"].attrib["font-size"]) >= 19
+    assert int(by_text["2027-01-15"].attrib["font-size"]) == 19
     assert int(by_text["2 persisted NAV observations"].attrib["font-size"]) >= 16
     assert int(by_text["Latest: 49.9000 USDT (-0.20% vs initial)"].attrib["font-size"]) >= 19
     times = [node for node in nodes if "".join(node.itertext()).endswith("UTC")]
