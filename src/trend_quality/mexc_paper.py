@@ -1,4 +1,4 @@
-"""Pure MEXC-specific normalization for the cross-sectional paper portfolio."""
+"""MEXC-specific normalization for the cross-sectional paper portfolio."""
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
