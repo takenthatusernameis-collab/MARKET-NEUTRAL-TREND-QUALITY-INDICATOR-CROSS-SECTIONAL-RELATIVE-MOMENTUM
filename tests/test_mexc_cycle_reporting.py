@@ -132,7 +132,9 @@ def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     assert "def _state_branch_protection" not in cycle_source
 
     assert not retired_polymarket.exists()
-    assert "DIAGNOSTIC ONLY — READ-ONLY MEXC PREFLIGHT" in preflight
+    assert "DIAGNOSTIC ONLY — MANUAL READ-ONLY MEXC PREFLIGHT" in preflight
+    assert "on:\n  workflow_dispatch:" in preflight
+    assert "push:" not in preflight.split("permissions:", 1)[0]
     assert "permissions:\n  contents: read" in preflight
     assert "contents: write" not in preflight
 
