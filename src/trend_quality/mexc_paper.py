@@ -3,13 +3,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, ROUND_CEILING, ROUND_DOWN
 from statistics import median
 from typing import Any
 
 from .execution import BookLevel, SimulatedFill, simulate_orderbook_fill
 from .indicators import compute_q_series
-from .portfolio import target_quantity
+from .portfolio import floor_to_step, target_quantity
 from .ranking import Candidate, rank_candidates
 
 DEFAULT_Q_THRESHOLD = 2.0
@@ -111,7 +111,7 @@ def rank_mexc_universe(
             excluded.append(f"{symbol}:NO_TURNOVER_HISTORY")
             continue
         median_turnover = Decimal(str(median(turnovers)))
-        desired_leg_notional = nav * Decimal("0.5")
+        desired_leg_notional = nav
         if desired_leg_notional <= median_turnover * max_turnover_share:
             eligible_for_execution.add(key)
         else:
@@ -188,6 +188,126 @@ def size_mexc_leg(
         Decimal("0"),
         maximum,
     )
+
+
+def size_neutral_mexc_pair(
+    long_instrument: Mapping[str, Any],
+    short_instrument: Mapping[str, Any],
+    nav: Decimal,
+    long_price: Decimal,
+    short_price: Decimal,
+    *,
+    allocation_fraction: Decimal = Decimal("0.5"),
+    leverage: Decimal = Decimal("2"),
+    max_imbalance_nav_fraction: Decimal = Decimal("0.005"),
+    max_search_steps: int = 4096,
+) -> dict[str, Decimal] | None:
+    """Jointly size both legs on venue lot grids without exceeding target notional.
+
+    The coarser notional lot is enumerated from the largest affordable size down.
+    The other leg is floored to the largest lot that does not exceed that notional.
+    A pair is returned only when both legs are executable and their mark notionals
+    differ by no more than the configured fraction of NAV. Neither side is ever
+    independently rounded up to satisfy a minimum.
+    """
+    for value, field in (
+        (nav, "nav"),
+        (long_price, "long_price"),
+        (short_price, "short_price"),
+        (allocation_fraction, "allocation_fraction"),
+        (leverage, "leverage"),
+        (max_imbalance_nav_fraction, "max_imbalance_nav_fraction"),
+    ):
+        if not isinstance(value, Decimal) or not value.is_finite():
+            raise ValueError(f"{field} must be a finite Decimal")
+    if nav <= 0 or long_price <= 0 or short_price <= 0:
+        raise ValueError("NAV and both reference prices must be positive")
+    if allocation_fraction <= 0 or allocation_fraction > 1 or leverage <= 0:
+        raise ValueError("Invalid allocation fraction or leverage")
+    target_fraction = allocation_fraction * leverage
+    if target_fraction <= 0 or target_fraction > 1:
+        raise ValueError("Per-leg target notional must be in (0, NAV]")
+    if max_imbalance_nav_fraction < 0 or max_search_steps < 1:
+        raise ValueError("Invalid neutrality tolerance or search limit")
+
+    target_notional = nav * target_fraction
+    long_step, long_min, long_max, _ = base_quantity_rules(
+        long_instrument, long_price
+    )
+    short_step, short_min, short_max, _ = base_quantity_rules(
+        short_instrument, short_price
+    )
+
+    long_max_target = floor_to_step(
+        min(long_max, target_notional / long_price), long_step
+    )
+    short_max_target = floor_to_step(
+        min(short_max, target_notional / short_price), short_step
+    )
+    if long_max_target < long_min or short_max_target < short_min:
+        return None
+
+    long_lot_notional = long_step * long_price
+    short_lot_notional = short_step * short_price
+    primary_is_long = long_lot_notional >= short_lot_notional
+    if primary_is_long:
+        primary_step = long_step
+        primary_min = long_min
+        primary_max_target = long_max_target
+        primary_price = long_price
+        other_step = short_step
+        other_min = short_min
+        other_max = short_max
+        other_price = short_price
+    else:
+        primary_step = short_step
+        primary_min = short_min
+        primary_max_target = short_max_target
+        primary_price = short_price
+        other_step = long_step
+        other_min = long_min
+        other_max = long_max
+        other_price = long_price
+
+    minimum_lots = int(
+        (primary_min / primary_step).to_integral_value(rounding=ROUND_CEILING)
+    )
+    maximum_lots = int(
+        (primary_max_target / primary_step).to_integral_value(rounding=ROUND_DOWN)
+    )
+    if maximum_lots < minimum_lots:
+        return None
+    first_lot = max(minimum_lots, maximum_lots - max_search_steps + 1)
+
+    for lot_count in range(maximum_lots, first_lot - 1, -1):
+        primary_quantity = primary_step * lot_count
+        primary_notional = primary_quantity * primary_price
+        other_quantity = floor_to_step(
+            min(other_max, primary_notional / other_price),
+            other_step,
+        )
+        if other_quantity < other_min:
+            continue
+
+        if primary_is_long:
+            long_quantity, short_quantity = primary_quantity, other_quantity
+        else:
+            long_quantity, short_quantity = other_quantity, primary_quantity
+
+        long_notional = long_quantity * long_price
+        short_notional = short_quantity * short_price
+        imbalance_fraction = abs(long_notional - short_notional) / nav
+        if imbalance_fraction > max_imbalance_nav_fraction:
+            continue
+        return {
+            "long_quantity": long_quantity,
+            "short_quantity": short_quantity,
+            "long_notional": long_notional,
+            "short_notional": short_notional,
+            "target_leg_notional": target_notional,
+            "imbalance_fraction": imbalance_fraction,
+        }
+    return None
 
 
 def mexc_book_levels(
