@@ -380,13 +380,24 @@ def test_pending_retry_rebalances_existing_positions_and_clears_signal(monkeypat
     }
     portfolio = {
         "cash": "9",
-        "positions": [{
-            "instrument_id": 101,
-            "symbol": "OLD_USDT",
-            "side": "long",
-            "quantity": "0.1",
-            "last_mark_price": "100",
-        }],
+        "positions": [
+            {
+                "instrument_id": 101,
+                "symbol": "OLD_USDT",
+                "side": "long",
+                "quantity": "0.1",
+                "entry_price": "100",
+                "last_mark_price": "100",
+            },
+            {
+                "instrument_id": 202,
+                "symbol": "SHORT_USDT",
+                "side": "short",
+                "quantity": "0.2",
+                "entry_price": "100",
+                "last_mark_price": "100",
+            },
+        ],
         "pending_entry_signal": pending,
     }
 
@@ -612,10 +623,12 @@ def test_five_minute_neutrality_rebalance_adds_only_the_underweight_leg() -> Non
 
         def orderbook(self, symbol: str, depth: int):
             price = "600.54" if symbol == "SPOTSTOCK_USDT" else "0.003906"
+            bid = "600.53" if symbol == "SPOTSTOCK_USDT" else "0.003905"
+            ask = "600.55" if symbol == "SPOTSTOCK_USDT" else "0.003907"
             return {
                 "timestamp_ms": now_ms,
-                "bids": [{"price": price, "quantity_contracts": "100000"}],
-                "asks": [{"price": price, "quantity_contracts": "100000"}],
+                "bids": [{"price": bid, "quantity_contracts": "100000"}],
+                "asks": [{"price": ask, "quantity_contracts": "100000"}],
             }
 
         def tickers(self):
@@ -721,8 +734,8 @@ def test_a_single_leg_stop_flattens_the_entire_market_neutral_pair() -> None:
         def orderbook(self, symbol: str, depth: int):
             return {
                 "timestamp_ms": now_ms,
-                "bids": [{"price": "99", "quantity_contracts": "100"}],
-                "asks": [{"price": "101", "quantity_contracts": "100"}],
+                "bids": [{"price": "99.99", "quantity_contracts": "100"}],
+                "asks": [{"price": "100.01", "quantity_contracts": "100"}],
             }
 
     exits, trailing = cycle._process_stops(
