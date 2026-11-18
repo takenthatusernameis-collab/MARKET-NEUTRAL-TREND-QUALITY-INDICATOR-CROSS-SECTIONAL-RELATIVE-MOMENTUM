@@ -258,6 +258,7 @@ def size_neutral_mexc_pair(
         other_step = short_step
         other_min = short_min
         other_max = short_max
+        other_max_target = short_max_target
         other_price = short_price
     else:
         primary_step = short_step
@@ -267,6 +268,7 @@ def size_neutral_mexc_pair(
         other_step = long_step
         other_min = long_min
         other_max = long_max
+        other_max_target = long_max_target
         other_price = long_price
 
     minimum_lots = int(
@@ -282,31 +284,48 @@ def size_neutral_mexc_pair(
     for lot_count in range(maximum_lots, first_lot - 1, -1):
         primary_quantity = primary_step * lot_count
         primary_notional = primary_quantity * primary_price
-        other_quantity = floor_to_step(
-            min(other_max, primary_notional / other_price),
+        lower_quantity = floor_to_step(
+            min(other_max_target, primary_notional / other_price),
             other_step,
         )
-        if other_quantity < other_min:
-            continue
+        adjacent_quantities = [lower_quantity]
+        upper_quantity = lower_quantity + other_step
+        if upper_quantity <= other_max_target:
+            adjacent_quantities.append(upper_quantity)
 
-        if primary_is_long:
-            long_quantity, short_quantity = primary_quantity, other_quantity
-        else:
-            long_quantity, short_quantity = other_quantity, primary_quantity
+        candidates: list[dict[str, Decimal]] = []
+        for other_quantity in adjacent_quantities:
+            if other_quantity < other_min:
+                continue
+            if primary_is_long:
+                long_quantity, short_quantity = primary_quantity, other_quantity
+            else:
+                long_quantity, short_quantity = other_quantity, primary_quantity
 
-        long_notional = long_quantity * long_price
-        short_notional = short_quantity * short_price
-        imbalance_fraction = abs(long_notional - short_notional) / nav
-        if imbalance_fraction > max_imbalance_nav_fraction:
-            continue
-        return {
-            "long_quantity": long_quantity,
-            "short_quantity": short_quantity,
-            "long_notional": long_notional,
-            "short_notional": short_notional,
-            "target_leg_notional": target_notional,
-            "imbalance_fraction": imbalance_fraction,
-        }
+            long_notional = long_quantity * long_price
+            short_notional = short_quantity * short_price
+            if max(long_notional, short_notional) > target_notional:
+                continue
+            imbalance_fraction = abs(long_notional - short_notional) / nav
+            if imbalance_fraction > max_imbalance_nav_fraction:
+                continue
+            candidates.append({
+                "long_quantity": long_quantity,
+                "short_quantity": short_quantity,
+                "long_notional": long_notional,
+                "short_notional": short_notional,
+                "target_leg_notional": target_notional,
+                "imbalance_fraction": imbalance_fraction,
+            })
+
+        if candidates:
+            return min(
+                candidates,
+                key=lambda row: (
+                    row["imbalance_fraction"],
+                    -(row["long_notional"] + row["short_notional"]),
+                ),
+            )
     return None
 
 
