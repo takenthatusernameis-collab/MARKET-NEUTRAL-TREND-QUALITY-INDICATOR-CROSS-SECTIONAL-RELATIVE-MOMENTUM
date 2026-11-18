@@ -622,7 +622,6 @@ def test_five_minute_neutrality_rebalance_adds_only_the_underweight_leg() -> Non
             return now_ms + 100
 
         def orderbook(self, symbol: str, depth: int):
-            price = "600.54" if symbol == "SPOTSTOCK_USDT" else "0.003906"
             bid = "600.53" if symbol == "SPOTSTOCK_USDT" else "0.003905"
             ask = "600.55" if symbol == "SPOTSTOCK_USDT" else "0.003907"
             return {
