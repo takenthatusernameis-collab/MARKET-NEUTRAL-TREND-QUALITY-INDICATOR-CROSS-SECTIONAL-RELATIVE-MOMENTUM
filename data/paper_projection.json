@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-17T22:29:49.278000+00:00",
+  "last_run_utc": "2026-11-18T01:52:50.269000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-10usdt-v2",
     "cash": "9.99879972500",
@@ -13,17 +13,19 @@
       }
     ],
     "daily_risk": {
+      "calendar_day_starting_nav": "9.63759972500",
+      "calendar_day_starting_reference": "previous_utc_day_last_snapshot",
       "flatten_attempts": 0,
       "flattened": false,
-      "peak_nav": "10.02969460",
-      "peak_timestamp_ms": 1794880301256,
-      "starting_nav": "10",
-      "starting_reference": "first_observation_of_utc_day",
-      "starting_timestamp_ms": 1794873600000,
+      "peak_nav": "9.85879972500",
+      "peak_timestamp_ms": 1794966770269,
+      "starting_nav": "9.63759972500",
+      "starting_reference": "previous_utc_day_last_snapshot",
+      "starting_timestamp_ms": 1794960000000,
       "stop_reason": null,
       "stop_triggered": false,
       "stop_triggered_at_ms": null,
-      "utc_date": "2026-11-17"
+      "utc_date": "2026-11-18"
     },
     "equity_curve": [
       {
@@ -543,14 +545,221 @@
         "short_notional_usdt": "10.10000",
         "timestamp_ms": 1794954589278,
         "utc_date": "2026-11-17"
+      },
+      {
+        "daily_drawdown_pct": "0",
+        "daily_peak_nav": "9.85879972500",
+        "daily_return_pct": "2.295177288035792542732936500",
+        "daily_starting_nav": "9.63759972500",
+        "daily_starting_reference": "previous_utc_day_last_snapshot",
+        "drawdown_window_reference": "previous_utc_day_last_snapshot",
+        "drawdown_window_starting_nav": "9.63759972500",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.845255052079881864118098819",
+        "long_notional_usdt": "8.322",
+        "nav": "9.85879972500",
+        "roi_pct": "-1.41200275000",
+        "short_notional_usdt": "9.870000",
+        "timestamp_ms": 1794966770269,
+        "utc_date": "2026-11-18"
       }
     ],
     "fees_paid": "0.00170540",
     "initial_capital": "10",
-    "last_decision_attempt_daily_bar_ms": 1794787200000,
+    "last_decision_attempt_daily_bar_ms": 1794873600000,
     "last_processed_daily_bar_ms": 1794787200000,
-    "last_snapshot_ms": 1794954589278,
-    "pending_entry_signal": null,
+    "last_snapshot_ms": 1794966770269,
+    "pending_entry_signal": {
+      "attempt_count": 0,
+      "daily_bar_timestamp_ms": 1794873600000,
+      "executable_longs": [
+        {
+          "b": "96.23897473307247",
+          "candidate_key": "mexc:1760",
+          "cycle_age": 41,
+          "direction": "long",
+          "instrument_id": 1760,
+          "q": "25.588494599955855",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "96.02362387036794",
+          "candidate_key": "mexc:1595",
+          "cycle_age": 43,
+          "direction": "long",
+          "instrument_id": 1595,
+          "q": "24.14852638179706",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "95.96711905550038",
+          "candidate_key": "mexc:1985",
+          "cycle_age": 58,
+          "direction": "long",
+          "instrument_id": 1985,
+          "q": "23.796169630642932",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "95.95900209692908",
+          "candidate_key": "mexc:1681",
+          "cycle_age": 41,
+          "direction": "long",
+          "instrument_id": 1681,
+          "q": "23.746362754607127",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "95.59817351598174",
+          "candidate_key": "mexc:1658",
+          "cycle_age": 42,
+          "direction": "long",
+          "instrument_id": 1658,
+          "q": "21.717842323651492",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "95.44707117242663",
+          "candidate_key": "mexc:2165",
+          "cycle_age": 33,
+          "direction": "long",
+          "instrument_id": 2165,
+          "q": "20.963883861830208",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "95.31424224874884",
+          "candidate_key": "mexc:2026",
+          "cycle_age": 21,
+          "direction": "long",
+          "instrument_id": 2026,
+          "q": "20.34126544917915",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "95.19526245744022",
+          "candidate_key": "mexc:1503",
+          "cycle_age": 14,
+          "direction": "long",
+          "instrument_id": 1503,
+          "q": "19.812791357324326",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "95.17337845184066",
+          "candidate_key": "mexc:2182",
+          "cycle_age": 42,
+          "direction": "long",
+          "instrument_id": 2182,
+          "q": "19.71842571500885",
+          "semi_cycle_direction": "bullish"
+        },
+        {
+          "b": "94.92880339745192",
+          "candidate_key": "mexc:2011",
+          "cycle_age": 46,
+          "direction": "long",
+          "instrument_id": 2011,
+          "q": "18.719211822660096",
+          "semi_cycle_direction": "bullish"
+        }
+      ],
+      "executable_shorts": [
+        {
+          "b": "99.52914217342416",
+          "candidate_key": "mexc:1899",
+          "cycle_age": 126,
+          "direction": "short",
+          "instrument_id": 1899,
+          "q": "-211.3783323879725",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "99.47500700719539",
+          "candidate_key": "mexc:2029",
+          "cycle_age": 50,
+          "direction": "short",
+          "instrument_id": 2029,
+          "q": "-189.47873280323319",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "99.23871186904728",
+          "candidate_key": "mexc:1662",
+          "cycle_age": 79,
+          "direction": "short",
+          "instrument_id": 1662,
+          "q": "-130.35631035631002",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "99.06189313322213",
+          "candidate_key": "mexc:1975",
+          "cycle_age": 50,
+          "direction": "short",
+          "instrument_id": 1975,
+          "q": "-105.59766338079532",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "98.97393038377646",
+          "candidate_key": "mexc:1790",
+          "cycle_age": 53,
+          "direction": "short",
+          "instrument_id": 1790,
+          "q": "-96.45927412610808",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "98.65075246497146",
+          "candidate_key": "mexc:1154",
+          "cycle_age": 343,
+          "direction": "short",
+          "instrument_id": 1154,
+          "q": "-73.11538461538441",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "98.61736681112842",
+          "candidate_key": "mexc:1770",
+          "cycle_age": 81,
+          "direction": "short",
+          "instrument_id": 1770,
+          "q": "-71.32576275824333",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "98.54201954720517",
+          "candidate_key": "mexc:1664",
+          "cycle_age": 38,
+          "direction": "short",
+          "instrument_id": 1664,
+          "q": "-67.58802517434906",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "98.50477623069902",
+          "candidate_key": "mexc:2031",
+          "cycle_age": 75,
+          "direction": "short",
+          "instrument_id": 2031,
+          "q": "-65.87962166809966",
+          "semi_cycle_direction": "bearish"
+        },
+        {
+          "b": "98.4329050792941",
+          "candidate_key": "mexc:1513",
+          "cycle_age": 88,
+          "direction": "short",
+          "instrument_id": 1513,
+          "q": "-62.81234389743",
+          "semi_cycle_direction": "bearish"
+        }
+      ],
+      "last_attempt_ms": null
+    },
     "positions": [
       {
         "category": "crypto",
@@ -561,7 +770,7 @@
         "initial_margin_usdt": "4.2635",
         "instrument_id": 1595,
         "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "416.54",
+        "last_mark_price": "416.1",
         "leverage": "2",
         "lowest_since_entry": "426.35",
         "quantity": "0.02",
@@ -579,7 +788,7 @@
         "initial_margin_usdt": "4.967500",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1794888000000,
-        "last_mark_price": "0.00404",
+        "last_mark_price": "0.003948",
         "leverage": "2",
         "lowest_since_entry": "0.003974",
         "quantity": "2500",
@@ -597,9 +806,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "d58a059d61f92d782908d45fb413da9a25c198bc2dcaabc01cf3d614e91606f1",
-    "commit_sha": "61d106e6c11f9b646795c2d043802196018cb4ef",
+    "batch_hash": "9da76f139c10b1c823077c1dcfd69c2b8fc27aff08d07b1b1a129bf1df15471f",
+    "commit_sha": "8044cca8d0423eb2a025ec17e45c257422c178e1",
     "created": true,
-    "path": "events/2026/11/snapshot-1794954589278.json"
+    "path": "events/2026/11/risk-1794966770269.json"
   }
 }
