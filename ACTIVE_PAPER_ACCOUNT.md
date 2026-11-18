@@ -19,7 +19,7 @@
 2. Select branch `main`.
 3. Select **Run workflow**.
 4. Set the required confirmation to `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`.
-5. Confirm the run. Its title will start with **▶ MANUAL PAPER RUN — ACTIVE MEXC $50 USDT**.
+5. Confirm the run. Its title will start with **▶ MANUAL PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT**.
 
 Manual dispatch and the five-minute scheduler use the same account ID and strategy ID. Neither trigger creates a new financial account generation. The MEXC public preflight is a manual-only, read-only diagnostic, not the paper account workflow. The paper workflow uses the current official Futures REST host at `https://api.mexc.com`; do not use the retired `contract.mexc.com` host. The retired Polymarket paper-state workflow has been removed.
 
