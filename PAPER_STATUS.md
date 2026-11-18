@@ -8,8 +8,8 @@
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
 - Account state: **READY — WAITING FOR FIRST FINANCIAL PAPER EVENT**
-- Last report build: 2026-11-18 12:23:48 UTC
-- Latest workflow run: [44303345661](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44303345661) · run #91, attempt 1 · success · schedule
+- Last report build: 2026-11-18 12:56:39 UTC
+- Latest workflow run: [44306314671](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44306314671) · run #92, attempt 1 · cancelled · workflow_dispatch
 - Latest processed daily candle: —
 - Latest account event: —
 - Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)
@@ -29,14 +29,16 @@
 | Net exposure | 0.000× NAV |
 | Current drawdown from risk-window peak | +0.000% |
 | Lifetime / cross-session maximum drawdown | Unavailable — no account observations yet |
-| Worst risk-session maximum drawdown | Unavailable — no risk sessions observed yet |
+| Worst risk-session maximum drawdown | Unavailable — no account observations yet |
 | Sharpe ratio | Unavailable — sample gate not met |
 | Sortino ratio | Unavailable — sample gate not met |
 | Annualized daily volatility | Unavailable — sample gate not met |
 
-## Drawdown by risk session
+### Maximum drawdown by risk session
 
-No risk sessions have been recorded yet. Lifetime and per-session maximum drawdown will populate from the primary account's persisted NAV marks.
+| Session start (UTC) | Starting NAV | Latest NAV | Max drawdown | Marks |
+|---|---:|---:|---:|---:|
+| No risk sessions observed | — | — | — | 0 |
 
 ## Open positions
 
