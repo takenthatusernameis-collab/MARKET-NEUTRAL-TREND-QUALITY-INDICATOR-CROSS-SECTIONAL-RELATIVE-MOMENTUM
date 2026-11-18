@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 from trend_quality.ranking import Candidate
@@ -308,3 +309,164 @@ def test_initialized_paper_account_restores_from_probe_chained_state(tmp_path) -
     assert probe_verified is True
 
 
+
+
+
+def test_daily_decision_is_not_consumed_until_history_coverage_passes() -> None:
+    cycle = load_cycle_module()
+    latest_bar = 1_800_000_000_000
+    previous_attempt = latest_bar - 86_400_000
+
+    assert cycle._daily_decision_is_due(False, latest_bar, previous_attempt) is False
+    assert cycle._daily_decision_is_due(True, latest_bar, previous_attempt) is True
+    assert cycle._daily_decision_is_due(True, latest_bar, latest_bar) is False
+
+
+def test_blocked_daily_and_retry_execution_statuses_fail_workflow() -> None:
+    cycle = load_cycle_module()
+
+    assert cycle._cycle_status_requires_attention(
+        "REBALANCE_BLOCKED:ValueError:stale book"
+    )
+    assert cycle._cycle_status_requires_attention("BLOCKED_INCOMPLETE_MARKET_DATA")
+    assert cycle._cycle_status_requires_attention("RETRY_EXECUTION_BLOCKED")
+    assert cycle._cycle_status_requires_attention("RETRY_NO_EXECUTABLE_PAIR")
+    assert not cycle._cycle_status_requires_attention("PAIR_REBALANCED")
+    assert not cycle._cycle_status_requires_attention("MONITORING_ONLY_NO_STRATEGY_DECISIONS")
+
+
+def test_fill_uses_fresh_exchange_time_after_fetching_the_orderbook() -> None:
+    cycle = load_cycle_module()
+    cycle_start_ms = 1_700_000_000_000
+    book_timestamp_ms = cycle_start_ms + 257_338
+    call_order: list[str] = []
+
+    class PublicBookClient:
+        def orderbook(self, symbol: str, depth: int) -> dict:
+            call_order.append("orderbook")
+            return {
+                "timestamp_ms": book_timestamp_ms,
+                "bids": [{"price": "99.99", "quantity_contracts": "100"}],
+                "asks": [{"price": "100.01", "quantity_contracts": "100"}],
+            }
+
+        def server_time_ms(self) -> int:
+            call_order.append("server_time")
+            return book_timestamp_ms + 500
+
+    fill, book = cycle._fill(
+        PublicBookClient(),
+        {
+            "symbol": "TEST_USDT",
+            "contract_size": "1",
+            "taker_fee_rate": "0.0002",
+        },
+        "buy",
+        Decimal("0.1"),
+        cycle_start_ms,
+    )
+
+    assert call_order == ["orderbook", "server_time"]
+    assert book["timestamp_ms"] == book_timestamp_ms
+    assert fill.filled_quantity == Decimal("0.1")
+
+
+def test_pending_retry_rebalances_existing_positions_and_clears_signal(monkeypatch) -> None:
+    cycle = load_cycle_module()
+    pending = {
+        "daily_bar_timestamp_ms": 1_800_000_000_000,
+        "attempt_count": 0,
+        "last_attempt_ms": None,
+    }
+    portfolio = {
+        "cash": "9",
+        "positions": [{
+            "instrument_id": 101,
+            "symbol": "OLD_USDT",
+            "side": "long",
+            "quantity": "0.1",
+            "last_mark_price": "100",
+        }],
+        "pending_entry_signal": pending,
+    }
+
+    class PublicBookClient:
+        def server_time_ms(self) -> int:
+            return 1_800_000_001_000
+
+    def fake_try_pair(*args, **kwargs):
+        return ([{"instrument_id": 101}], [], ("mexc:101", "mexc:202"))
+
+    def fake_apply(_client, trial, proposed, _instruments, now_ms):
+        assert trial["positions"][0]["symbol"] == "OLD_USDT"
+        trial["positions"][0]["quantity"] = "0.2"
+        return [], [{"action": "INCREASED", "timestamp_ms": now_ms}]
+
+    monkeypatch.setattr(cycle, "_try_pair", fake_try_pair)
+    monkeypatch.setattr(cycle, "_apply_selected_pair", fake_apply)
+    monkeypatch.setattr(cycle, "portfolio_nav", lambda *_args: Decimal("10"))
+    monkeypatch.setattr(
+        cycle, "reset_daily_risk_window", lambda *_args, **_kwargs: {"reset": True}
+    )
+
+    report = cycle._retry_pending_pair(
+        PublicBookClient(),
+        portfolio,
+        pending,
+        None,
+        {},
+        {},
+        {},
+        pending["daily_bar_timestamp_ms"],
+        pending["daily_bar_timestamp_ms"],
+    )
+
+    assert report["status"] == "RETRY_PAIR_REBALANCED"
+    assert portfolio["positions"][0]["quantity"] == "0.2"
+    assert portfolio["pending_entry_signal"] is None
+
+
+def test_pending_retry_preserves_positions_and_signal_when_execution_fails(monkeypatch) -> None:
+    cycle = load_cycle_module()
+    pending = {
+        "daily_bar_timestamp_ms": 1_800_000_000_000,
+        "attempt_count": 0,
+        "last_attempt_ms": None,
+    }
+    portfolio = {
+        "cash": "9",
+        "positions": [{
+            "instrument_id": 101,
+            "symbol": "OLD_USDT",
+            "side": "long",
+            "quantity": "0.1",
+            "last_mark_price": "100",
+        }],
+        "pending_entry_signal": pending,
+    }
+
+    class PublicBookClient:
+        def server_time_ms(self) -> int:
+            return 1_800_000_001_000
+
+    def fail_try_pair(*args, **kwargs):
+        raise cycle.MEXCExecutionUnavailable("stale public depth")
+
+    monkeypatch.setattr(cycle, "_try_pair", fail_try_pair)
+
+    report = cycle._retry_pending_pair(
+        PublicBookClient(),
+        portfolio,
+        pending,
+        None,
+        {},
+        {},
+        {},
+        pending["daily_bar_timestamp_ms"],
+        pending["daily_bar_timestamp_ms"],
+    )
+
+    assert report["status"] == "RETRY_EXECUTION_BLOCKED"
+    assert portfolio["positions"][0]["quantity"] == "0.1"
+    assert portfolio["pending_entry_signal"] is pending
+    assert pending["attempt_count"] == 1
