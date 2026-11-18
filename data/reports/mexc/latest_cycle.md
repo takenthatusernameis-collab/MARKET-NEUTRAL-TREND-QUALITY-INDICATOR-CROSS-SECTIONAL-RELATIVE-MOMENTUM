@@ -1,12 +1,12 @@
 # MEXC Trend-Quality Paper Research
 
-- Run (UTC): 2026-11-18T08:13:34.956000+00:00
+- Run (UTC): 2026-11-18T10:08:22.730000+00:00
 - Active cross-margin USDT perpetuals: not refreshed in snapshot mode
 - Bootstrap remaining: not refreshed in snapshot mode
 - History coverage gate: not checked in snapshot mode
 - State write mode: UNPROTECTED_SINGLE_WRITER_APPEND_ONLY
 - Paper simulation enabled: True
-- Decision: NEUTRALITY_REBALANCED
+- Decision: MONITORING_ONLY_NO_STRATEGY_DECISIONS
 
 ## Research long ranking
 
@@ -29,13 +29,13 @@
 
 - Currency: USDT
 - Cash: 49.93412776
-- NAV: 48.2055277600
+- NAV: 47.8239277600
 - Realized gross P&L: -0.056700
-- Unrealized P&L: -1.7286000000
+- Unrealized P&L: -2.1102000000
 - Fees paid: 0.00917224
 - Confirmed funding: 0
-- Gross exposure: 1.908422213693444687223978232
-- Net exposure: -0.003723639348866242969642367836
+- Gross exposure: 1.928317148327843660158623492
+- Net exposure: -0.01173262059979324458564714092
 - Open positions: 2
 - Closed trades: 0
 - Performance report status: INSUFFICIENT_DAILY_EQUITY_HISTORY
