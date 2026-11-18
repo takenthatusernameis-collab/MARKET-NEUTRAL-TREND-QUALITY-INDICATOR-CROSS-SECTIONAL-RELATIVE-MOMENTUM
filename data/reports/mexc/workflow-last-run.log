@@ -15,8 +15,8 @@
   "latest_completed_daily_bar_ms": 1794873600000,
   "missing_latest_bar_count": 0,
   "missing_position_marks": [
-    "VSTOCK_USDT",
-    "BILL_USDT"
+    "BILL_USDT",
+    "VSTOCK_USDT"
   ],
   "missing_ticker_count": 2,
   "mode": "PORTFOLIO_SNAPSHOT_ONLY",
@@ -33,8 +33,8 @@
   "portfolio_neutrality": null,
   "portfolio_snapshot": null,
   "position_ticker_errors": [
-    "VSTOCK_USDT: ticker is stale or has no positive mark",
-    "BILL_USDT: ticker is stale or has no positive mark"
+    "VSTOCK_USDT: ticker failed freshness gate (timestamp_ms=1794984249680, age_ms=-356, mark_price=416.75)",
+    "BILL_USDT: ticker failed freshness gate (timestamp_ms=1794984249680, age_ms=-356, mark_price=0.004053)"
   ],
   "private_endpoints_used": false,
   "provider": "mexc",
@@ -42,7 +42,7 @@
   "research_long_top": [],
   "research_refresh_performed": false,
   "research_short_top": [],
-  "run_utc": "2026-11-18T06:39:54.085000+00:00",
+  "run_utc": "2026-11-18T06:44:09.324000+00:00",
   "state_event": null,
   "state_write_mode": "UNPROTECTED_SINGLE_WRITER_APPEND_ONLY",
   "ticker_coverage": 0,
