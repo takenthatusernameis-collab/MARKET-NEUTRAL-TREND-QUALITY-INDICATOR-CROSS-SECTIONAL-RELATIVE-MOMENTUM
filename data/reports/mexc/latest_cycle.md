@@ -1,12 +1,12 @@
 # MEXC Trend-Quality Paper Research
 
-- Run (UTC): 2026-11-18T01:57:24.671180+00:00
+- Run (UTC): 2026-11-18T02:56:15.934234+00:00
 - Active cross-margin USDT perpetuals: 1064
 - Bootstrap remaining: 0
 - History coverage gate: True
 - State write mode: UNPROTECTED_SINGLE_WRITER_APPEND_ONLY
 - Paper simulation enabled: True
-- Decision: REBALANCE_BLOCKED:ValueError:Stale or future MEXC order book (-257338 ms)
+- Decision: PAIR_OPENED_OR_REPLACED
 
 ## Research long ranking
 
@@ -68,22 +68,39 @@
 ## Portfolio accounting
 
 - Currency: USDT
-- Cash: 9.99879972500
-- NAV: 9.85879972500
-- Realized gross P&L: 0
-- Unrealized P&L: -0.14000000000
-- Fees paid: 0.00170540
+- Cash: 9.78573426500
+- NAV: 9.95063426500
+- Realized gross P&L: -0.2102
+- Unrealized P&L: 0.16490000000
+- Fees paid: 0.00457086
 - Confirmed funding: 0.00050512500
-- Gross exposure: 1.845255052079881864118098819
-- Net exposure: -0.1570170855661640900206033955
+- Gross exposure: 1.584863796619501219302426045
+- Net exposure: -0.3778251616807865865221808552
 - Open positions: 2
-- Closed trades: 0
-- Performance report status: INSUFFICIENT_DAILY_EQUITY_HISTORY
+- Closed trades: 1
+- Performance report status: AVAILABLE_WITH_SAMPLE_GATES
+- total_return: -0.004468135936683647
+- maximum_drawdown: 0.004468135936683647
+- maximum_drawdown_duration_days: 1.0
+- current_drawdown_duration_days: 1.0
+- recovery_period_days: Unavailable (Maximum drawdown has not recovered by the latest observation)
+- cagr: Unavailable (At least 365 elapsed calendar days are required for formal CAGR)
+- annualized_daily_volatility: Unavailable (At least 30 daily returns are required)
+- sharpe: Unavailable (At least 30 daily returns are required)
+- sortino: Unavailable (Requires at least 20 daily returns and 5 negative daily returns)
+- calmar: Unavailable (CAGR is unavailable for the observation period)
+- closed_trade_count: 1.0
+- win_rate: 0.0
+- expectancy_net_pnl: -0.21356876
+- average_winner_net_pnl: Unavailable (No winning closed trades)
+- average_loser_net_pnl: -0.21356876
+- profit_factor: 0.0
 
 ## Daily equity curve
 
 | UTC daily bar | NAV (USDT) |
 |---|---:|
 | 2026-11-16T00:00:00+00:00 | 9.99529460 |
+| 2026-11-17T00:00:00+00:00 | 9.95063426500 |
 
 No exchange orders were submitted. All execution records are simulated.

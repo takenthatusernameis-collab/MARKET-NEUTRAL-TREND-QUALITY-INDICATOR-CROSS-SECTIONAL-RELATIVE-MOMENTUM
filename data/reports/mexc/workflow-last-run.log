@@ -11,7 +11,7 @@
     "fx": 7,
     "unclassified": 201
   },
-  "bootstrap_completed_this_run": 3,
+  "bootstrap_completed_this_run": 0,
   "bootstrap_remaining": 0,
   "candle_rows_stored": 273773,
   "credentials_used": false,
@@ -409,11 +409,11 @@
     "contracts_with_minimum_notional_above_1_usdt": 283,
     "evaluated_contracts": 1064,
     "minimum_order_notional_usdt": {
-      "maximum": "58.5835",
-      "median": "0.28305",
-      "p10": "0.03196500",
-      "p75": "1.1054",
-      "p90": "2.8210"
+      "maximum": "58.6955",
+      "median": "0.282250",
+      "p10": "0.031755",
+      "p75": "1.10902",
+      "p90": "2.81375"
     },
     "scope_note": "Minimum quantity and lot-step affordability only; turnover, book depth, fees and shortfall remain separate execution gates.",
     "status": "MEASURED_FROM_CURRENT_PUBLIC_TICKERS"
@@ -429,18 +429,22 @@
   "paper_account_initialized_this_cycle": false,
   "paper_account_recovery_status": "RESTORED_FROM_VERIFIED_EVENT_CHAIN",
   "paper_account_restored_from_state_branch": true,
-  "paper_decision_status": "REBALANCE_BLOCKED:ValueError:Stale or future MEXC order book (-257338 ms)",
+  "paper_decision_status": "PAIR_OPENED_OR_REPLACED",
   "paper_simulation_enabled": true,
   "paper_state_write_requested": true,
   "portfolio": {
-    "cash": "9.99879972500",
-    "closed_trade_count": 0,
+    "cash": "9.78573426500",
+    "closed_trade_count": 1,
     "confirmed_funding": "0.00050512500",
     "currency": "USDT",
     "daily_equity_curve": [
       {
         "nav": "9.99529460",
         "timestamp_ms": 1794787200000
+      },
+      {
+        "nav": "9.95063426500",
+        "timestamp_ms": 1794873600000
       }
     ],
     "daily_risk": {
@@ -448,18 +452,20 @@
       "calendar_day_starting_reference": "previous_utc_day_last_snapshot",
       "flatten_attempts": 0,
       "flattened": false,
-      "peak_nav": "9.85879972500",
-      "peak_timestamp_ms": 1794966770269,
-      "starting_nav": "9.63759972500",
-      "starting_reference": "previous_utc_day_last_snapshot",
-      "starting_timestamp_ms": 1794960000000,
+      "peak_nav": "9.95063426500",
+      "peak_timestamp_ms": 1794970555848,
+      "risk_window_reset_at_ms": 1794970555848,
+      "risk_window_reset_reason": "daily_portfolio_rebalance",
+      "starting_nav": "9.95063426500",
+      "starting_reference": "daily_portfolio_rebalance",
+      "starting_timestamp_ms": 1794970555848,
       "stop_reason": null,
       "stop_triggered": false,
       "stop_triggered_at_ms": null,
       "utc_date": "2026-11-18"
     },
-    "dollar_neutrality_imbalance": "0.1570170855661640900206033955",
-    "effective_gross_leverage": "1.845255052079881864118098819",
+    "dollar_neutrality_imbalance": "0.3778251616807865865221808552",
+    "effective_gross_leverage": "1.584863796619501219302426045",
     "equity_curve": [
       {
         "daily_drawdown_pct": "0",
@@ -981,59 +987,122 @@
       },
       {
         "daily_drawdown_pct": "0",
-        "daily_peak_nav": "9.85879972500",
-        "daily_return_pct": "2.295177288035792542732936500",
+        "daily_peak_nav": "9.95063426500",
+        "daily_return_pct": "3.248055002616328309899797200",
         "daily_starting_nav": "9.63759972500",
         "daily_starting_reference": "previous_utc_day_last_snapshot",
-        "drawdown_window_reference": "previous_utc_day_last_snapshot",
-        "drawdown_window_starting_nav": "9.63759972500",
+        "drawdown_window_reference": "daily_portfolio_rebalance",
+        "drawdown_window_starting_nav": "9.95063426500",
         "emergency_stop_flattened": false,
         "emergency_stop_newly_triggered": false,
         "emergency_stop_triggered": false,
-        "gross_exposure": "1.845255052079881864118098819",
-        "long_notional_usdt": "8.322",
-        "nav": "9.85879972500",
-        "roi_pct": "-1.41200275000",
-        "short_notional_usdt": "9.870000",
-        "timestamp_ms": 1794966770269,
+        "gross_exposure": "1.584863796619501219302426045",
+        "long_notional_usdt": "6.0054",
+        "nav": "9.95063426500",
+        "roi_pct": "-0.49365735000",
+        "short_notional_usdt": "9.765000",
+        "timestamp_ms": 1794970555848,
         "utc_date": "2026-11-18"
       }
     ],
-    "fees_paid": "0.00170540",
-    "gross_exposure": "1.845255052079881864118098819",
+    "fees_paid": "0.00457086",
+    "gross_exposure": "1.584863796619501219302426045",
     "initial_capital": "10",
     "lifetime_max_drawdown_pct": "-3.910337160216224330499554790",
-    "long_margin_used_usdt": "4.161",
-    "long_notional_usdt": "8.322",
-    "nav": "9.85879972500",
-    "net_exposure": "-0.1570170855661640900206033955",
+    "long_margin_used_usdt": "3.0027",
+    "long_notional_usdt": "6.0054",
+    "nav": "9.95063426500",
+    "net_exposure": "-0.3778251616807865865221808552",
     "partial_realized_event_count": 0,
     "partial_realized_net_pnl": "0",
     "performance": {
-      "metrics": {},
-      "observations": 1,
-      "status": "INSUFFICIENT_DAILY_EQUITY_HISTORY"
+      "metrics": {
+        "annualized_daily_volatility": {
+          "observations": 1,
+          "reason": "At least 30 daily returns are required",
+          "value": null
+        },
+        "average_loser_net_pnl": {
+          "observations": 1,
+          "reason": null,
+          "value": -0.21356876
+        },
+        "average_winner_net_pnl": {
+          "observations": 1,
+          "reason": "No winning closed trades",
+          "value": null
+        },
+        "cagr": {
+          "observations": 1,
+          "reason": "At least 365 elapsed calendar days are required for formal CAGR",
+          "value": null
+        },
+        "calmar": {
+          "observations": 1,
+          "reason": "CAGR is unavailable for the observation period",
+          "value": null
+        },
+        "closed_trade_count": {
+          "observations": 1,
+          "reason": null,
+          "value": 1.0
+        },
+        "current_drawdown_duration_days": {
+          "observations": 2,
+          "reason": null,
+          "value": 1.0
+        },
+        "expectancy_net_pnl": {
+          "observations": 1,
+          "reason": null,
+          "value": -0.21356876
+        },
+        "maximum_drawdown": {
+          "observations": 2,
+          "reason": null,
+          "value": 0.004468135936683647
+        },
+        "maximum_drawdown_duration_days": {
+          "observations": 2,
+          "reason": null,
+          "value": 1.0
+        },
+        "profit_factor": {
+          "observations": 1,
+          "reason": null,
+          "value": 0.0
+        },
+        "recovery_period_days": {
+          "observations": 2,
+          "reason": "Maximum drawdown has not recovered by the latest observation",
+          "value": null
+        },
+        "sharpe": {
+          "observations": 1,
+          "reason": "At least 30 daily returns are required",
+          "value": null
+        },
+        "sortino": {
+          "observations": 1,
+          "reason": "Requires at least 20 daily returns and 5 negative daily returns",
+          "value": null
+        },
+        "total_return": {
+          "observations": 1,
+          "reason": null,
+          "value": -0.004468135936683647
+        },
+        "win_rate": {
+          "observations": 1,
+          "reason": null,
+          "value": 0.0
+        }
+      },
+      "observations": 2,
+      "status": "AVAILABLE_WITH_SAMPLE_GATES"
     },
     "position_count": 2,
     "positions": [
-      {
-        "category": "crypto",
-        "entry_fee": "0.00170540",
-        "entry_price": "426.35",
-        "entry_timestamp_ms": 1794877891864,
-        "highest_since_entry": "426.35",
-        "initial_margin_usdt": "4.2635",
-        "instrument_id": 1595,
-        "last_funding_timestamp_ms": 1794877891864,
-        "last_mark_price": "416.1",
-        "leverage": "2",
-        "lowest_since_entry": "426.35",
-        "quantity": "0.02",
-        "side": "long",
-        "stop_price": "403.964197623207188",
-        "symbol": "VSTOCK_USDT",
-        "unresolved_funding_count": 0
-      },
       {
         "category": "crypto",
         "entry_fee": "0.000000",
@@ -1043,7 +1112,7 @@
         "initial_margin_usdt": "4.967500",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1794888000000,
-        "last_mark_price": "0.003948",
+        "last_mark_price": "0.003906",
         "leverage": "2",
         "lowest_since_entry": "0.003974",
         "quantity": "2500",
@@ -1051,14 +1120,32 @@
         "stop_price": "0.005634764098910426",
         "symbol": "BILL_USDT",
         "unresolved_funding_count": 0
+      },
+      {
+        "category": "crypto",
+        "entry_fee": "0.00120210",
+        "entry_price": "601.05",
+        "entry_timestamp_ms": 1794970555848,
+        "highest_since_entry": "601.05",
+        "initial_margin_usdt": "3.00525",
+        "instrument_id": 1760,
+        "last_funding_timestamp_ms": 1794970555848,
+        "last_mark_price": "600.54",
+        "leverage": "2",
+        "lowest_since_entry": "601.05",
+        "quantity": "0.01",
+        "side": "long",
+        "stop_price": "554.14658131430595",
+        "symbol": "SPOTSTOCK_USDT",
+        "unresolved_funding_count": 0
       }
     ],
-    "realized_gross_pnl": "0",
-    "roi_pct": "-1.41200275000",
-    "short_margin_used_usdt": "4.935000",
-    "short_notional_usdt": "9.870000",
-    "total_margin_used_usdt": "9.096000",
-    "unrealized_pnl": "-0.14000000000"
+    "realized_gross_pnl": "-0.2102",
+    "roi_pct": "-0.49365735000",
+    "short_margin_used_usdt": "4.882500",
+    "short_notional_usdt": "9.765000",
+    "total_margin_used_usdt": "7.885200",
+    "unrealized_pnl": "0.16490000000"
   },
   "private_endpoints_used": false,
   "provider": "mexc",
@@ -1428,13 +1515,13 @@
       "symbol": "USARSTOCK_USDT"
     }
   ],
-  "run_utc": "2026-11-18T01:57:24.671180+00:00",
-  "snapshot_partition": "../market-data/data/snapshots/2026-11-18/01.jsonl.gz",
+  "run_utc": "2026-11-18T02:56:15.934234+00:00",
+  "snapshot_partition": "../market-data/data/snapshots/2026-11-18/02.jsonl.gz",
   "state_event": {
-    "batch_hash": "9da76f139c10b1c823077c1dcfd69c2b8fc27aff08d07b1b1a129bf1df15471f",
-    "commit_sha": "8044cca8d0423eb2a025ec17e45c257422c178e1",
+    "batch_hash": "ccb58d03324da7701f4303c395160c076dcc04a06c94dd0f423399faa6b5e3d2",
+    "commit_sha": "5c1a7b34893f683bdc664e23e7178b6b872208a1",
     "created": true,
-    "path": "events/2026/11/risk-1794966770269.json"
+    "path": "events/2026/11/daily-1794873600000.json"
   },
   "state_recovery_probe_verified_from_prior_checkout": true,
   "state_write_mode": "UNPROTECTED_SINGLE_WRITER_APPEND_ONLY",
