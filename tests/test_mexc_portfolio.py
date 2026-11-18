@@ -293,13 +293,13 @@ def test_new_utc_day_uses_previous_day_last_nav_when_first_cron_is_delayed() -> 
 
 
 
-def test_new_forward_account_default_is_ten_usdt_generation() -> None:
+def test_new_forward_account_default_is_fifty_usdt_generation() -> None:
     state = initial_portfolio_state()
-    assert state["initial_capital"] == "10"
-    assert state["cash"] == "10"
+    assert state["initial_capital"] == "50"
+    assert state["cash"] == "50"
     assert state["currency"] == "USDT"
-    assert state["account_id"] == "mexc-usdt-forward-10usdt-v2"
-    assert state["strategy_id"] == "trend-quality-daily-cross-sectional-v2-10usdt"
+    assert state["account_id"] == "mexc-usdt-forward-50usdt-v3"
+    assert state["strategy_id"] == "trend-quality-daily-cross-sectional-v3-50usdt"
     assert state["positions"] == []
 
 

@@ -8,8 +8,8 @@ import pytest
 from trend_quality.event_journal import build_event_batch, write_batch_atomic
 from trend_quality.paper_performance_report import render_performance_report
 
-ACCOUNT_ID = "mexc-usdt-forward-10usdt-v2"
-STRATEGY_ID = "trend-quality-daily-cross-sectional-v2-10usdt"
+ACCOUNT_ID = "mexc-usdt-forward-50usdt-v3"
+STRATEGY_ID = "trend-quality-daily-cross-sectional-v3-50usdt"
 
 
 def _state(
@@ -316,7 +316,7 @@ def test_report_filters_archived_account_generations(tmp_path: Path) -> None:
 
     report = render_performance_report(tmp_path)
     assert "Events for this account/strategy generation: **1**" in report
-    assert "archived $1 account generation is excluded" in report
+    assert "archived $1 and $10 USDT account generations are excluded" in report
 
 
 def test_report_is_informative_before_account_initialization(tmp_path: Path) -> None:

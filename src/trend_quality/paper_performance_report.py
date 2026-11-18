@@ -12,8 +12,8 @@ from typing import Any
 from .event_journal import order_event_batches, verify_event_batch
 from .mexc_portfolio import performance_summary
 
-ACCOUNT_ID = "mexc-usdt-forward-10usdt-v2"
-STRATEGY_ID = "trend-quality-daily-cross-sectional-v2-10usdt"
+ACCOUNT_ID = "mexc-usdt-forward-50usdt-v3"
+STRATEGY_ID = "trend-quality-daily-cross-sectional-v3-50usdt"
 ZERO = Decimal("0")
 ONE = Decimal("1")
 
@@ -653,7 +653,7 @@ def render_performance_report(
             "",
             "![Trend-Quality paper portfolio equity curve](equity_curve.svg)",
             "",
-            "The active $10 USDT paper account is not yet initialized. The global event "
+            "The active $50 USDT paper account is not yet initialized. The global event "
             "chain was verified, but it contains no full account-state snapshot.",
             "",
             f"Verified event batches: {len(batches)}",
@@ -899,8 +899,8 @@ def render_performance_report(
         f"Latest global event-batch hash: {latest_batch_hash}.",
         "All batches were hash-verified and the complete parent-hash chain was checked "
         "for a single genesis, missing parents, duplicate identifiers and forks.",
-        "The archived $1 account generation is excluded; only the active "
-        "$10 USDT account is reported.",
+        "The archived $1 and $10 USDT account generations are excluded; only the active "
+        "$50 USDT account is reported.",
         "Paper simulation only: no live orders, private exchange endpoints, "
         "credentials or wallet access.",
         "Metrics remain unavailable until their documented sample gates are satisfied.",

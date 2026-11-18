@@ -31,6 +31,7 @@ from trend_quality.mexc_paper import (
     rank_mexc_universe,
     simulate_mexc_fill,
     size_mexc_leg,
+    size_neutral_mexc_pair,
 )
 from trend_quality.mexc_portfolio import (
     account_report,
@@ -53,10 +54,11 @@ DAY_MS = 86_400_000
 BOOTSTRAP_DAYS = 365
 DEFAULT_BOOTSTRAP_BATCH_SIZE = 150
 MAX_SHORTFALL_BPS = Decimal("10")
+MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION = Decimal("0.005")
 STOP_ATR_MULTIPLE = Decimal("3")
-INITIAL_CAPITAL = Decimal("10")
-ACCOUNT_ID = "mexc-usdt-forward-10usdt-v2"
-STRATEGY_ID = "trend-quality-daily-cross-sectional-v2-10usdt"
+INITIAL_CAPITAL = Decimal("50")
+ACCOUNT_ID = "mexc-usdt-forward-50usdt-v3"
+STRATEGY_ID = "trend-quality-daily-cross-sectional-v3-50usdt"
 
 
 class MEXCExecutionUnavailable(RuntimeError):
@@ -96,6 +98,7 @@ def _cycle_status_requires_attention(status: str) -> bool:
         "RETRY_EXECUTION_BLOCKED",
         "RETRY_NO_EXECUTABLE_PAIR",
         "EMERGENCY_FLATTEN_PENDING_RETRY",
+        "NEUTRALITY_REBALANCE_BLOCKED",
         "UNAVAILABLE_",
     ))
 
@@ -169,6 +172,233 @@ def _stale_or_missing_position_marks(
         if age < 0 or age > max_age_ms or mark <= 0:
             missing.append(str(position["symbol"]))
     return sorted(set(missing))
+
+
+def _portfolio_neutrality_metrics(
+    state: dict[str, Any],
+    ticker_by_id: dict[int, dict[str, Any]],
+) -> dict[str, str]:
+    """Measure portfolio dollar neutrality on the same marks used for NAV."""
+    long_notional = Decimal("0")
+    short_notional = Decimal("0")
+    for position in state.get("positions", []):
+        iid = int(position["instrument_id"])
+        ticker = ticker_by_id.get(iid, {})
+        mark = dec(ticker.get(
+            "mark_price",
+            position.get("last_mark_price", position.get("entry_price")),
+        ))
+        if mark <= 0:
+            mark = dec(position.get("last_mark_price", position.get("entry_price")))
+        if mark <= 0:
+            raise MEXCExecutionUnavailable(
+                f"Cannot verify neutrality for {position.get('symbol', iid)}: missing mark"
+            )
+        notional = dec(position["quantity"]) * mark
+        if position["side"] == "long":
+            long_notional += notional
+        elif position["side"] == "short":
+            short_notional += notional
+        else:
+            raise MEXCExecutionUnavailable("Portfolio has an invalid position side")
+
+    nav = portfolio_nav(state, ticker_by_id)
+    imbalance = abs(long_notional - short_notional)
+    fraction = imbalance / nav if nav > 0 else Decimal("Infinity")
+    return {
+        "nav_usdt": str(nav),
+        "long_notional_usdt": str(long_notional),
+        "short_notional_usdt": str(short_notional),
+        "imbalance_usdt": str(imbalance),
+        "imbalance_nav_fraction": str(fraction),
+        "gross_exposure_nav": str(
+            (long_notional + short_notional) / nav if nav > 0 else Decimal("0")
+        ),
+    }
+
+
+def _require_market_neutrality(
+    state: dict[str, Any],
+    ticker_by_id: dict[int, dict[str, Any]],
+) -> dict[str, str]:
+    """Fail closed before a simulated portfolio transition can be committed."""
+    metrics = _portfolio_neutrality_metrics(state, ticker_by_id)
+    positions = state.get("positions", [])
+    if positions and (
+        Decimal(metrics["long_notional_usdt"]) <= 0
+        or Decimal(metrics["short_notional_usdt"]) <= 0
+    ):
+        raise MEXCExecutionUnavailable(
+            "Neutral pair rejected: both a positive long and short exposure are required"
+        )
+    if Decimal(metrics["imbalance_nav_fraction"]) > MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION:
+        raise MEXCExecutionUnavailable(
+            "Neutral pair rejected: post-fill dollar imbalance "
+            f"{metrics['imbalance_nav_fraction']} NAV exceeds "
+            f"{MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION}"
+        )
+    return metrics
+
+
+def _rebalance_existing_pair(
+    client: MEXCPublicClient,
+    state: dict[str, Any],
+    instruments: list[dict[str, Any]],
+    tickers: dict[int, dict[str, Any]],
+    store: MarketDataStore,
+    now_ms: int,
+) -> dict[str, Any]:
+    """Restore dollar neutrality for the held long/short pair on fresh venue lots."""
+    positions = list(state.get("positions", []))
+    if not positions:
+        return {
+            "status": "NO_OPEN_PAIR",
+            "actions": [],
+            "portfolio_neutrality": _portfolio_neutrality_metrics(state, tickers),
+            "ticker_by_id": tickers,
+            "timestamp_ms": now_ms,
+        }
+    if len(positions) != 2 or {str(row.get("side")) for row in positions} != {"long", "short"}:
+        raise MEXCExecutionUnavailable(
+            "Neutrality rebalance requires exactly one open long and one open short"
+        )
+
+    instruments_by_id = {
+        int(row["instrument_id"]): row for row in instruments
+    }
+    positions_by_side = {str(row["side"]): row for row in positions}
+    long_position = positions_by_side["long"]
+    short_position = positions_by_side["short"]
+    long_id = int(long_position["instrument_id"])
+    short_id = int(short_position["instrument_id"])
+    long_instrument = instruments_by_id.get(long_id)
+    short_instrument = instruments_by_id.get(short_id)
+    long_ticker = tickers.get(long_id)
+    short_ticker = tickers.get(short_id)
+    if any(value is None for value in (
+        long_instrument, short_instrument, long_ticker, short_ticker
+    )):
+        raise MEXCExecutionUnavailable(
+            "Cannot rebalance neutrality without both current contracts and marks"
+        )
+
+    current_metrics = _portfolio_neutrality_metrics(state, tickers)
+    if Decimal(current_metrics["imbalance_nav_fraction"]) <= MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION:
+        return {
+            "status": "WITHIN_NEUTRALITY_BAND",
+            "actions": [],
+            "portfolio_neutrality": current_metrics,
+            "ticker_by_id": tickers,
+            "timestamp_ms": now_ms,
+        }
+
+    nav = Decimal(current_metrics["nav_usdt"])
+    long_mark = dec(long_ticker.get("mark_price")) or dec(long_ticker.get("mid_price"))
+    short_mark = dec(short_ticker.get("mark_price")) or dec(short_ticker.get("mid_price"))
+    if long_mark <= 0 or short_mark <= 0:
+        raise MEXCExecutionUnavailable("Cannot size a neutrality correction from invalid marks")
+
+    pair_size = size_neutral_mexc_pair(
+        long_instrument,
+        short_instrument,
+        nav,
+        long_mark,
+        short_mark,
+        max_imbalance_nav_fraction=MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION,
+    )
+    if pair_size is None:
+        raise MEXCExecutionUnavailable(
+            "Current held pair has no executable lot combination inside the neutrality band"
+        )
+
+    trial = deepcopy(state)
+    trial_by_id = {
+        int(row["instrument_id"]): row for row in trial.get("positions", [])
+    }
+    targets = {
+        "long": pair_size["long_quantity"],
+        "short": pair_size["short_quantity"],
+    }
+    actions: list[dict[str, Any]] = []
+    execution_ms = now_ms
+
+    for side in ("long", "short"):
+        position = trial_by_id[
+            int(positions_by_side[side]["instrument_id"])
+        ]
+        instrument = instruments_by_id[int(position["instrument_id"])]
+        ticker = tickers[int(position["instrument_id"])]
+        current_quantity = dec(position["quantity"])
+        target_quantity = targets[side]
+        delta = target_quantity - current_quantity
+        if delta == 0:
+            continue
+
+        _step, minimum_quantity, _maximum, _contract_size = base_quantity_rules(
+            instrument, dec(ticker.get("mid_price"))
+        )
+        if abs(delta) < minimum_quantity:
+            continue
+
+        if side == "long":
+            order_side = "buy" if delta > 0 else "sell"
+        else:
+            order_side = "sell" if delta > 0 else "buy"
+        simulated, _book = _fill(
+            client, instrument, order_side, abs(delta), execution_ms
+        )
+        execution_ms = client.server_time_ms()
+
+        if delta > 0:
+            history = store.load_candles(
+                int(position["instrument_id"]),
+                start_timestamp_ms=max(0, execution_ms - BOOTSTRAP_DAYS * DAY_MS),
+            )
+            atr = _atr(history)
+            if atr is None:
+                raise MEXCExecutionUnavailable(
+                    f"Cannot safely increase {instrument['symbol']} without ATR history"
+                )
+            actions.append(increase_paper_position(
+                trial,
+                position,
+                instrument,
+                ticker,
+                atr,
+                simulated,
+                execution_ms,
+                stop_atr_multiple=STOP_ATR_MULTIPLE,
+            ))
+        else:
+            actions.append(reduce_paper_position(
+                trial, position, simulated, execution_ms
+            ))
+
+    fresh_tickers, missing = _ticker_maps(instruments, client.tickers())
+    check_ms = client.server_time_ms()
+    position_gaps = _stale_or_missing_position_marks(
+        list(trial.get("positions", [])), fresh_tickers, check_ms
+    )
+    if missing or position_gaps:
+        raise MEXCExecutionUnavailable(
+            "Cannot verify post-rebalance neutrality with fresh marks; "
+            f"missing instruments={missing[:5]}, stale positions={position_gaps[:5]}"
+        )
+
+    neutrality = _require_market_neutrality(trial, fresh_tickers)
+    if not actions:
+        raise MEXCExecutionUnavailable(
+            "Lot minimums prevent correcting the breached portfolio neutrality band"
+        )
+    state.clear()
+    state.update(trial)
+    return {
+        "status": "REBALANCED",
+        "actions": actions,
+        "portfolio_neutrality": neutrality,
+        "ticker_by_id": fresh_tickers,
+        "timestamp_ms": check_ms,
+    }
 
 
 def _ticker_maps(
@@ -675,7 +905,7 @@ def _try_pair(
     *,
     max_pairs: int = 100,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], tuple[str, str]] | None:
-    """Find a valid pair and simulate only each leg's required quantity delta."""
+    """Choose the strongest executable pair whose discrete lots remain neutral."""
     nav = portfolio_nav(state, tickers)
     if nav <= 0 or max_pairs < 1:
         return None
@@ -685,6 +915,7 @@ def _try_pair(
     }
     attempted_pairs = 0
     execution_failures: list[str] = []
+    neutrality_rejections = 0
     fill_cache: dict[
         tuple[int, str, str], tuple[Any, dict[str, Any]] | Exception
     ] = {}
@@ -718,28 +949,57 @@ def _try_pair(
                 continue
             long_instrument = rankings.instruments_by_key[long_candidate.symbol]
             short_instrument = rankings.instruments_by_key[short_candidate.symbol]
+            long_id = int(long_instrument["instrument_id"])
+            short_id = int(short_instrument["instrument_id"])
+            long_ticker = tickers.get(long_id)
+            short_ticker = tickers.get(short_id)
+            if long_ticker is None or short_ticker is None:
+                continue
+            long_mid = dec(long_ticker.get("mid_price"))
+            short_mid = dec(short_ticker.get("mid_price"))
+            long_mark = dec(long_ticker.get("mark_price")) or long_mid
+            short_mark = dec(short_ticker.get("mark_price")) or short_mid
+            if min(long_mid, short_mid, long_mark, short_mark) <= 0:
+                continue
+
+            pair_size = size_neutral_mexc_pair(
+                long_instrument,
+                short_instrument,
+                nav,
+                long_mark,
+                short_mark,
+                max_imbalance_nav_fraction=MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION,
+            )
+            if pair_size is None:
+                neutrality_rejections += 1
+                continue
+
             proposed: list[dict[str, Any]] = []
             fills: list[dict[str, Any]] = []
             valid = True
-            for _candidate, instrument, side in (
-                (long_candidate, long_instrument, "long"),
-                (short_candidate, short_instrument, "short"),
+            for instrument, side, ticker, target_qty in (
+                (
+                    long_instrument,
+                    "long",
+                    long_ticker,
+                    pair_size["long_quantity"],
+                ),
+                (
+                    short_instrument,
+                    "short",
+                    short_ticker,
+                    pair_size["short_quantity"],
+                ),
             ):
                 iid = int(instrument["instrument_id"])
                 atr = _atr(history.get(iid, []))
-                ticker = tickers.get(iid)
-                if atr is None or ticker is None:
+                if atr is None:
                     valid = False
                     break
                 mid = dec(ticker.get("mid_price"))
-                if mid <= 0:
-                    valid = False
-                    break
-                target_qty = size_mexc_leg(instrument, nav, mid)
-                if target_qty <= 0:
-                    valid = False
-                    break
-
+                mark = dec(ticker.get("mark_price"))
+                if mark <= 0:
+                    mark = mid
                 existing = current_by_id.get(iid)
                 retained = existing is not None and existing.get("side") == side
                 current_qty = dec(existing["quantity"]) if retained else Decimal("0")
@@ -773,7 +1033,7 @@ def _try_pair(
                             )
                             valid = False
                             break
-                else:
+                elif not retained:
                     order_side = "buy" if side == "long" else "sell"
                     try:
                         simulated, book = cached_fill(
@@ -786,6 +1046,12 @@ def _try_pair(
                         valid = False
                         break
 
+                final_quantity = (
+                    current_qty + executable_delta if retained else executable_delta
+                )
+                if final_quantity <= 0:
+                    valid = False
+                    break
                 proposed.append({
                     "instrument": instrument,
                     "ticker": ticker,
@@ -795,6 +1061,9 @@ def _try_pair(
                     "target_quantity": str(target_qty),
                     "current_quantity": str(current_qty),
                     "quantity_delta": str(executable_delta),
+                    "final_quantity": str(final_quantity),
+                    "mark_price": str(mark),
+                    "mark_notional_usdt": str(final_quantity * mark),
                     "retained_position": retained,
                     "rebalance_constraint": rebalance_constraint,
                 })
@@ -813,20 +1082,49 @@ def _try_pair(
                         "quantity_delta": str(executable_delta),
                         "entry_or_exit_price": str(simulated.average_price),
                         "notional_usdt": str(simulated.notional),
+                        "mark_notional_usdt": str(final_quantity * mark),
                         "fee_usdt": str(simulated.fee),
                         "shortfall_bps": str(simulated.shortfall_bps),
                         "book_timestamp_ms": book["timestamp_ms"],
                     })
             if valid and len(proposed) == 2:
+                long_notional = sum(
+                    (
+                        dec(row["mark_notional_usdt"])
+                        for row in proposed if row["side"] == "long"
+                    ),
+                    Decimal("0"),
+                )
+                short_notional = sum(
+                    (
+                        dec(row["mark_notional_usdt"])
+                        for row in proposed if row["side"] == "short"
+                    ),
+                    Decimal("0"),
+                )
+                imbalance_fraction = abs(long_notional - short_notional) / nav
+                if imbalance_fraction > MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION:
+                    neutrality_rejections += 1
+                    continue
+                for fill_row in fills:
+                    fill_row["pair_imbalance_nav_fraction"] = str(imbalance_fraction)
                 return proposed, fills, (
                     long_candidate.symbol,
                     short_candidate.symbol,
                 )
-    if execution_failures:
+    if execution_failures or neutrality_rejections:
+        detail = (
+            f"{neutrality_rejections} pair-size/neutrality rejection(s); "
+            if neutrality_rejections else ""
+        )
+        if execution_failures:
+            detail += (
+                f"{len(execution_failures)} public-depth fill attempt(s) failed; "
+                f"last failure: {execution_failures[-1]}"
+            )
         raise MEXCExecutionUnavailable(
-            "No candidate pair could be validated from public depth; "
-            f"{len(execution_failures)} fill attempt(s) failed; "
-            f"last failure: {execution_failures[-1]}"
+            "No candidate pair passed joint sizing, neutrality and public-depth checks; "
+            + detail
         )
     return None
 
@@ -976,6 +1274,7 @@ def _retry_pending_pair(
             instruments_by_id,
             execution_ms,
         )
+        neutrality = _require_market_neutrality(trial, tickers)
         trial["pending_entry_signal"] = None
         retry_nav = portfolio_nav(trial, tickers)
         risk_window_reset = reset_daily_risk_window(
@@ -999,6 +1298,7 @@ def _retry_pending_pair(
             "close_actions": close_details,
             "fills": resize_details,
             "risk_window_reset": risk_window_reset,
+            "portfolio_neutrality": neutrality,
         }
     except Exception as exc:
         return {
@@ -1099,8 +1399,9 @@ def _process_stops(
     latest_completed_bar_ms: int,
     now_ms: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    exits: list[dict[str, Any]] = []
+    """Update trailing stops and flatten the pair if either leg is stopped."""
     trailing: list[dict[str, Any]] = []
+    triggered_symbols: list[str] = []
     for position in list(state.get("positions", [])):
         iid = int(position["instrument_id"])
         ticker = tickers.get(iid)
@@ -1140,18 +1441,28 @@ def _process_stops(
                     "stop_price": str(stop),
                 })
         if stop_is_triggered(position, last_price):
-            quantity = dec(position["quantity"])
-            close_side = "sell" if position["side"] == "long" else "buy"
-            try:
-                simulated, _ = _fill(
-                    client, instrument, close_side, quantity, now_ms
-                )
-                detail = close_paper_position(state, position, simulated, now_ms)
-                exits.append(detail)
-            except Exception as exc:
-                position["stop_triggered_unfilled"] = True
-                position["stop_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
-    return exits, trailing
+            triggered_symbols.append(str(position["symbol"]))
+
+    if not triggered_symbols:
+        return [], trailing
+
+    # A market-neutral strategy must never leave the opposite leg running alone.
+    state["pending_entry_signal"] = None
+    try:
+        exits = _close_all(client, state, instruments_by_id, now_ms)
+        for item in exits:
+            item["pair_stop_triggered_by"] = triggered_symbols
+        return exits, trailing
+    except Exception as exc:
+        state["emergency_liquidation_pending"] = True
+        risk = state.setdefault("daily_risk", {})
+        risk["flattened"] = False
+        risk["flatten_attempts"] = int(risk.get("flatten_attempts", 0)) + 1
+        risk["flatten_error"] = (
+            f"Pair stop triggered by {triggered_symbols}; "
+            f"{type(exc).__name__}: {str(exc)[:180]}"
+        )
+        return [], trailing
 
 
 def _branch_files_missing(state_dir: Path) -> bool:
@@ -1188,6 +1499,9 @@ def _snapshot_only_cycle(
     risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
     state_changed = False
     entry_retry_report: dict[str, Any] | None = None
+    neutrality_report: dict[str, str] | None = None
+    neutrality_rebalance_actions: list[dict[str, Any]] = []
+    pair_stop_triggered_symbols: list[str] = []
 
     if portfolio is not None:
         positions = list(portfolio.get("positions", []))
@@ -1301,6 +1615,19 @@ def _snapshot_only_cycle(
             state_changed = bool(state_changed or funding_events)
 
         risk = portfolio.setdefault("daily_risk", {})
+        pair_stop_triggered_symbols = [
+            str(position["symbol"])
+            for position in portfolio.get("positions", [])
+            if (
+                (ticker := ticker_by_id.get(int(position["instrument_id"]))) is not None
+                and dec(ticker.get("last_price")) > 0
+                and stop_is_triggered(position, dec(ticker.get("last_price")))
+            )
+        ]
+        if pair_stop_triggered_symbols:
+            # Flatten both legs atomically when either leg's ATR stop is hit.
+            portfolio["emergency_liquidation_pending"] = True
+            portfolio["pending_entry_signal"] = None
         pending_flatten = bool(
             risk.get("stop_triggered")
             or portfolio.get("emergency_liquidation_pending")
@@ -1392,8 +1719,66 @@ def _snapshot_only_cycle(
                 portfolio["daily_risk"]["flattened"] = True
                 portfolio["emergency_liquidation_pending"] = False
                 risk_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
+            elif pair_stop_triggered_symbols:
+                risk_status = "PAIR_STOP_FLATTENED"
             else:
                 risk_status = "MONITORING_ONLY_NO_STRATEGY_DECISIONS"
+
+            if (
+                portfolio.get("positions")
+                and not risk.get("stop_triggered")
+                and not portfolio.get("emergency_liquidation_pending")
+            ):
+                try:
+                    neutral_result = _rebalance_existing_pair(
+                        client,
+                        portfolio,
+                        position_instruments,
+                        ticker_by_id,
+                        store,
+                        server_ms,
+                    )
+                    neutrality_report = neutral_result["portfolio_neutrality"]
+                    neutrality_rebalance_actions = neutral_result["actions"]
+                    ticker_by_id.update(neutral_result["ticker_by_id"])
+                    if neutrality_rebalance_actions:
+                        server_ms = int(neutral_result["timestamp_ms"])
+                        nav = portfolio_nav(portfolio, ticker_by_id)
+                        long_notional = sum(
+                            (
+                                dec(row["quantity"])
+                                * dec(ticker_by_id[int(row["instrument_id"])]["mark_price"])
+                                for row in portfolio.get("positions", [])
+                                if row["side"] == "long"
+                            ),
+                            Decimal("0"),
+                        )
+                        short_notional = sum(
+                            (
+                                dec(row["quantity"])
+                                * dec(ticker_by_id[int(row["instrument_id"])]["mark_price"])
+                                for row in portfolio.get("positions", [])
+                                if row["side"] == "short"
+                            ),
+                            Decimal("0"),
+                        )
+                        snapshot = append_equity_snapshot(
+                            portfolio, server_ms, nav, long_notional, short_notional
+                        )
+                        risk_status = "NEUTRALITY_REBALANCED"
+                        state_changed = True
+                except Exception as exc:
+                    risk_status = (
+                        "NEUTRALITY_REBALANCE_BLOCKED:"
+                        f"{type(exc).__name__}:{str(exc)[:180]}"
+                    )
+                    try:
+                        neutrality_report = _portfolio_neutrality_metrics(
+                            portfolio, ticker_by_id
+                        )
+                    except Exception:
+                        neutrality_report = None
+                    state_changed = True
 
         if writer_enabled and state_changed:
             details = {
@@ -1407,6 +1792,9 @@ def _snapshot_only_cycle(
                 "missing_position_marks": missing_symbols,
                 "ordinary_strategy_decisions": entry_retry_report is not None,
                 "entry_retry": entry_retry_report,
+                "portfolio_neutrality": neutrality_report,
+                "neutrality_rebalance_actions": neutrality_rebalance_actions,
+                "pair_stop_triggered_symbols": pair_stop_triggered_symbols,
                 "live_orders_submitted": 0,
             }
             state_event = _publish_event(
@@ -1473,7 +1861,9 @@ def _snapshot_only_cycle(
         ),
         "state_write_mode": state_write_mode,
         "paper_decision_status": (
-            entry_retry_report["status"] if entry_retry_report is not None else risk_status
+            risk_status if str(risk_status).startswith("NEUTRALITY_REBALANCE_BLOCKED")
+            else entry_retry_report["status"] if entry_retry_report is not None
+            else risk_status
         ),
         "entry_retry": entry_retry_report,
         "ticker_coverage": len(ticker_by_id),
@@ -1491,6 +1881,9 @@ def _snapshot_only_cycle(
         "excluded_or_unranked_sample": [],
         "portfolio": portfolio_report,
         "portfolio_snapshot": snapshot,
+        "portfolio_neutrality": neutrality_report,
+        "neutrality_rebalance_actions": neutrality_rebalance_actions,
+        "pair_stop_triggered_symbols": pair_stop_triggered_symbols,
         "funding_events": funding_events,
                 "emergency_exits": emergency_exits,
         "unresolved_funding_count": unresolved_funding,
@@ -1708,6 +2101,7 @@ def _run() -> int:
         daily_risk_snapshot: dict[str, Any] | None = None
         risk_window_reset: dict[str, Any] | None = None
         pair_rebalance_actions: list[dict[str, Any]] = []
+        pair_neutrality_report: dict[str, str] | None = None
         position_mark_gaps: list[str] = []
         funding_events, unresolved_funding = _process_funding(
             client, store, portfolio, server_ms
@@ -1799,6 +2193,12 @@ def _run() -> int:
                         latest_bar_ms,
                         server_ms,
                     )
+                    if stop_exits:
+                        paper_decision_status = "PAIR_STOP_FLATTENED"
+                        portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
+                        portfolio["last_processed_daily_bar_ms"] = latest_bar_ms
+                    elif portfolio.get("emergency_liquidation_pending"):
+                        paper_decision_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
                 state_changed = bool(
                     state_changed or funding_events or stop_exits or trailing_updates
                 )
@@ -1809,6 +2209,7 @@ def _run() -> int:
             and not portfolio.get("daily_risk", {}).get("stop_triggered")
             and not portfolio.get("emergency_liquidation_pending")
             and not position_mark_gaps
+            and not stop_exits
         ):
             portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
             portfolio["pending_entry_signal"] = _pending_entry_signal(
@@ -1848,6 +2249,9 @@ def _run() -> int:
                 try:
                     closed_details, resize_details = _apply_selected_pair(
                         client, trial, proposed, instrument_by_id, server_ms
+                    )
+                    pair_neutrality_report = _require_market_neutrality(
+                        trial, ticker_by_id
                     )
                     portfolio = trial
                     fills = closed_details + resize_details
@@ -1955,6 +2359,7 @@ def _run() -> int:
                 "portfolio_daily_risk_snapshot": daily_risk_snapshot,
                 "portfolio_daily_risk_reset": risk_window_reset,
                 "rebalance_actions": pair_rebalance_actions,
+                "portfolio_neutrality": pair_neutrality_report,
                 "emergency_risk_status": (
                     paper_decision_status
                     if str(paper_decision_status).startswith("EMERGENCY_")
