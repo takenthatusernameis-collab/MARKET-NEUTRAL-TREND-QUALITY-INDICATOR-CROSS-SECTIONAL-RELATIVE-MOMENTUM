@@ -418,6 +418,43 @@ def _ticker_maps(
     return mapped, missing
 
 
+def _current_position_tickers(
+    client: MEXCPublicClient,
+    positions: list[dict[str, Any]],
+    now_ms: int,
+) -> tuple[dict[int, dict[str, Any]], list[str], list[str]]:
+    """Get fresh held-leg marks from the server-timestamped all-market stream."""
+    symbols = [str(position["symbol"]) for position in positions]
+    try:
+        ticker_rows = client.tickers()
+    except MEXCAPIError as exc:
+        detail = f"all-market ticker stream unavailable: {type(exc).__name__}: {str(exc)[:180]}"
+        return {}, symbols, [detail]
+    ticker_by_symbol = {str(row["symbol"]): row for row in ticker_rows}
+    mapped: dict[int, dict[str, Any]] = {}
+    missing: list[str] = []
+    errors: list[str] = []
+    for position in positions:
+        symbol = str(position["symbol"])
+        ticker = ticker_by_symbol.get(symbol)
+        if ticker is None:
+            missing.append(symbol)
+            errors.append(f"{symbol}: absent from current all-market ticker push")
+            continue
+        timestamp_ms = int(ticker["timestamp_ms"])
+        age_ms = now_ms - timestamp_ms
+        mark = dec(ticker.get("mark_price"))
+        if age_ms < 0 or age_ms > 300_000 or mark <= 0:
+            missing.append(symbol)
+            errors.append(
+                f"{symbol}: ticker failed freshness gate "
+                f"(timestamp_ms={timestamp_ms}, age_ms={age_ms}, mark_price={mark})"
+            )
+            continue
+        mapped[int(position["instrument_id"])] = ticker
+    return mapped, sorted(set(missing)), errors
+
+
 def _ranking_report_rows(
     candidates: list[Any],
     instruments_by_key: dict[str, dict[str, Any]],
@@ -1595,38 +1632,26 @@ def _snapshot_only_cycle(
             state_changed = True
 
         if positions:
-            # Snapshot mode needs fresh marks only for the held legs. MEXC's REST
-            # ticker endpoint is single-symbol; do not mistake its one-object
-            # response for an all-contract universe snapshot.
+            # The REST ticker timestamp is last-trade time and may legitimately lag
+            # for quiet contracts. Use the all-market WebSocket push timestamp,
+            # which is the exchange server time, for the five-minute freshness gate.
+            ticker_by_id, missing_symbols, position_ticker_errors = (
+                _current_position_tickers(client, positions, server_ms)
+            )
             for position in positions:
-                symbol = str(position["symbol"])
-                try:
-                    ticker = client.ticker(symbol)
-                except MEXCAPIError as exc:
-                    missing_symbols.append(symbol)
-                    position_ticker_errors.append(
-                        f"{symbol}: {type(exc).__name__}: {str(exc)[:180]}"
-                    )
+                iid = int(position["instrument_id"])
+                if iid not in ticker_by_id:
                     continue
-                age = server_ms - int(ticker["timestamp_ms"])
-                mark = dec(ticker.get("mark_price"))
-                if age < 0 or age > 300_000 or mark <= 0:
-                    missing_symbols.append(symbol)
-                    position_ticker_errors.append(
-                        f"{symbol}: ticker is stale or has no positive mark"
-                    )
-                    continue
-                ticker_by_id[int(position["instrument_id"])] = ticker
-                instrument = store.manifest["instruments"].get(
-                    str(position["instrument_id"])
-                )
+                instrument = store.manifest["instruments"].get(str(iid))
                 if instrument is None:
-                    missing_symbols.append(symbol)
+                    missing_symbols.append(str(position["symbol"]))
                     position_ticker_errors.append(
-                        f"{symbol}: instrument metadata missing from market-data manifest"
+                        f"{position['symbol']}: instrument metadata missing "
+                        "from market-data manifest"
                     )
                 else:
                     position_instruments.append(instrument)
+            missing_symbols = sorted(set(missing_symbols))
 
         # Funding is a confirmed cash-flow event, not an ordinary strategy decision.
         if writer_enabled:
