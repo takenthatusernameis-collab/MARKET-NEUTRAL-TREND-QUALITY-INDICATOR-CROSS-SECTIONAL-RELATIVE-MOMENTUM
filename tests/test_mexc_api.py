@@ -120,29 +120,98 @@ def test_instruments_research_all_cross_settlements_and_usdt_execution_subset() 
     assert all_rows[2]["usdt_account_eligible"] is False
 
 
-def test_bulk_tickers_accept_signed_funding_and_returns() -> None:
+def test_all_market_websocket_tickers_normalize_global_push() -> None:
+    import json
+
+    timestamp = 1_700_000_000_000
+
+    class FakeWebSocket:
+        def __init__(self) -> None:
+            self.sent: list[str] = []
+            self.messages = [
+                json.dumps({"channel": "rs.sub.tickers", "data": "success"}),
+                json.dumps({
+                    "channel": "push.tickers",
+                    "ts": timestamp,
+                    "data": [
+                        {
+                            "symbol": "BTC_USDT",
+                            "lastPrice": "100",
+                            "fairPrice": "101",
+                            "riseFallRate": "-0.025",
+                            "volume24": "1200",
+                        },
+                        {
+                            "symbol": "BILL_USDT",
+                            "lastPrice": "0.0039",
+                            "fairPrice": "0.00391",
+                            "riseFallRate": "0.01",
+                            "volume24": "800",
+                        },
+                    ],
+                }),
+            ]
+            self.closed = False
+
+        def send(self, message: str) -> None:
+            self.sent.append(message)
+
+        def recv(self) -> str:
+            return self.messages.pop(0)
+
+        def close(self) -> None:
+            self.closed = True
+
+    socket = FakeWebSocket()
+    connections: list[tuple[str, float]] = []
+
+    def connect(url: str, timeout: float) -> FakeWebSocket:
+        connections.append((url, timeout))
+        return socket
+
+    client = MEXCPublicClient(
+        minimum_interval_seconds=0,
+        retries=0,
+        websocket_connector=connect,
+    )
+    tickers = client.tickers()
+
+    assert connections == [("wss://contract.mexc.com/edge", 12.0)]
+    assert json.loads(socket.sent[0]) == {
+        "method": "sub.tickers", "param": {}, "gzip": False
+    }
+    assert socket.closed is True
+    assert [row["symbol"] for row in tickers] == ["BTC_USDT", "BILL_USDT"]
+    assert tickers[0]["last_price"] == "100"
+    assert tickers[0]["mark_price"] == "101"
+    assert tickers[0]["mid_price"] == "101"
+    assert tickers[0]["funding_rate"] == "0"
+    assert tickers[0]["change_24h"] == "-0.025"
+    assert tickers[0]["volume_24h_contracts"] == "1200"
+    assert tickers[0]["timestamp_ms"] == timestamp
+
+
+def test_single_contract_rest_ticker_is_symbol_scoped() -> None:
     client = client_for({
-        "/api/v1/contract/ticker": success([
-            {
-                "symbol": "BTC_USDT",
-                "lastPrice": "100",
-                "fairPrice": "101",
-                "indexPrice": "100.5",
-                "bid1": "100.9",
-                "ask1": "101.1",
-                "fundingRate": "-0.0001",
-                "volume24": "1200",
-                "amount24": "120000",
-                "holdVol": "500",
-                "riseFallRate": "-0.025",
-                "timestamp": 1_700_000_000_000,
-            }
-        ])
+        "/api/v1/contract/ticker": lambda params: success({
+            "symbol": "BILL_USDT",
+            "lastPrice": "0.0039",
+            "fairPrice": "0.00391",
+            "indexPrice": "0.0039",
+            "bid1": "0.00390",
+            "ask1": "0.00392",
+            "fundingRate": "-0.0001",
+            "volume24": "1200",
+            "amount24": "120000",
+            "holdVol": "500",
+            "riseFallRate": "-0.025",
+            "timestamp": 1_700_000_000_000,
+        })
     })
-    ticker = client.tickers()[0]
-    assert ticker["mid_price"] == "101.0"
+    ticker = client.ticker("BILL_USDT")
+    assert ticker["symbol"] == "BILL_USDT"
+    assert ticker["mid_price"] == "0.00391"
     assert ticker["funding_rate"] == "-0.0001"
-    assert ticker["change_24h"] == "-0.025"
     assert ticker["turnover_24h_quote"] == "120000"
 
 
@@ -232,31 +301,30 @@ def test_malformed_market_response_fails_closed() -> None:
 
 
 
-def test_bulk_ticker_keeps_instruments_with_absent_best_quotes() -> None:
+def test_single_ticker_keeps_contract_when_best_quotes_are_absent() -> None:
     client = client_for({
-        "/api/v1/contract/ticker": success([
-            {
-                "symbol": "USDGO_USDT",
-                "lastPrice": "1.25",
-                "fairPrice": "1.24",
-                "indexPrice": "1.25",
-                "bid1": None,
-                "ask1": "",
-                "fundingRate": None,
-                "volume24": None,
-                "amount24": None,
-                "holdVol": None,
-                "riseFallRate": None,
-                "timestamp": 1_700_000_000_000,
-                "nextSettleTime": "",
-            }
-        ])
+        "/api/v1/contract/ticker": success({
+            "symbol": "USDGO_USDT",
+            "lastPrice": "1.25",
+            "fairPrice": "1.24",
+            "indexPrice": "1.25",
+            "bid1": None,
+            "ask1": "",
+            "fundingRate": None,
+            "volume24": None,
+            "amount24": None,
+            "holdVol": None,
+            "riseFallRate": None,
+            "timestamp": 1_700_000_000_000,
+            "nextSettleTime": "",
+        })
     })
-    row = client.tickers()[0]
+    row = client.ticker("USDGO_USDT")
     assert row["symbol"] == "USDGO_USDT"
     assert row["bid_price"] == "0"
     assert row["ask_price"] == "0"
     assert row["mid_price"] == "1.24"
+    assert row["mark_price"] == "1.24"
     assert row["funding_rate"] == "0"
     assert row["turnover_24h_quote"] == "0"
     assert row["next_funding_timestamp_ms"] is None

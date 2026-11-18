@@ -6,6 +6,7 @@ can convert contract quantities correctly.
 """
 from __future__ import annotations
 
+import importlib
 import json
 import math
 import threading
@@ -22,6 +23,7 @@ from urllib.request import Request, urlopen
 from .exchange_probe import classify_asset_class
 
 DEFAULT_BASE_URL = "https://api.mexc.com"
+DEFAULT_WEBSOCKET_URL = "wss://contract.mexc.com/edge"
 DEFAULT_MINIMUM_INTERVAL_SECONDS = 1.5
 USER_AGENT = "market-neutral-trend-quality-paper-research/1.0"
 DAY_SECONDS = 86_400
@@ -29,6 +31,7 @@ MAX_KLINE_ROWS = 2_000
 MAX_FUNDING_PAGE_SIZE = 1_000
 
 Transport = Callable[[str, Mapping[str, Any]], tuple[int, Any]]
+WebSocketConnector = Callable[[str, float], Any]
 
 
 class MEXCAPIError(RuntimeError):
@@ -154,6 +157,55 @@ def _payload_rows(payload: Any, field: str = "data") -> list[dict[str, Any]]:
     return []
 
 
+def _normalize_ticker_row(
+    row: Mapping[str, Any],
+    *,
+    timestamp_fallback_ms: int | None = None,
+) -> dict[str, Any]:
+    """Normalize REST and all-market WebSocket ticker rows to one stable schema."""
+    symbol = str(row.get("symbol", "")).strip()
+    if not symbol:
+        raise MEXCAPIError("MEXC ticker row has no symbol")
+    bid = _optional_decimal(row.get("bid1"), f"{symbol}.bid1")
+    ask = _optional_decimal(row.get("ask1"), f"{symbol}.ask1")
+    last = _optional_decimal(row.get("lastPrice"), f"{symbol}.lastPrice")
+    fair = _optional_decimal(row.get("fairPrice"), f"{symbol}.fairPrice")
+    index = _optional_decimal(row.get("indexPrice"), f"{symbol}.indexPrice")
+    usable_mark = fair if fair > 0 else last
+    mid = (bid + ask) / Decimal("2") if bid > 0 and ask > bid else usable_mark
+    timestamp = row.get("timestamp", timestamp_fallback_ms)
+    timestamp_ms = _integer(timestamp, f"{symbol}.timestamp", minimum=1)
+    return {
+        "symbol": symbol,
+        "last_price": str(last),
+        "mark_price": str(usable_mark),
+        "index_price": str(index),
+        "bid_price": str(bid),
+        "ask_price": str(ask),
+        "mid_price": str(mid),
+        "funding_rate": str(_optional_signed_decimal(
+            row.get("fundingRate"), f"{symbol}.fundingRate"
+        )),
+        "volume_24h_contracts": str(_optional_decimal(
+            row.get("volume24"), f"{symbol}.volume24"
+        )),
+        "turnover_24h_quote": str(_optional_decimal(
+            row.get("amount24"), f"{symbol}.amount24"
+        )),
+        "open_interest_contracts": str(_optional_decimal(
+            row.get("holdVol"), f"{symbol}.holdVol"
+        )),
+        "change_24h": str(_optional_signed_decimal(
+            row.get("riseFallRate"), f"{symbol}.riseFallRate"
+        )),
+        "timestamp_ms": timestamp_ms,
+        "next_funding_timestamp_ms": (
+            None if row.get("nextSettleTime") in (None, "", 0, "0")
+            else _integer(row.get("nextSettleTime"), f"{symbol}.nextSettleTime")
+        ),
+    }
+
+
 def classify_mexc_instrument(row: Mapping[str, Any]) -> str:
     """Classify where provider labels permit; unknown labels remain valid metadata."""
     category = classify_asset_class(
@@ -269,6 +321,7 @@ class MEXCPublicClient:
         minimum_interval_seconds: float = DEFAULT_MINIMUM_INTERVAL_SECONDS,
         retries: int = 3,
         transport: Transport | None = None,
+        websocket_connector: WebSocketConnector | None = None,
     ) -> None:
         if base_url.rstrip("/") != DEFAULT_BASE_URL:
             raise ValueError("Only the current official MEXC Futures API host is allowed")
@@ -279,6 +332,8 @@ class MEXCPublicClient:
         self.minimum_interval_seconds = minimum_interval_seconds
         self.retries = retries
         self.transport = transport
+        self.websocket_connector = websocket_connector
+        self.websocket_url = DEFAULT_WEBSOCKET_URL
         self._rate_lock = threading.Lock()
         self._last_request_at = 0.0
         self._contract_details_cache: list[dict[str, Any]] | None = None
@@ -415,56 +470,89 @@ class MEXCPublicClient:
             )
         return sorted(output, key=lambda row: int(row["instrument_id"]))
 
-    def tickers(self) -> list[dict[str, Any]]:
-        """Fetch the bulk ticker endpoint once; do not issue 1,000 symbol requests."""
-        payload = self._request("/api/v1/contract/ticker")
+    def ticker(self, symbol: str) -> dict[str, Any]:
+        """Fetch one contract's current ticker from the documented REST endpoint."""
+        normalized_symbol = str(symbol).strip()
+        if (
+            not normalized_symbol
+            or "/" in normalized_symbol
+            or "?" in normalized_symbol
+            or "#" in normalized_symbol
+        ):
+            raise ValueError("Invalid MEXC ticker symbol")
+        payload = self._request(
+            "/api/v1/contract/ticker", {"symbol": normalized_symbol}
+        )
         rows = _payload_rows(payload)
-        if not rows:
-            raise MEXCAPIError("MEXC bulk ticker returned no ticker rows")
-        output: list[dict[str, Any]] = []
-        for row in rows:
-            symbol = str(row.get("symbol", "")).strip()
-            if not symbol:
-                continue
-            bid = _optional_decimal(row.get("bid1"), f"{symbol}.bid1")
-            ask = _optional_decimal(row.get("ask1"), f"{symbol}.ask1")
-            last = _optional_decimal(row.get("lastPrice"), f"{symbol}.lastPrice")
-            fair = _optional_decimal(row.get("fairPrice"), f"{symbol}.fairPrice")
-            index = _optional_decimal(row.get("indexPrice"), f"{symbol}.indexPrice")
-            usable_mark = fair if fair > 0 else last
-            mid = (bid + ask) / Decimal("2") if bid > 0 and ask > bid else usable_mark
-            output.append({
-                "symbol": symbol,
-                "last_price": str(last),
-                "mark_price": str(fair),
-                "index_price": str(index),
-                "bid_price": str(bid),
-                "ask_price": str(ask),
-                "mid_price": str(mid),
-                "funding_rate": str(_optional_signed_decimal(
-                    row.get("fundingRate"), f"{symbol}.fundingRate"
-                )),
-                "volume_24h_contracts": str(_optional_decimal(
-                    row.get("volume24"), f"{symbol}.volume24"
-                )),
-                "turnover_24h_quote": str(_optional_decimal(
-                    row.get("amount24"), f"{symbol}.amount24"
-                )),
-                "open_interest_contracts": str(_optional_decimal(
-                    row.get("holdVol"), f"{symbol}.holdVol"
-                )),
-                "change_24h": str(_optional_signed_decimal(
-                    row.get("riseFallRate"), f"{symbol}.riseFallRate"
-                )),
-                "timestamp_ms": _integer(row.get("timestamp"), f"{symbol}.timestamp", minimum=1),
-                "next_funding_timestamp_ms": (
-                    None if row.get("nextSettleTime") in (None, "", 0, "0")
-                    else _integer(row.get("nextSettleTime"), f"{symbol}.nextSettleTime")
-                ),
-            })
-        if not output:
-            raise MEXCAPIError("MEXC bulk ticker contained no valid symbol rows")
-        return output
+        if len(rows) != 1 or str(rows[0].get("symbol", "")).strip() != normalized_symbol:
+            raise MEXCAPIError(
+                f"MEXC single-contract ticker response did not match {normalized_symbol}"
+            )
+        return _normalize_ticker_row(rows[0])
+
+    def tickers(self) -> list[dict[str, Any]]:
+        """Subscribe once to MEXC's public all-contract ticker stream."""
+        connector = self.websocket_connector
+        if connector is None:
+            try:
+                websocket_module = importlib.import_module("websocket")
+                connector = websocket_module.create_connection
+            except (ImportError, AttributeError) as exc:
+                raise MEXCAPIError(
+                    "The websocket-client package is required for MEXC all-market tickers"
+                ) from exc
+
+        connection: Any | None = None
+        try:
+            connection = connector(self.websocket_url, self.timeout_seconds)
+            connection.send(json.dumps({
+                "method": "sub.tickers",
+                "param": {},
+                "gzip": False,
+            }))
+            # Ignore subscription acknowledgements and heartbeat frames. The first
+            # push.tickers payload contains all current contracts in one message.
+            for _ in range(20):
+                raw_message = connection.recv()
+                if isinstance(raw_message, bytes):
+                    raw_message = raw_message.decode("utf-8")
+                message = json.loads(raw_message)
+                if not isinstance(message, dict):
+                    continue
+                channel = str(message.get("channel", ""))
+                if channel == "rs.error":
+                    raise MEXCAPIError(
+                        "MEXC rejected all-market ticker subscription: "
+                        f"{str(message.get('data', message))[:180]}"
+                    )
+                if channel != "push.tickers":
+                    continue
+                timestamp_ms = _integer(message.get("ts"), "ticker stream timestamp", minimum=1)
+                rows = message.get("data")
+                if not isinstance(rows, list) or not rows:
+                    raise MEXCAPIError("MEXC all-market ticker push contained no rows")
+                output = [
+                    _normalize_ticker_row(row, timestamp_fallback_ms=timestamp_ms)
+                    for row in rows
+                    if isinstance(row, dict)
+                ]
+                if not output:
+                    raise MEXCAPIError("MEXC all-market ticker push contained no valid rows")
+                return output
+            raise MEXCAPIError("MEXC all-market ticker stream sent no ticker push")
+        except MEXCAPIError:
+            raise
+        except Exception as exc:
+            raise MEXCAPIError(
+                "MEXC all-market ticker WebSocket failed: "
+                f"{type(exc).__name__}: {str(exc)[:180]}"
+            ) from exc
+        finally:
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
 
     def orderbook(self, symbol: str, *, depth: int = 20) -> dict[str, Any]:
         if not symbol or depth < 1 or depth > 1_000:

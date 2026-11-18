@@ -24,7 +24,7 @@ from trend_quality.event_journal import (
 from trend_quality.github_state import GitHubStatePublisher
 from trend_quality.indicators import wilder_atr
 from trend_quality.market_data_store import MarketDataStore
-from trend_quality.mexc_api import MEXCForbiddenError, MEXCPublicClient
+from trend_quality.mexc_api import MEXCAPIError, MEXCForbiddenError, MEXCPublicClient
 from trend_quality.mexc_paper import (
     MEXCRankings,
     base_quantity_rules,
@@ -1499,6 +1499,7 @@ def _snapshot_only_cycle(
     ticker_by_id: dict[int, dict[str, Any]] = {}
     position_instruments: list[dict[str, Any]] = []
     missing_symbols: list[str] = []
+    position_ticker_errors: list[str] = []
     snapshot: dict[str, Any] | None = None
     state_event: dict[str, Any] | None = None
     portfolio_report: dict[str, Any] | None = None
@@ -1594,18 +1595,26 @@ def _snapshot_only_cycle(
             state_changed = True
 
         if positions:
-            ticker_rows = client.tickers()
-            ticker_by_symbol = {str(row["symbol"]): row for row in ticker_rows}
+            # Snapshot mode needs fresh marks only for the held legs. MEXC's REST
+            # ticker endpoint is single-symbol; do not mistake its one-object
+            # response for an all-contract universe snapshot.
             for position in positions:
                 symbol = str(position["symbol"])
-                ticker = ticker_by_symbol.get(symbol)
-                if ticker is None:
+                try:
+                    ticker = client.ticker(symbol)
+                except MEXCAPIError as exc:
                     missing_symbols.append(symbol)
+                    position_ticker_errors.append(
+                        f"{symbol}: {type(exc).__name__}: {str(exc)[:180]}"
+                    )
                     continue
                 age = server_ms - int(ticker["timestamp_ms"])
                 mark = dec(ticker.get("mark_price"))
                 if age < 0 or age > 300_000 or mark <= 0:
                     missing_symbols.append(symbol)
+                    position_ticker_errors.append(
+                        f"{symbol}: ticker is stale or has no positive mark"
+                    )
                     continue
                 ticker_by_id[int(position["instrument_id"])] = ticker
                 instrument = store.manifest["instruments"].get(
@@ -1613,6 +1622,9 @@ def _snapshot_only_cycle(
                 )
                 if instrument is None:
                     missing_symbols.append(symbol)
+                    position_ticker_errors.append(
+                        f"{symbol}: instrument metadata missing from market-data manifest"
+                    )
                 else:
                     position_instruments.append(instrument)
 
@@ -1799,6 +1811,7 @@ def _snapshot_only_cycle(
                 "emergency_exits": emergency_exits,
                 "unresolved_funding_count": unresolved_funding,
                 "missing_position_marks": missing_symbols,
+                "position_ticker_errors": position_ticker_errors,
                 "ordinary_strategy_decisions": entry_retry_report is not None,
                 "entry_retry": entry_retry_report,
                 "portfolio_neutrality": neutrality_report,
@@ -1878,6 +1891,7 @@ def _snapshot_only_cycle(
         "ticker_coverage": len(ticker_by_id),
         "missing_ticker_count": len(missing_symbols),
         "missing_position_marks": missing_symbols,
+        "position_ticker_errors": position_ticker_errors,
         "active_cross_usdt_perpetual_count": "not refreshed in snapshot mode",
         "bootstrap_remaining": "not refreshed in snapshot mode",
         "history_coverage_pass": "not checked in snapshot mode",
