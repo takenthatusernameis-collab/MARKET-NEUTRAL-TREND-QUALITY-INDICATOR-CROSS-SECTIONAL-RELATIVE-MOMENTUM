@@ -293,17 +293,17 @@ def _rebalance_existing_pair(
         }
 
     nav = Decimal(current_metrics["nav_usdt"])
-    long_mid = dec(long_ticker.get("mid_price"))
-    short_mid = dec(short_ticker.get("mid_price"))
-    if long_mid <= 0 or short_mid <= 0:
-        raise MEXCExecutionUnavailable("Cannot size a neutrality correction from invalid mids")
+    long_mark = dec(long_ticker.get("mark_price")) or dec(long_ticker.get("mid_price"))
+    short_mark = dec(short_ticker.get("mark_price")) or dec(short_ticker.get("mid_price"))
+    if long_mark <= 0 or short_mark <= 0:
+        raise MEXCExecutionUnavailable("Cannot size a neutrality correction from invalid marks")
 
     pair_size = size_neutral_mexc_pair(
         long_instrument,
         short_instrument,
         nav,
-        long_mid,
-        short_mid,
+        long_mark,
+        short_mark,
         max_imbalance_nav_fraction=MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION,
     )
     if pair_size is None:
@@ -957,15 +957,17 @@ def _try_pair(
                 continue
             long_mid = dec(long_ticker.get("mid_price"))
             short_mid = dec(short_ticker.get("mid_price"))
-            if long_mid <= 0 or short_mid <= 0:
+            long_mark = dec(long_ticker.get("mark_price")) or long_mid
+            short_mark = dec(short_ticker.get("mark_price")) or short_mid
+            if min(long_mid, short_mid, long_mark, short_mark) <= 0:
                 continue
 
             pair_size = size_neutral_mexc_pair(
                 long_instrument,
                 short_instrument,
                 nav,
-                long_mid,
-                short_mid,
+                long_mark,
+                short_mark,
                 max_imbalance_nav_fraction=MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION,
             )
             if pair_size is None:
