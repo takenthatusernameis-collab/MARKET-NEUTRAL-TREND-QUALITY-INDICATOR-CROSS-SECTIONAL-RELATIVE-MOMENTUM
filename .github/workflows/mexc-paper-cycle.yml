@@ -1,6 +1,6 @@
-name: "▶ ACTIVE PAPER ACCOUNT — MEXC $50 USDT — MANUAL / AUTO"
+name: "▶ ACTIVE PAPER ACCOUNT — ACTIVE — MEXC $50 USDT PAPER ONLY — MANUAL / AUTO"
 
-run-name: "${{ github.event_name == 'workflow_dispatch' && '▶ MANUAL PAPER RUN — ACTIVE MEXC $50 USDT' || (github.event_name == 'schedule' && '⏱ SCHEDULED PAPER RUN — ACTIVE MEXC $50 USDT' || '⚙ PUSH-TRIGGERED PAPER RUN — ACTIVE MEXC $50 USDT') }} — run #${{ github.run_number }}"
+run-name: "${{ github.event_name == 'workflow_dispatch' && '▶ MANUAL PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT' || (github.event_name == 'schedule' && '⏱ SCHEDULED PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT' || '⚙ PUSH-TRIGGERED PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT') }} — run #${{ github.run_number }}"
 
 on:
   push:
