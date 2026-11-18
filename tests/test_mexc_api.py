@@ -102,7 +102,7 @@ def test_normalizer_preserves_contract_multipliers_and_unknown_categories() -> N
 
 def test_instruments_research_all_cross_settlements_and_usdt_execution_subset() -> None:
     client = client_for({
-        "/api/v1/contract/detail/country": success([
+        "/api/v1/contract/detail": success([
             contract(),
             contract(id=18, symbol="ETH_USDT", positionOpenType=2, conceptPlate=["stock"]),
             contract(id=19, symbol="ISO_USDT", positionOpenType=1),
@@ -296,7 +296,7 @@ def test_only_current_official_mexc_api_host_is_accepted() -> None:
 
 
 def test_malformed_market_response_fails_closed() -> None:
-    client = client_for({"/api/v1/contract/detail/country": {"success": False, "code": 6001}})
+    client = client_for({"/api/v1/contract/detail": {"success": False, "code": 6001}})
     with pytest.raises(MEXCAPIError):
         client.contract_details()
 
