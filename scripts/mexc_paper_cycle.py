@@ -27,7 +27,6 @@ from trend_quality.market_data_store import MarketDataStore
 from trend_quality.mexc_api import MEXCAPIError, MEXCForbiddenError, MEXCPublicClient
 from trend_quality.mexc_paper import (
     MEXCRankings,
-    base_quantity_rules,
     rank_mexc_universe,
     simulate_mexc_fill,
     size_mexc_leg,
@@ -241,6 +240,23 @@ def _validate_two_sided_portfolio(
             "A rebuilt portfolio requires positive long and short notionals"
         )
     return metrics
+
+
+def _ticker_maps(
+    instruments: list[dict[str, Any]],
+    ticker_rows: list[dict[str, Any]],
+) -> tuple[dict[int, dict[str, Any]], list[int]]:
+    ticker_by_symbol = {str(row["symbol"]): row for row in ticker_rows}
+    mapped: dict[int, dict[str, Any]] = {}
+    missing: list[int] = []
+    for instrument in instruments:
+        iid = int(instrument["instrument_id"])
+        ticker = ticker_by_symbol.get(str(instrument["symbol"]))
+        if ticker is None:
+            missing.append(iid)
+            continue
+        mapped[iid] = ticker
+    return mapped, missing
 
 
 def _current_position_tickers(
