@@ -7,10 +7,13 @@ can convert contract quantities correctly.
 from __future__ import annotations
 
 import json
+import math
 import threading
 import time
 import urllib.error
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlencode
@@ -18,7 +21,8 @@ from urllib.request import Request, urlopen
 
 from .exchange_probe import classify_asset_class
 
-DEFAULT_BASE_URL = "https://contract.mexc.com"
+DEFAULT_BASE_URL = "https://api.mexc.com"
+DEFAULT_MINIMUM_INTERVAL_SECONDS = 1.5
 USER_AGENT = "market-neutral-trend-quality-paper-research/1.0"
 DAY_SECONDS = 86_400
 MAX_KLINE_ROWS = 2_000
@@ -60,6 +64,38 @@ def _http_error_message(
     if body:
         parts.append(f"body={ ' '.join(str(body).split())[:220] }")
     return "; ".join(parts)
+
+
+def _retry_after_seconds(value: object) -> float | None:
+    """Parse Retry-After as seconds or an HTTP date."""
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    try:
+        seconds = float(raw)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(raw)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=UTC)
+        seconds = (retry_at - datetime.now(UTC)).total_seconds()
+    if not math.isfinite(seconds):
+        return None
+    return max(0.0, seconds)
+
+
+def _retry_delay_seconds(
+    status: int,
+    attempt: int,
+    retry_after: float | None = None,
+) -> float:
+    """Use long rate-limit cooldowns and exponential backoff for transient failures."""
+    base = 60.0 if status == 429 else 3.0
+    return max(base * (2**attempt), retry_after or 0.0)
 
 
 def _decimal(value: object, field: str, *, allow_zero: bool = False) -> Decimal:
@@ -230,12 +266,12 @@ class MEXCPublicClient:
         base_url: str = DEFAULT_BASE_URL,
         *,
         timeout_seconds: float = 12.0,
-        minimum_interval_seconds: float = 0.20,
+        minimum_interval_seconds: float = DEFAULT_MINIMUM_INTERVAL_SECONDS,
         retries: int = 3,
         transport: Transport | None = None,
     ) -> None:
         if base_url.rstrip("/") != DEFAULT_BASE_URL:
-            raise ValueError("Only the official MEXC contract API host is allowed")
+            raise ValueError("Only the current official MEXC Futures API host is allowed")
         if timeout_seconds <= 0 or minimum_interval_seconds < 0 or retries < 0:
             raise ValueError("Invalid timeout, rate interval or retry setting")
         self.base_url = base_url.rstrip("/")
@@ -261,6 +297,7 @@ class MEXCPublicClient:
         query = {key: value for key, value in (params or {}).items() if value is not None}
         last_error: Exception | None = None
         for attempt in range(self.retries + 1):
+            retry_delay: float | None = None
             self._throttle()
             try:
                 if self.transport is not None:
@@ -277,11 +314,13 @@ class MEXCPublicClient:
                     with urlopen(request, timeout=self.timeout_seconds) as response:
                         status = int(response.status)
                         payload = json.loads(response.read(8_000_000).decode("utf-8"))
+
                 if status == 429 or status >= 500:
-                    raise MEXCAPIError(
+                    last_error = MEXCAPIError(
                         f"Retryable MEXC HTTP status {status} for {path}"
                     )
-                if status != 200:
+                    retry_delay = _retry_delay_seconds(status, attempt)
+                elif status != 200:
                     detail = None
                     if isinstance(payload, dict):
                         response_code = payload.get("code")
@@ -295,14 +334,20 @@ class MEXCPublicClient:
                     if status == 403:
                         raise MEXCForbiddenError(message)
                     raise MEXCAPIError(message)
-                if not isinstance(payload, dict):
+                elif not isinstance(payload, dict):
                     raise MEXCAPIError("MEXC response is not a JSON object")
-                if payload.get("success") is not True or str(payload.get("code", "0")) != "0":
-                    raise MEXCAPIError(
+                elif payload.get("success") is not True or str(payload.get("code", "0")) != "0":
+                    response_message = (
                         f"MEXC API rejected request: code={payload.get('code')!r} "
                         f"message={str(payload.get('message', ''))[:200]}"
                     )
-                return payload
+                    if str(payload.get("code")) == "510":
+                        last_error = MEXCAPIError(response_message)
+                        retry_delay = _retry_delay_seconds(429, attempt)
+                    else:
+                        raise MEXCAPIError(response_message)
+                else:
+                    return payload
             except urllib.error.HTTPError as exc:
                 if exc.code != 429 and exc.code < 500:
                     try:
@@ -319,14 +364,23 @@ class MEXCPublicClient:
                         raise MEXCForbiddenError(message) from exc
                     raise MEXCAPIError(message) from exc
                 last_error = exc
+                retry_after_header = (
+                    exc.headers.get("Retry-After") if exc.headers is not None else None
+                )
+                retry_delay = _retry_delay_seconds(
+                    exc.code,
+                    attempt,
+                    _retry_after_seconds(retry_after_header),
+                )
             except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
                 last_error = exc
-            except MEXCAPIError as exc:
-                if "Retryable MEXC HTTP status" not in str(exc):
-                    raise
-                last_error = exc
+                retry_delay = _retry_delay_seconds(0, attempt)
+
             if attempt < self.retries:
-                time.sleep(min(0.25 * (2**attempt), 2.0))
+                time.sleep(
+                    retry_delay if retry_delay is not None
+                    else _retry_delay_seconds(0, attempt)
+                )
         raise MEXCAPIError(f"MEXC request failed after retries: {last_error}") from last_error
 
     def server_time_ms(self) -> int:
@@ -334,7 +388,7 @@ class MEXCPublicClient:
         return _integer(payload.get("data"), "server time", minimum=1)
 
     def contract_details(self) -> list[dict[str, Any]]:
-        payload = self._request("/api/v1/contract/detail")
+        payload = self._request("/api/v1/contract/detail/country")
         rows = _payload_rows(payload)
         if not rows:
             raise MEXCAPIError("MEXC contract detail returned no instruments")
