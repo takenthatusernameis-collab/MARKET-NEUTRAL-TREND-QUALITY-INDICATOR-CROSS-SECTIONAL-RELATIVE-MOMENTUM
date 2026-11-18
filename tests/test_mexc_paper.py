@@ -304,6 +304,9 @@ def test_daily_pair_rebalance_trades_only_required_position_deltas() -> None:
     tickers = {101: long_ticker, 202: short_ticker}
 
     class PublicBookClient:
+        def server_time_ms(self) -> int:
+            return now_ms
+
         def orderbook(self, symbol: str, depth: int) -> dict[str, Any]:
             return {
                 "timestamp_ms": now_ms,
