@@ -49,6 +49,8 @@ from trend_quality.ranking import Candidate
 DAY_MS = 86_400_000
 BOOTSTRAP_DAYS = 365
 DEFAULT_BOOTSTRAP_BATCH_SIZE = 150
+DAILY_REFRESH_BATCH_VERSION = 1
+DAILY_REFRESH_CHECKPOINT_EVERY = 25
 MAX_EXCHANGE_CLOCK_SKEW_MS = 5_000
 MAX_SHORTFALL_BPS = Decimal("10")
 STOP_ATR_MULTIPLE = Decimal("3")
@@ -82,6 +84,81 @@ def _daily_decision_is_due(
     return bool(
         history_coverage_pass
         and (last_attempt_ms is None or latest_bar_ms > int(last_attempt_ms))
+    )
+
+
+
+def _daily_refresh_due(manifest: dict[str, Any], latest_bar_ms: int) -> bool:
+    """Continue refreshing the same daily bar until the full data-coverage gate passes."""
+    if manifest.get("daily_refresh_batch_version") != DAILY_REFRESH_BATCH_VERSION:
+        return True
+    last_covered_bar = manifest.get("last_research_daily_bar_ms")
+    return last_covered_bar is None or latest_bar_ms > int(last_covered_bar)
+
+
+def _daily_refresh_candidates(
+    instruments: list[dict[str, Any]],
+    manifest_rows: dict[str, Any],
+    latest_bar_ms: int,
+) -> list[dict[str, Any]]:
+    """Return instruments needing bootstrap or a current bar, oldest attempts first."""
+    pending = []
+    for instrument in instruments:
+        record = manifest_rows[str(instrument["instrument_id"])]
+        last_checked = record.get("last_checked_daily_bar_ms")
+        last_candle = record.get("last_candle_timestamp_ms")
+        latest_candle_missing = (
+            record.get("history_status") == "AVAILABLE"
+            and (
+                last_candle is None
+                or int(last_candle) < latest_bar_ms
+            )
+        )
+        if (
+            not bool(record.get("bootstrap_complete"))
+            or last_checked is None
+            or int(last_checked) < latest_bar_ms
+            or latest_candle_missing
+        ):
+            pending.append(instrument)
+
+    # A failed/no-new-candle response increments bootstrap_attempts, rotating it
+    # behind as-yet-unchecked instruments instead of starving the rest of the universe.
+    pending.sort(key=lambda row: (
+        int(
+            manifest_rows[str(row["instrument_id"])].get(
+                "bootstrap_attempts", 0
+            )
+        ),
+        int(
+            manifest_rows[str(row["instrument_id"])].get(
+                "last_checked_daily_bar_ms"
+            ) or 0
+        ),
+        int(
+            manifest_rows[str(row["instrument_id"])].get(
+                "first_seen_at_ms", 0
+            )
+        ),
+        int(row["instrument_id"]),
+    ))
+    return pending
+
+
+def _daily_refresh_complete(
+    instruments: list[dict[str, Any]],
+    manifest_rows: dict[str, Any],
+    latest_bar_ms: int,
+) -> bool:
+    """Require every active instrument to be bootstrapped and checked through this bar."""
+    return all(
+        bool(manifest_rows[str(row["instrument_id"])].get("bootstrap_complete"))
+        and int(
+            manifest_rows[str(row["instrument_id"])].get(
+                "last_checked_daily_bar_ms"
+            ) or 0
+        ) >= latest_bar_ms
+        for row in instruments
     )
 
 
@@ -516,32 +593,54 @@ def _bootstrap_or_increment(
     latest_completed_bar_ms: int,
     batch_size: int,
 ) -> tuple[int, int, list[dict[str, Any]]]:
-    """Backfill new assets in bounded, fair batches; fetch only unchecked bars."""
+    """Refresh a bounded, fair batch of stale daily bars across the full universe."""
     manifest_rows = store.manifest["instruments"]
     existing_history = store.load_all_candles()
-    pending = [
-        row for row in instruments
-        if not manifest_rows[str(row["instrument_id"])].get("bootstrap_complete")
-    ]
-    pending.sort(key=lambda row: (
-        int(manifest_rows[str(row["instrument_id"])].get("bootstrap_attempts", 0)),
-        int(manifest_rows[str(row["instrument_id"])].get("first_seen_at_ms", 0)),
-        int(row["instrument_id"]),
-    ))
+    pending = _daily_refresh_candidates(
+        instruments, manifest_rows, latest_completed_bar_ms
+    )
     selected_ids = {
         int(row["instrument_id"]) for row in pending[:batch_size]
     }
     completed_count = 0
+    processed_count = 0
     api_failures: list[dict[str, Any]] = []
     all_candle_updates: list[dict[str, Any]] = []
 
+    print(
+        f"[mexc-history] selected {len(selected_ids)} stale instruments "
+        f"from {len(instruments)} active contracts for daily bar "
+        f"{latest_completed_bar_ms}",
+        flush=True,
+    )
+
+    def flush_checkpoint() -> None:
+        if all_candle_updates:
+            store.append_candles(all_candle_updates)
+            all_candle_updates.clear()
+        store.save_manifest(server_ms)
+
+    def checkpoint_if_due() -> None:
+        if processed_count and processed_count % DAILY_REFRESH_CHECKPOINT_EVERY == 0:
+            flush_checkpoint()
+            remaining = sum(
+                not bool(manifest_rows[str(row["instrument_id"])].get("bootstrap_complete"))
+                for row in instruments
+            )
+            print(
+                f"[mexc-history] checkpoint {processed_count}/{len(selected_ids)}; "
+                f"new histories bootstrapped={completed_count}; "
+                f"bootstrap histories remaining={remaining}; "
+                f"API failures={len(api_failures)}",
+                flush=True,
+            )
+
     for instrument in instruments:
         iid = int(instrument["instrument_id"])
+        if iid not in selected_ids:
+            continue
         record = manifest_rows[str(iid)]
         is_bootstrap = not bool(record.get("bootstrap_complete"))
-        if is_bootstrap and iid not in selected_ids:
-            continue
-
         last_timestamp = record.get("last_candle_timestamp_ms")
         last_checked = record.get("last_checked_daily_bar_ms")
         if is_bootstrap and last_timestamp is None and last_checked is None:
@@ -557,16 +656,21 @@ def _bootstrap_or_increment(
 
         end_ms = min(server_ms, latest_completed_bar_ms + DAY_MS)
         if start_ms >= end_ms:
+            record["last_checked_daily_bar_ms"] = latest_completed_bar_ms
             if is_bootstrap:
                 store.mark_bootstrap_complete(
                     iid,
                     completed_at_ms=server_ms,
                     history_status="INSUFFICIENT_HISTORY",
                 )
-                record["last_checked_daily_bar_ms"] = latest_completed_bar_ms
-                record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
+                record["bootstrap_attempts"] = int(
+                    record.get("bootstrap_attempts", 0)
+                ) + 1
                 completed_count += 1
+            processed_count += 1
+            checkpoint_if_due()
             continue
+
         try:
             raw = client.candles(
                 str(instrument["symbol"]),
@@ -598,31 +702,53 @@ def _bootstrap_or_increment(
             ):
                 record["history_status"] = "AVAILABLE"
             record["last_checked_daily_bar_ms"] = latest_completed_bar_ms
-            record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
+            record["bootstrap_attempts"] = int(
+                record.get("bootstrap_attempts", 0)
+            ) + 1
             record["last_bootstrap_error"] = None
         except MEXCForbiddenError as exc:
-            record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
-            record["last_bootstrap_error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
-            # A 403 is an access denial, not an ordinary per-contract data gap.
-            # Stop immediately rather than issuing the rest of the batch into a
-            # potentially denied/rate-limited endpoint.
+            record["bootstrap_attempts"] = int(
+                record.get("bootstrap_attempts", 0)
+            ) + 1
+            record["last_bootstrap_error"] = (
+                f"{type(exc).__name__}: {str(exc)[:250]}"
+            )
+            processed_count += 1
+            flush_checkpoint()
+            print(
+                f"[mexc-history] stopped on HTTP 403 after "
+                f"{processed_count}/{len(selected_ids)} selected instruments",
+                flush=True,
+            )
             raise MEXCForbiddenError(
                 f"Stopping MEXC bootstrap at {instrument['symbol']}: {exc}"
             ) from exc
         except Exception as exc:
-            record["bootstrap_attempts"] = int(record.get("bootstrap_attempts", 0)) + 1
-            record["last_bootstrap_error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
+            record["bootstrap_attempts"] = int(
+                record.get("bootstrap_attempts", 0)
+            ) + 1
+            record["last_bootstrap_error"] = (
+                f"{type(exc).__name__}: {str(exc)[:250]}"
+            )
             api_failures.append({
                 "instrument_id": iid,
                 "symbol": instrument["symbol"],
                 "error": record["last_bootstrap_error"],
             })
+        processed_count += 1
+        checkpoint_if_due()
 
-    if all_candle_updates:
-        store.append_candles(all_candle_updates)
+    if processed_count % DAILY_REFRESH_CHECKPOINT_EVERY:
+        flush_checkpoint()
     remaining = sum(
         not bool(manifest_rows[str(row["instrument_id"])].get("bootstrap_complete"))
         for row in instruments
+    )
+    print(
+        f"[mexc-history] batch finished: checked={processed_count}/"
+        f"{len(selected_ids)}; new histories bootstrapped={completed_count}; "
+        f"bootstrap histories remaining={remaining}; API failures={len(api_failures)}",
+        flush=True,
     )
     return completed_count, remaining, api_failures
 
@@ -1731,15 +1857,7 @@ def _run() -> int:
     elif portfolio is not None and portfolio.get("currency") != "USDT":
         raise RuntimeError("Existing paper account currency is not USDT")
 
-    last_daily_workflow_bar = store.manifest.get("last_daily_workflow_bar_ms")
-    if last_daily_workflow_bar is None:
-        last_daily_workflow_bar = store.manifest.get("last_research_daily_bar_ms")
-    if last_daily_workflow_bar is None:
-        last_daily_workflow_bar = store.manifest.get("last_processed_daily_bar_ms")
-    research_due = (
-        last_daily_workflow_bar is None
-        or latest_bar_ms > int(last_daily_workflow_bar)
-    )
+    research_due = _daily_refresh_due(store.manifest, latest_bar_ms)
     account_attempt_bar = None
     if portfolio is not None:
         account_attempt_bar = portfolio.get(
@@ -1808,8 +1926,12 @@ def _run() -> int:
         ):
             missing_latest_bar.append(iid)
 
+    daily_refresh_complete = _daily_refresh_complete(
+        instruments, store.manifest["instruments"], latest_bar_ms
+    )
     history_coverage_pass = (
         bootstrap_remaining == 0
+        and daily_refresh_complete
         and not api_failures
         and not missing_tickers
         and not missing_latest_bar
@@ -2172,6 +2294,7 @@ def _run() -> int:
         "api_failure_count": len(api_failures),
         "api_failure_sample": api_failures[:20],
         "history_coverage_pass": history_coverage_pass,
+        "daily_refresh_complete": daily_refresh_complete,
         "minimum_order_size_diagnostics": _minimum_order_size_diagnostics(
             instruments, ticker_by_id
         ),
@@ -2222,8 +2345,9 @@ def _run() -> int:
     )
     store.manifest["selected_provider"] = "mexc"
     if history_coverage_pass:
+        store.manifest["daily_refresh_batch_version"] = DAILY_REFRESH_BATCH_VERSION
         store.manifest["last_research_daily_bar_ms"] = latest_bar_ms
-    store.manifest["last_daily_workflow_bar_ms"] = latest_bar_ms
+        store.manifest["last_daily_workflow_bar_ms"] = latest_bar_ms
     store.manifest["last_processed_daily_bar_ms"] = (
         store.manifest.get("last_processed_daily_bar_ms")
     )

@@ -35,6 +35,7 @@ jobs:
       MARKET_DATA_DIR: ../market-data
       PAPER_STATE_DIR: ../state
       BOOTSTRAP_BATCH_SIZE: "150"
+      PYTHONUNBUFFERED: "1"
       PAPER_STATE_WRITE_ENABLED: ${{ vars.PAPER_STATE_WRITE_ENABLED || 'true' }}
       GITHUB_REPOSITORY: ${{ github.repository }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

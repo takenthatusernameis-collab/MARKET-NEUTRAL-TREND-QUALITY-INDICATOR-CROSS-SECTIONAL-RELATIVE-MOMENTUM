@@ -711,13 +711,14 @@ def render_primary_trade_journal(
     run_id = metadata.get("run_id", "")
     run_url = metadata.get("run_url", "")
     run_link = f"[{run_id}]({run_url})" if run_id and run_url else (run_id or "Not yet run")
-    lifetime_mdd: Decimal | None = None
-    worst_session_mdd: Decimal | None = None
-    session_drawdowns: list[dict[str, Any]] = []
     lines = [
         "# Primary Paper Trade Journal — MEXC $100 USDT v4",
         "",
-        "**Primary equal-exposure account only.** This journal is reconstructed from the verified, append-only v4 event chain. It contains no alternative-path trades or shadow executions.",
+        (
+            "**Primary equal-exposure account only.** This journal is reconstructed from "
+            "the verified, append-only v4 event chain. It contains no alternative-path "
+            "trades or shadow executions."
+        ),
         "",
         f"- Account: `{ACCOUNT_ID}`",
         f"- Strategy generation: `{STRATEGY_ID}`",
@@ -726,7 +727,10 @@ def render_primary_trade_journal(
         f"- Latest workflow: {run_link}",
         f"- Recorded primary events: **{len(rows)}**",
         "",
-        "| Timestamp (UTC) | Symbol | Side | Action | Quantity | Price | Fee (USDT) | Realized net P&L (USDT) | Funding (USDT) | Event ID |",
+        (
+            "| Timestamp (UTC) | Symbol | Side | Action | Quantity | Price | "
+            "Fee (USDT) | Realized net P&L (USDT) | Funding (USDT) | Event ID |"
+        ),
         "|---|---|---|---|---:|---:|---:|---:|---:|---|",
     ]
     if rows:
@@ -738,10 +742,16 @@ def render_primary_trade_journal(
                 f"| `{row['event_id']}` |"
             )
     else:
-        lines.append("| No primary fills or funding events recorded yet | — | — | — | — | — | — | — | — | — |")
+        lines.append(
+            "| No primary fills or funding events recorded yet | — | — | — | — | "
+            "— | — | — | — | — |"
+        )
     lines.extend([
         "",
-        "This journal covers only the primary paper account. The inverse-volatility alternative path has no separate trade journal, positions or event stream.",
+        (
+            "This journal covers only the primary paper account. The inverse-volatility "
+            "alternative path has no separate trade journal, positions or event stream."
+        ),
         "",
     ])
     return "\n".join(lines)
@@ -906,6 +916,16 @@ def render_paper_status(
         )
         for row in session_drawdowns
     ] or ["| No risk sessions observed | — | — | — | 0 |"]
+    lifetime_mdd_text = (
+        "Unavailable — no account observations yet"
+        if lifetime_mdd is None
+        else f"{lifetime_mdd * 100:+.3f}%"
+    )
+    worst_session_mdd_text = (
+        "Unavailable — no account observations yet"
+        if worst_session_mdd is None
+        else f"{worst_session_mdd * 100:+.3f}%"
+    )
     lines = [
         "# ACTIVE PAPER STATUS — MEXC $100 USDT",
         "",
@@ -941,8 +961,8 @@ def render_paper_status(
         f"| Gross exposure | {snapshot['gross_exposure']:.3f}× NAV |",
         f"| Net exposure | {snapshot['net_exposure']:.3f}× NAV |",
         f"| Current drawdown from risk-window peak | {current_dd * 100:+.3f}% |",
-        f"| Lifetime / cross-session maximum drawdown | {('Unavailable — no account observations yet' if lifetime_mdd is None else f'{lifetime_mdd * 100:+.3f}%')} |",
-        f"| Worst risk-session maximum drawdown | {('Unavailable — no account observations yet' if worst_session_mdd is None else f'{worst_session_mdd * 100:+.3f}%')} |",
+        f"| Lifetime / cross-session maximum drawdown | {lifetime_mdd_text} |",
+        f"| Worst risk-session maximum drawdown | {worst_session_mdd_text} |",
         f"| Sharpe ratio | {_metric(metrics, 'sharpe')} |",
         f"| Sortino ratio | {_metric(metrics, 'sortino')} |",
         (

@@ -415,6 +415,9 @@ def test_bootstrap_stops_after_first_http_403_instead_of_hammering_endpoints() -
         def load_all_candles(self):
             return {}
 
+        def save_manifest(self, _now_ms):
+            pass
+
     class ForbiddenClient:
         calls: list[str] = []
 
@@ -440,6 +443,197 @@ def test_bootstrap_stops_after_first_http_403_instead_of_hammering_endpoints() -
         )
     assert client.calls == ["AAA_USDT"]
 
+
+
+def test_daily_refresh_candidates_include_missing_latest_candles() -> None:
+    cycle = load_cycle_module()
+    latest_bar = 1_800_000_000_000
+    manifest_rows = {
+        "1": {
+            "bootstrap_complete": True,
+            "history_status": "AVAILABLE",
+            "last_checked_daily_bar_ms": latest_bar,
+            "last_candle_timestamp_ms": latest_bar - cycle.DAY_MS,
+            "bootstrap_attempts": 0,
+            "first_seen_at_ms": 1,
+        },
+        "2": {
+            "bootstrap_complete": True,
+            "history_status": "AVAILABLE",
+            "last_checked_daily_bar_ms": latest_bar,
+            "last_candle_timestamp_ms": latest_bar,
+            "bootstrap_attempts": 0,
+            "first_seen_at_ms": 2,
+        },
+    }
+    instruments = [
+        {"instrument_id": 1, "symbol": "STALE_USDT"},
+        {"instrument_id": 2, "symbol": "FRESH_USDT"},
+    ]
+
+    pending = cycle._daily_refresh_candidates(
+        instruments, manifest_rows, latest_bar
+    )
+
+    assert [row["instrument_id"] for row in pending] == [1]
+
+
+def test_daily_refresh_watermark_waits_for_full_coverage() -> None:
+    cycle = load_cycle_module()
+    latest_bar = 1_800_000_000_000
+    instruments = [
+        {"instrument_id": 1},
+        {"instrument_id": 2},
+    ]
+    manifest_rows = {
+        "1": {
+            "bootstrap_complete": True,
+            "last_checked_daily_bar_ms": latest_bar,
+        },
+        "2": {
+            "bootstrap_complete": True,
+            "last_checked_daily_bar_ms": latest_bar - cycle.DAY_MS,
+        },
+    }
+
+    assert cycle._daily_refresh_complete(instruments, manifest_rows, latest_bar) is False
+    manifest_rows["2"]["last_checked_daily_bar_ms"] = latest_bar
+    assert cycle._daily_refresh_complete(instruments, manifest_rows, latest_bar) is True
+
+    # Ignore legacy attempted-bar markers during migration; only a full-coverage
+    # completion from this batch-aware implementation can close the daily watermark.
+    manifest = {
+        "last_daily_workflow_bar_ms": latest_bar,
+        "last_research_daily_bar_ms": latest_bar,
+    }
+    assert cycle._daily_refresh_due(manifest, latest_bar) is True
+    manifest["daily_refresh_batch_version"] = cycle.DAILY_REFRESH_BATCH_VERSION
+    assert cycle._daily_refresh_due(manifest, latest_bar) is False
+    assert cycle._daily_refresh_due(manifest, latest_bar + cycle.DAY_MS) is True
+
+
+def test_bootstrap_cycle_fetches_no_more_than_the_selected_daily_batch() -> None:
+    cycle = load_cycle_module()
+    latest_bar = 1_799_913_600_000
+    server_ms = latest_bar + cycle.DAY_MS
+    old_bar = latest_bar - cycle.DAY_MS
+
+    class FakeStore:
+        def __init__(self):
+            self.manifest = {
+                "instruments": {
+                    "1": {
+                        "bootstrap_complete": True,
+                        "last_checked_daily_bar_ms": latest_bar,
+                        "last_candle_timestamp_ms": old_bar,
+                        "bootstrap_attempts": 0,
+                        "first_seen_at_ms": 1,
+                        "history_status": "AVAILABLE",
+                    },
+                    "2": {
+                        "bootstrap_complete": True,
+                        "last_checked_daily_bar_ms": old_bar - cycle.DAY_MS,
+                        "last_candle_timestamp_ms": old_bar,
+                        "bootstrap_attempts": 0,
+                        "first_seen_at_ms": 2,
+                        "history_status": "AVAILABLE",
+                    },
+                    "3": {
+                        "bootstrap_complete": True,
+                        "last_checked_daily_bar_ms": latest_bar,
+                        "last_candle_timestamp_ms": latest_bar,
+                        "bootstrap_attempts": 0,
+                        "first_seen_at_ms": 3,
+                        "history_status": "AVAILABLE",
+                    },
+                    "4": {
+                        "bootstrap_complete": False,
+                        "last_checked_daily_bar_ms": None,
+                        "last_candle_timestamp_ms": None,
+                        "bootstrap_attempts": 0,
+                        "first_seen_at_ms": 4,
+                        "history_status": None,
+                    },
+                }
+            }
+            self.saved = 0
+
+        def load_all_candles(self):
+            return {
+                1: [{"timestamp_ms": old_bar}],
+                2: [{"timestamp_ms": old_bar}],
+                3: [{"timestamp_ms": latest_bar}],
+            }
+
+        def mark_bootstrap_complete(
+            self, instrument_id, *, completed_at_ms, history_status
+        ):
+            self.manifest["instruments"][str(instrument_id)].update({
+                "bootstrap_complete": True,
+                "bootstrap_completed_at_ms": completed_at_ms,
+                "history_status": history_status,
+            })
+
+        def append_candles(self, _rows):
+            raise AssertionError("empty fake response must not append candles")
+
+        def save_manifest(self, _now_ms):
+            self.saved += 1
+
+    class FakeClient:
+        def __init__(self):
+            self.calls = []
+
+        def candles(self, symbol, **_kwargs):
+            self.calls.append(symbol)
+            return []
+
+    store = FakeStore()
+    client = FakeClient()
+    instruments = [
+        {
+            "instrument_id": 1,
+            "symbol": "STALE_CHECKED_USDT",
+            "create_time_ms": server_ms - 100_000,
+        },
+        {
+            "instrument_id": 2,
+            "symbol": "OLD2_USDT",
+            "create_time_ms": server_ms - 100_000,
+        },
+        {
+            "instrument_id": 3,
+            "symbol": "FRESH_USDT",
+            "create_time_ms": server_ms - 100_000,
+        },
+        {
+            "instrument_id": 4,
+            "symbol": "NEW_USDT",
+            "create_time_ms": server_ms - 100_000,
+        },
+    ]
+
+    pending = cycle._daily_refresh_candidates(
+        instruments, store.manifest["instruments"], latest_bar
+    )
+    assert {row["instrument_id"] for row in pending} == {1, 2, 4}
+
+    completed, remaining, failures = cycle._bootstrap_or_increment(
+        client,
+        store,
+        instruments,
+        server_ms=server_ms,
+        latest_completed_bar_ms=latest_bar,
+        batch_size=2,
+    )
+
+    assert client.calls == ["OLD2_USDT", "NEW_USDT"]
+    assert completed == 1
+    assert remaining == 0
+    assert failures == []
+    assert store.manifest["instruments"]["2"]["last_checked_daily_bar_ms"] == latest_bar
+    assert store.manifest["instruments"]["1"]["last_checked_daily_bar_ms"] == latest_bar
+    assert store.saved == 1
 
 
 def test_daily_decision_is_not_consumed_until_history_coverage_passes() -> None:
