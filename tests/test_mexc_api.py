@@ -140,6 +140,7 @@ def test_all_market_websocket_tickers_normalize_global_push() -> None:
                             "fairPrice": "101",
                             "riseFallRate": "-0.025",
                             "volume24": "1200",
+                            "timestamp": 1_699_000_000_000,
                         },
                         {
                             "symbol": "BILL_USDT",
