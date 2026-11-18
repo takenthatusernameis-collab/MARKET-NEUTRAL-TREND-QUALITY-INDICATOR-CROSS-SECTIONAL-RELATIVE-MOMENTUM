@@ -126,8 +126,16 @@ def _risk_profile(
     ]
     equal_vol = _stddev(equal_returns)
     alternative_vol = _stddev(alternative_returns)
-    multiplier = equal_vol / alternative_vol if equal_vol > ZERO and alternative_vol > ZERO else ONE
-    reduction = ONE - alternative_vol / equal_vol if equal_vol > ZERO else ZERO
+    multiplier = (
+        max(ONE, equal_vol / alternative_vol)
+        if equal_vol > ZERO and alternative_vol > ZERO
+        else ONE
+    )
+    reduction = (
+        max(ZERO, ONE - alternative_vol / equal_vol)
+        if equal_vol > ZERO
+        else ZERO
+    )
     return {
         "long_weight": long_weight,
         "short_weight": short_weight,
@@ -310,7 +318,10 @@ def _build_alternative_curve(
                     entry = _dec(position.get("entry_price"))
                     main_quantity = _dec(position.get("quantity"))
                     if entry <= ZERO or main_quantity <= ZERO:
-                        warnings.append(f"Invalid primary entry for {position.get('symbol', 'unknown')}")
+                        warnings.append(
+                            f"Invalid primary entry for "
+                            f"{position.get('symbol', 'unknown')}"
+                        )
                         continue
                     notional = (
                         nav_before_open * TWO
@@ -403,7 +414,10 @@ def _equity_svg(
         ])
     parts.extend([
         f'<line x1="{left}" y1="{top}" x2="{left}" y2="{plot_bottom}" stroke="#666"/>',
-        f'<line x1="{left}" y1="{plot_bottom}" x2="{plot_right}" y2="{plot_bottom}" stroke="#666"/>',
+        (
+            f'<line x1="{left}" y1="{plot_bottom}" x2="{plot_right}" '
+            f'y2="{plot_bottom}" stroke="#666"/>'
+        ),
     ])
     reference_y = y_pos(reference)
     reference_label_y = min(plot_bottom - 10, max(top + 18, reference_y - 9))
@@ -584,7 +598,10 @@ def render_paper_status(
     equal_svg_path.write_text(
         _equity_svg(
             equal_points, initial, "Equal-Exposure Strategy — Equity Curve",
-            "Primary paper strategy. Both legs target equal USDT notional; original fills and fees.",
+            (
+                "Primary paper strategy. Both legs target equal USDT notional; "
+                "original fills and fees."
+            ),
             "#2563eb",
         ),
         encoding="utf-8",
@@ -592,7 +609,10 @@ def render_paper_status(
     alternative_svg_path.write_text(
         _equity_svg(
             alternative_points, initial, "Alternative Path — Inverse-Volatility Sizing",
-            "Visual-only replay of the same selected pairs and rebalance times; no separate trade journal.",
+            (
+                "Visual-only replay of the same selected pairs and rebalance times; "
+                "no separate trade journal."
+            ),
             "#7253a6",
         ),
         encoding="utf-8",
@@ -619,15 +639,26 @@ def render_paper_status(
     status = (
         f"{metadata.get('outcome', 'not supplied')} · {metadata.get('event_name', 'workflow run')}"
     )
-    workflow_link = f"[Open active workflow]({workflow_url})" if workflow_url else "Open the MEXC paper workflow in GitHub Actions"
+    workflow_link = (
+        f"[Open active workflow]({workflow_url})"
+        if workflow_url
+        else "Open the MEXC paper workflow in GitHub Actions"
+    )
     current_bar = _utc(latest_bar)
     next_step = (
         "The next eligible cycle can process the latest genuine completed UTC daily candle; "
         "the new account has no consumed-candle watermark."
         if latest_bar is None and state is None else
-        "The next daily decision requires a newer completed UTC candle and a passing data-coverage gate."
+        (
+            "The next daily decision requires a newer completed UTC candle "
+            "and a passing data-coverage gate."
+        )
     )
-    warning_text = "\n".join(f"- {item}" for item in warnings) if warnings else "- No reconstruction warnings."
+    warning_text = (
+        "\n".join(f"- {item}" for item in warnings)
+        if warnings
+        else "- No reconstruction warnings."
+    )
 
     lines = [
         "# ACTIVE PAPER STATUS — MEXC $100 USDT",
@@ -641,7 +672,11 @@ def render_paper_status(
         "- Starting capital: **100.00000000 USDT**",
         f"- Account state: **{account_state}**",
         f"- Last report build: {_utc(generated_at_ms)}",
-        f"- Latest workflow run: {run_link} · run #{metadata.get('run_number', '—')}, attempt {metadata.get('run_attempt', '—')} · {status}",
+        (
+            f"- Latest workflow run: {run_link} · run "
+            f"#{metadata.get('run_number', '—')}, "
+            f"attempt {metadata.get('run_attempt', '—')} · {status}"
+        ),
         f"- Latest processed daily candle: {current_bar}",
         f"- Latest account event: {_utc(latest_state_time)}",
         "",
@@ -661,7 +696,10 @@ def render_paper_status(
         f"| Current drawdown from risk-window peak | {current_dd * 100:+.3f}% |",
         f"| Sharpe ratio | {_metric(metrics, 'sharpe')} |",
         f"| Sortino ratio | {_metric(metrics, 'sortino')} |",
-        f"| Annualized daily volatility | {_metric(metrics, 'annualized_daily_volatility', True)} |",
+        (
+            f"| Annualized daily volatility | "
+            f"{_metric(metrics, 'annualized_daily_volatility', True)} |"
+        ),
         "",
         "## Open positions",
         "",
@@ -669,40 +707,79 @@ def render_paper_status(
         "",
         "## Primary path — equal exposure",
         "",
-        "The live forward-paper strategy sizes the long and short legs independently toward equal USDT notional (approximately 1× NAV per leg before lot rounding).",
+        (
+            "The live forward-paper strategy sizes the long and short legs "
+            "independently toward equal USDT notional (approximately 1× NAV "
+            "per leg before lot rounding)."
+        ),
         "",
         "![Equal-exposure strategy equity curve](equal_exposure_equity_curve.svg)",
         "",
         "## Alternative path — volatility-weighted sizing",
         "",
-        "This chart is a **visual-only counterfactual**, not an executed account. It reuses the primary strategy’s exact selected symbols, sides and rebalance timestamps; only the notional split changes. No alternative trade journal is created.",
+        (
+            "This chart is a **visual-only counterfactual**, not an executed account. "
+            "It reuses the primary strategy’s exact selected symbols, sides and "
+            "rebalance timestamps; only the notional split changes. No alternative "
+            "trade journal is created."
+        ),
         "",
-        "At each rebalance, the quieter leg receives the larger share using inverse 30-completed-day realized volatility. The leverage overlay is the ratio of equal-exposure pair volatility to the inverse-volatility pair’s base estimated volatility; values above 1 increase modeled gross exposure and values below 1 reduce it. Estimates use only data available at that rebalance.",
+        (
+            "At each rebalance, the quieter leg receives the larger share using "
+            "inverse 30-completed-day realized volatility. The leverage overlay is "
+            "the ratio of equal-exposure pair volatility to the inverse-volatility "
+            "pair’s base estimated volatility. It increases modeled gross exposure "
+            "only when the alternative has lower estimated volatility. Estimates "
+            "use only data available at that rebalance."
+        ),
         "",
-        f"- Latest long / short allocation: **{long_weight * 100:.1f}% / {short_weight * 100:.1f}%** of alternative gross notional.",
+        (
+            f"- Latest long / short allocation: **{long_weight * 100:.1f}% / "
+            f"{short_weight * 100:.1f}%** of alternative gross notional."
+        ),
         f"- Latest volatility-matching leverage multiplier: **{multiplier:.3f}×**.",
         f"- Estimated base volatility reduction before leverage: **{reduction * 100:+.2f}%**.",
-        f"- Volatility observations used: **{int(profile.get('observations', 0))}**; status: `{profile.get('status', 'unavailable')}`.",
+        (
+            f"- Volatility observations used: **{int(profile.get('observations', 0))}**; "
+            f"status: `{profile.get('status', 'unavailable')}`."
+        ),
         "",
         "![Inverse-volatility alternative equity curve](alternative_path_equity_curve.svg)",
         "",
-        "**Model limitations:** the counterfactual scales observed primary entry/exit fees and funding by shadow notional. It does not model additional nonlinear market impact, depth constraints, liquidation limits or exchange leverage caps for larger hypothetical exposure. It is not an executable leverage recommendation.",
+        (
+            "**Model limitations:** the counterfactual scales observed primary "
+            "entry/exit fees and funding by shadow notional. It does not model "
+            "additional nonlinear market impact, depth constraints, liquidation "
+            "limits or exchange leverage caps for larger hypothetical exposure. "
+            "It is not an executable leverage recommendation."
+        ),
         "",
         "## Next workflow action",
         "",
         next_step,
         "",
-        "The daily-candle watermark is not advanced by this report. Only the paper workflow can consume a completed candle after full-history and execution gates pass. A blocked or incomplete run remains visible as such.",
+        (
+            "The daily-candle watermark is not advanced by this report. Only the "
+            "paper workflow can consume a completed candle after full-history and "
+            "execution gates pass. A blocked or incomplete run remains visible."
+        ),
         "",
         "## Historical separation",
         "",
-        "The v3 $50 USDT generation and its preliminary snapshots are archived and excluded from this account’s NAV, returns, equity curves and metrics. The immutable event ledger remains intact.",
+        (
+            "The v3 $50 USDT generation and its preliminary snapshots are "
+            "archived and excluded from this account’s NAV, returns, equity curves "
+            "and metrics. The immutable event ledger remains intact."
+        ),
         "",
         "## Alternative-path reconstruction notes",
         "",
         warning_text,
         "",
-        "This is the compact live status page. The former detailed v3 report is retained under `archive/2026-11-18/` for audit purposes only.",
+        (
+            "This is the compact live status page. The former detailed v3 report "
+            "is retained under `archive/2026-11-18/` for audit purposes only."
+        ),
         "",
     ]
     return "\n".join(lines)
