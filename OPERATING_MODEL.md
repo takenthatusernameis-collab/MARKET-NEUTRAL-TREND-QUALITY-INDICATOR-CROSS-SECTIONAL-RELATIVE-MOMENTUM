@@ -13,7 +13,7 @@ This document is the authoritative operating contract for the MEXC forward-paper
 
 Both scheduled triggers invoke the same workflow and active account. It determines its mode from the latest fully completed MEXC UTC daily candle and the persisted daily-workflow watermark; the daily-close trigger is a backup attempt, not a separate strategy cycle.
 
-The daily market-data refresh is resumable: each invocation checks at most 150 stale or unbootstrapped active instruments, including already-bootstrapped contracts whose latest completed daily candle is missing. The next five-minute invocation continues the same daily candle in a fair, retry-aware order. The research watermark advances only after the full latest-bar, history and ticker-coverage gates pass; portfolio decisions remain blocked until then.
+The daily market-data refresh enumerates the full live MEXC contract feed and attempts every stale or unbootstrapped active cross-margin linear perpetual in that invocation, across settlement currencies. Daily history is checkpointed every 25 contracts into gzip-compressed UTC-date partitions with an atomic per-instrument manifest. The workflow publishes those files to the dedicated `market-data` branch after the collection step; later invocations read that branch and continue from saved candle watermarks instead of redownloading completed history. The collection step has a 340-minute limit within a 355-minute job, reserving 15 minutes for data publication and status reporting. The research watermark advances only after the full latest-bar, history and ticker-coverage gates pass; portfolio decisions remain blocked until then.
 
 ### Daily-close research and decision mode
 
@@ -21,13 +21,13 @@ The first workflow invocation that observes a newly completed UTC daily candle r
 
 1. Restore and verify the persisted paper event chain and market-data manifest.
 2. Fetch current MEXC contract metadata, eligible cross-margin universe and bulk tickers.
-3. Refresh instrument lifecycle and perform one bounded, resumable candle-bootstrap/incremental-history batch.
+3. Refresh instrument lifecycle and process the full live universe of stale/missing daily candle history, checkpointing every 25 contracts.
 4. Validate completed daily candles and data coverage.
 5. Recalculate exchange-neutral Q/B/ATR features and cross-sectional research/execution rankings.
 6. If the state-write and data gates pass, process funding, assess the combined emergency limit and daily ATR exits, select the daily pair, close the entire existing book, then open both selected legs from fresh public order books—even when both contract symbols are unchanged. Each leg independently targets about 1× current NAV notional (about 100 USDT per leg at a 100 USDT NAV), rounded down to its venue lot size. Record the resulting dollar-notional gap; there is no percentage-neutrality rejection gate.
 7. Persist the daily execution result, close/open fees and slippage, risk event and human-readable research/performance reports.
 
-The daily workload is keyed to the completed UTC daily candle timestamp, not the cron start minute. A given daily candle must not cause duplicate heavy work or duplicate portfolio decisions. The bootstrap batch is deliberately bounded; incomplete bootstrap is resumed on a later daily-close cycle, not by repeating the heavy workload every five minutes.
+The daily workload is keyed to the completed UTC daily candle timestamp, not the cron start minute. A given daily candle must not cause duplicate heavy work or duplicate portfolio decisions. The daily refresh aims to cover every active eligible perpetual in one run; if a run is interrupted, saved checkpoints and per-instrument watermarks let the next invocation resume only unfinished work.
 
 ### Five-minute portfolio-snapshot mode
 
