@@ -3,7 +3,7 @@
 ## Current provider and mode
 
 - Selected provider: MEXC Futures.
-- Strategy universe: active linear USDT-settled cross-margin perpetuals.
+- Research universe: every active linear perpetual with per-instrument cross-margin capability, across settlement currencies. The forward paper execution subset remains USDT-settled only.
 - Technical API qualification: passed from GitHub-hosted runner.
 - Account/derivatives eligibility for a Romanian user: not independently confirmed.
 - Mode: public market-data collection and paper research only.
@@ -34,9 +34,9 @@ Successful preflight and UTC daily boundary evidence: [GitHub Actions run 439761
 - Convert contract-count depth and Kline volume using contractSize for the supported USDT linear execution path. For other settlements, retain contract counts and native quote turnover; never label non-USDT turnover as USDT.
 - Use volUnit, minVol, maxVol, priceUnit, contractSize and fee fields from the instrument record.
 
-The MEXC workflow is scheduled every five minutes, with an additional daily-close backup attempt at 00:01 UTC. Initial history bootstrap is up to 365 days. Each invocation checks at most 150 stale or unbootstrapped active instruments, including already-bootstrapped contracts whose latest daily candle is missing; successive five-minute runs resume fairly from per-instrument watermarks and retry counters. The research watermark advances only after the full-history, latest-bar and ticker-coverage gates pass. Portfolio decisions remain blocked while any required data is incomplete. New listings receive the same resumable backfill. Only completed Day1 bars may feed Q. Representative sampled bars opened at 00:00 UTC; every timestamp still requires validation.
+The MEXC workflow is scheduled every five minutes, with an additional daily-close backup attempt at 00:01 UTC. Initial history bootstrap is up to 365 days. Each daily refresh selects every stale or unbootstrapped active cross-margin perpetual returned by the live contract-details feed, including new listings and previously bootstrapped contracts missing the latest completed daily candle. It checkpoints compressed candle partitions and the atomic per-instrument manifest every 25 processed contracts; completed data is published to the dedicated `market-data` branch. The next invocation resumes from saved per-instrument watermarks and does not redownload stored history. The data-collection step is capped at 340 minutes inside a 355-minute job, preserving a 15-minute window for the always-run data commit and report publication. The research watermark advances only after full-history, latest-bar and ticker-coverage gates pass. Portfolio decisions remain blocked while required data is incomplete. Only completed Day1 bars may feed Q. Representative sampled bars opened at 00:00 UTC; every timestamp still requires validation.
 
-Public market data and ranking reports belong on the market-data branch, not the financial event branch. The first workflow run completed 150 bootstrap instruments and left 911 pending but its market-data commit was blocked by the repository ignore rule. The workflow now force-adds the data directory. Confirm a subsequent successful commit before describing market data as durably persisted.
+Public market data and ranking reports belong on the `market-data` branch, not the financial event branch. The first workflow run's data commit was blocked by the repository ignore rule; the publisher now force-adds `data/`. The branch currently contains the MEXC manifest, compressed candle/funding/snapshot partitions and reports. Every completed 25-contract checkpoint is locally flushed; after the data step exits or reaches its 340-minute step timeout, the workflow's `if: always()` publisher commits the accumulated `data/` directory within the reserved job window. Verify the resulting branch commit before treating a particular run's newest checkpoint as remote.
 
 ## Paper-account state and single-writer mode
 
