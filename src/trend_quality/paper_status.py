@@ -563,7 +563,7 @@ def _drawdown_summary(
         if nav > peak:
             peak = nav
         if peak > ZERO:
-            lifetime_mdd = min(lifetime_mdd, nav / peak - ONE)
+            lifetime_mdd = min(lifetime_mdd, (nav - peak) / peak)
 
     grouped: dict[int, list[dict[str, Any]]] = {}
     for stamp in sorted(points):
@@ -579,7 +579,7 @@ def _drawdown_summary(
             if nav > session_peak:
                 session_peak = nav
             if session_peak > ZERO:
-                worst = min(worst, nav / session_peak - ONE)
+                worst = min(worst, (nav - session_peak) / session_peak)
         sessions.append({
             "start_timestamp_ms": start,
             "observations": len(rows),
