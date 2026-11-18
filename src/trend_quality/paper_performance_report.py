@@ -508,7 +508,7 @@ def _equity_curve_svg(
         parts.extend([
             f'<line x1="{left}" y1="{y:.2f}" x2="{plot_right}" y2="{y:.2f}" '
             'stroke="#e5e7eb" stroke-width="1"/>',
-            f'<text x="{left - 14}" y="{y + 4:.2f}" text-anchor="end" font-size="12" '
+            f'<text x="{left - 14}" y="{y + 4:.2f}" text-anchor="end" font-size="17" '
             f'fill="#555">{html.escape(label)}</text>',
         ])
 
@@ -545,7 +545,7 @@ def _equity_curve_svg(
         f'<circle cx="{coords[-1][0]:.2f}" cy="{coords[-1][1]:.2f}" r="4.5" fill="#1976d2"/>',
         f'<text x="{left}" y="83" font-size="19" fill="#333">'
         f'Start: {html.escape(format(first_value, ",.4f"))} USDT</text>',
-        f'<text x="{plot_right}" y="83" text-anchor="end" font-size="14" fill="#333">'
+        f'<text x="{plot_right}" y="83" text-anchor="end" font-size="19" fill="#333">'
         f'Latest: {html.escape(format(last_value, ",.4f"))} USDT '
         f'({roi:+.2f}% vs initial)</text>',
     ])
