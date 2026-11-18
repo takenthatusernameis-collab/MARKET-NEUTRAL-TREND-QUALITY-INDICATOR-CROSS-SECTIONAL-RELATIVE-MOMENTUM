@@ -6,9 +6,9 @@
 **Report date:** 2026-11-18  
 **Selected provider:** MEXC Futures public API — prior HTML HTTP 403 was returned while the client still used the Futures REST host that MEXC discontinued on 2026-01-19; integration is being moved to the current official host and endpoint, with post-fix hosted preflight validation still outstanding  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
-**Forward paper account:** ACTIVE GENERATION — 50 USDT seed; v3 VSTOCK_USDT long + BILL_USDT short simulated; independently restored from verified event chain  
+**Forward paper account:** ACTIVE GENERATION — 100 USDT v4 seed; recovery probe published by successful scheduled run #91; financial initialization pending  
 **Historical replay:** not implemented  
-**Latest verified portfolio NAV:** 49.66302776 USDT at 2026-11-18 05:37:15 UTC (two simulated positions open)  
+**Latest v4 portfolio NAV:** Not yet initialized. Former v3 $50 NAV and pair are historical, archived data only  
 **Performance claims:** none; sample gates remain unmet
 
 ## Provider selection and evidence
@@ -39,7 +39,7 @@ Romanian derivatives-product/account eligibility has not been independently conf
 | Correction factor | 1.0 | Provisional |
 | ATR | Wilder 14 | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial paper capital | 50 USDT | Active v3 generation initialized 2026-11-18; one simulated long/short pair open |
+| Initial paper capital | 100 USDT | Active v4 generation; recovery probe verified, financial initialization pending |
 | Long / short allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
 
 ## Implemented on main
@@ -305,9 +305,9 @@ The root-level [PAPER_PERFORMANCE_REPORT.md](PAPER_PERFORMANCE_REPORT.md) is the
 The report does not imply any live trading. The strategy uses public data and simulated fills only.
 
 
-## 2026-11-18 — Active $50 USDT account, single-writer workflow and readable equity chart
+## 2026-11-18 — Archived v3 $50 USDT account history
 
-**Current operating state. This section supersedes the prior $1 and $10 activation summaries.**
+**Historical only.** This section documents the retired v3 generation and is superseded by the active v4 $100 USDT generation below.
 
 - **Only active account:** `mexc-usdt-forward-50usdt-v3`
 - **Strategy generation:** `trend-quality-daily-cross-sectional-v3-50usdt`
@@ -320,6 +320,19 @@ The report does not imply any live trading. The strategy uses public data and si
 - **Equity chart:** UTC dates and exact times now render on separate lines; the first and latest observations are anchored to opposite chart edges, duplicate two-point midpoint labels are removed, and crowded intermediate labels are suppressed. All underlying event timestamps and NAV values remain unchanged.
 - **Paper-only boundary:** no live orders, private exchange endpoints, API credentials or wallet access. The state branch remains unprotected; application-level hash-chain verification and fast-forward-only writes do not prevent a privileged repository writer from manually rewriting branch history.
 
+
+## 2026-11-18 — Active v4 $100 USDT paper generation
+
+**Current operating state. This section supersedes the archived v3 $50 account summary.**
+
+- **Only active account:** `mexc-usdt-forward-100usdt-v4`
+- **Strategy generation:** `trend-quality-daily-cross-sectional-v4-100usdt`
+- **Starting capital:** 100.00000000 USDT. No v3 balance, trades or equity are imported.
+- **Recovery handshake:** non-financial probe `state-probe-1795004591521` was published by scheduled workflow run [#91](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44303345661), which completed successfully. It created no financial paper state. The next manual or scheduled invocation must verify the probe from a fresh state-branch checkout before initialization.
+- **Daily-candle reset:** the v4 account decision watermark is unset. The next successful initialization invocation may process the latest genuine completed UTC daily candle, but only if the full-history, ticker, fresh-book and two-sided fill gates pass. No synthetic candle has been inserted; the shared market-data history was not reset or rewritten.
+- **Compact live status:** [PAPER_STATUS.md](PAPER_STATUS.md) contains the v4 account metrics and the primary and alternative equity curves. The old detailed v3 report and chart are archived under `archive/2026-11-18/v3/`.
+- **Correct active workflow:** [▶ ACTIVE PAPER ACCOUNT — MEXC $100 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml). The trigger set is manual and scheduled only; source pushes do not start paper-account cycles.
+- **Paper-only boundary:** no live orders, private exchange endpoints, API credentials or wallet access.
 
 ## 2026-11-18 — MEXC 403 diagnosis and phone chart typography
 
