@@ -219,3 +219,17 @@
 - Preserved a narrower 1,061-contract USDT quote+settlement execution universe for the current 100 USDT paper account.
 - Added research-only status for non-USDT contracts until quote/collateral conversion, inverse contract P&L and fee/funding settlement are independently normalized.
 - Renamed turnover fields to quote-currency semantics to avoid treating USDC/USD/BTC quote turnover as USDT.
+
+
+### Pass 27 — one active $50 account, unmistakable manual workflow and readable mobile equity chart (2026-11-18)
+
+- Audited the immutable `state` event branch and the main-branch account selectors. Confirmed the active account is `mexc-usdt-forward-50usdt-v3` with strategy `trend-quality-daily-cross-sectional-v3-50usdt` and initial capital 50 USDT.
+- Preserved earlier $1 and $10 generations as archived event history; never delete, rewrite, import or pool their historical fills, equity or balances into the v3 account.
+- Designated the MEXC workflow as the single active portfolio-state writer. Give it an explicit $50/manual/auto workflow title, unmistakable manual run label, branch `main` instruction and required confirmation input. Make the separate MEXC preflight visibly read-only; remove the retired Polymarket state-writer workflow entry point.
+- Reconcile README, status, runbook, operating model, state metadata and a dedicated account card so old account sizes cannot be mistaken for active settings.
+- Red-team the equity SVG against the mobile screenshot. Remove duplicated midpoint/last labels on two-point curves; render dates and exact UTC times on separate lines; anchor endpoints away from each other; provide vertical space between x-axis labels and observation-count footer; suppress crowded intermediate labels without dropping NAV observations; retain start/latest NAV and initial-capital reference.
+- Add regression tests for one-point, two-point and dense/clustered timestamp histories. Keep all equity data, accounting calculations and immutable event timestamps unchanged.
+- Require CI, merged `main`, active-workflow YAML verification and a freshly rebuilt report/SVG before calling the task complete. Paper-only boundary remains mandatory: no live exchange orders, private endpoints, credentials or wallet actions.
+
+**Consolidated implementation prompt:**  
+“On `main`, audit and retain exactly one active MEXC forward-paper account generation: `mexc-usdt-forward-50usdt-v3` with 50 USDT initial capital. Keep former $1/$10 generations immutable and excluded from the current account/report; never rewrite history or merge balances. Make the MEXC $50 paper cycle the only active portfolio-state writer, make its manual Actions trigger visually unmistakable and explicitly confirmed on branch `main`, and label all read-only diagnostics as such. Remove retired state-writing workflow entry points. Reconcile account/run instructions throughout the repository. Fix the independent report's equity SVG so UTC date, exact time, NAV and supporting annotations remain distinct and readable on narrow mobile displays, including one-point, two-point and dense histories. Add regression coverage, run CI, merge to `main`, then verify the current state branch, active account report and newly generated chart. Do not touch exchange credentials, private endpoints, wallet state or live orders; this is paper simulation only.”

@@ -1,6 +1,6 @@
-name: "READ-ONLY — MEXC PUBLIC API PREFLIGHT — NO PAPER ACCOUNT"
+name: "DIAGNOSTIC ONLY — READ-ONLY MEXC PREFLIGHT — NOT THE $50 PAPER ACCOUNT"
 
-run-name: "READ-ONLY PREFLIGHT — NO PAPER STATE — run #${{ github.run_number }}"
+run-name: "READ-ONLY DIAGNOSTIC — NO PAPER ACCOUNT OR STATE — run #${{ github.run_number }}"
 
 on:
   push:

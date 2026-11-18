@@ -1,11 +1,11 @@
 # MEXC Paper Workflow — Authoritative Operating Model
 
-**Effective date:** 2026-11-17  
+**Effective date:** 2026-11-18  
 **Provider:** MEXC Futures public market data  
 **Account mode:** USDT-settled paper simulation only  
-**Active account generation:** 10 USDT seed — `mexc-usdt-forward-10usdt-v2`  
+**Active account generation:** 50 USDT seed — `mexc-usdt-forward-50usdt-v3` / `trend-quality-daily-cross-sectional-v3-50usdt`  
 **Scheduler:** one GitHub Actions cron, every five minutes (*/5 * * * *)  
-**Manual launcher:** [▶ START PAPER SIMULATION — MEXC (PAPER ONLY)](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
+**Manual launcher:** [▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
 
 This document is the authoritative operating contract for the MEXC forward-paper workflow. It supersedes older instructions that imply a five-minute strategy-decision loop, hourly strategy decisions, or independent per-leg 25% drawdown stops.
 
@@ -43,15 +43,15 @@ This mode does not refresh the full research universe, backfill candles, recalcu
 
 ### Manual on-demand start
 
-Open the [GitHub Actions paper workflow](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml), select **▶ START PAPER SIMULATION — MEXC (PAPER ONLY)**, choose branch `main`, and select **Run workflow**. This invokes the same cycle immediately; it does not bypass the data, ranking, execution, persistence or risk gates. The YAML retains the automatic five-minute schedule. At the time of this update, recent GitHub Actions run history showed push-triggered runs but no schedule-originated run, so cron execution itself is not yet independently verified; use the manual launcher when an immediate cycle is needed.
+Open the [GitHub Actions paper workflow](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml), select the workflow named **▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO**, choose branch `main`, then select **Run workflow** and confirm the required choice `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`. The run title begins **▶ MANUAL PAPER RUN — MEXC $50 USDT**. This invokes the same existing $50 v3 account cycle immediately; it does not create a new account or bypass the data, ranking, execution, persistence or risk gates. The YAML retains the automatic five-minute schedule, which is best-effort rather than a continuous service. The separate MEXC public preflight is read-only and the retired Polymarket state-writer workflow has been removed.
 
 ## 2. Portfolio construction and leverage
 
-The active forward account is denominated entirely in USDT. The current generation ID is `mexc-usdt-forward-10usdt-v2`; its strategy generation is `trend-quality-daily-cross-sectional-v2-10usdt`. The prior 1 USDT account remains an archived, separate account in the append-only state history and is not merged into this account.
+The active forward account is denominated entirely in USDT. The only active generation ID is `mexc-usdt-forward-50usdt-v3`; its strategy generation is `trend-quality-daily-cross-sectional-v3-50usdt`. The prior 1 USDT `mexc-usdt-forward` and 10 USDT `mexc-usdt-forward-10usdt-v2` accounts remain archived, separate, immutable events in the append-only state history and are not merged into the active account.
 
 | Parameter | Setting |
 |---|---:|
-| Initial paper capital | 10 USDT |
+| Initial paper capital | 50 USDT |
 | Long margin allocation | 50% of NAV |
 | Short margin allocation | 50% of NAV |
 | Default leverage | 2× per leg |
@@ -135,11 +135,11 @@ The test suite must prove: 2× margin-aware sizing; 50/50 margin allocation; com
 CI evidence is not performance evidence. Report separately: source-data coverage, unit/integration test results, state-write readiness, forward account initialization, actual persisted portfolio observations, and any independently audited performance.
 
 
-## 8. 10 USDT seed and activation controls
+## 8. Active $50 USDT seed and state controls
 
-The active forward paper account seed is 10 USDT. Both the portfolio module default and daily cycle capital constant are 10 USDT. At 50% NAV margin per leg and 2× leverage, the target is approximately 10 USDT notional per leg and 20 USDT combined gross notional. MEXC quantity increments, minimum/maximum contract limits, depth and simulated costs remain binding; the simulator must never round a requested trade up merely to meet a venue minimum. A live diagnostic over 1,061 active USDT-eligible perpetuals measured a median minimum contract notional of 0.2878 USDT, with 778 contracts meeting minimum quantity and step at a 1 USDT per-leg target and 1,045 at a 10 USDT target. Thus minimum orders are not generally above 1 USDT; the new 10 USDT generation was selected after the prior 1 USDT account's real decision returned FLAT_NO_EXECUTABLE_PAIR, to increase lot-size coverage. This is an execution-feasibility choice, not proof of profitability.
+The active forward paper account seed is 50 USDT. Both the portfolio module default and daily cycle capital constant are 50 USDT. At 50% NAV margin per leg and 2× leverage, each leg targets approximately 50 USDT notional and the combined book targets approximately 100 USDT gross notional, subject to current NAV, venue lot sizes, contract limits, book depth, fees and simulated costs. The simulator must never round a requested trade up merely to meet a venue minimum. Earlier public minimum-order diagnostics evaluated $1 and $10 per-leg thresholds only; they are not extrapolated as a measured $50 universe-wide coverage result. The $50 account has demonstrated a feasible pair on actual MEXC public depth. This is an execution-feasibility observation, not proof of profitability.
 
-The scheduler defaults `PAPER_STATE_WRITE_ENABLED` to true. Set the repository Actions variable to the literal string `false` to pause paper-state writes; remove the variable or set it to `true` to run the enabled mode. No branch-protection rule, ruleset or Administration token is needed. The publisher uses the workflow `GITHUB_TOKEN` with Contents: write. The $10 generation was initialized after its own non-financial probe was published/read back and verified from a later fresh checkout. Its initialization cycle opened a simulated VSTOCK_USDT long / BILL_USDT short pair. Follow-up run [43993684041](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/43993684041) independently restored that account from the verified event chain and appended a portfolio snapshot. Failed read-back, broken chain, or a non-fast-forward conflict keeps the workflow fail-closed.
+The scheduler defaults `PAPER_STATE_WRITE_ENABLED` to true. Set the repository Actions variable to the literal string `false` to pause paper-state writes; remove the variable or set it to `true` to run the enabled mode. No branch-protection rule, ruleset or Administration token is needed. The publisher uses the workflow `GITHUB_TOKEN` with Contents: write. The active $50 v3 generation was initialized only after its non-financial recovery probe was published, read back and verified from a later fresh checkout. The $1 and $10 account generations remain immutable archived history. Failed read-back, broken chain or a non-fast-forward conflict keeps the workflow fail-closed.
 
 
 ## 9. Two-stage recovery-before-initialization protocol
@@ -148,7 +148,7 @@ When the workflow runs with paper-state writing enabled (the default unless the 
 
 1. The first write-capable invocation must publish only a non-financial paper_state_recovery_probe event. The publisher must read back the exact canonical event and verify the complete remote chain before reporting success. No financial state or account balance is created in this invocation.
 2. The next invocation checks out the state branch afresh and locally verifies every event batch and the linear hash chain. It must detect the exact recovery-probe event before account initialization is allowed.
-3. Only after that fresh-checkout recovery succeeds may the first financial event be written. It is typed paper_account_initialized and records initial_capital_usdt=10, starting_cash_usdt=10, forward-paper-only mode, no historical imports and the first valuation/decision timestamp.
+3. Only after that fresh-checkout recovery succeeds may the first financial event be written. It is typed paper_account_initialized and records initial_capital_usdt=50, starting_cash_usdt=50, forward-paper-only mode, no historical imports and the first valuation/decision timestamp.
 4. Subsequent runs restore the financial event from the state branch and reconstruct the same account state. A missing probe, broken hash chain, missing account identifier, failed read-back or non-fast-forward conflict prevents initialization or further transitions and keeps the workflow fail-closed.
 
 The non-financial probe is part of the append-only public state chain. It is not a trade, position, P&L entry or account initialization.

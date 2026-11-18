@@ -1,12 +1,12 @@
 # Market-Neutral Trend-Quality System — Status
 
-**Report date:** 2026-11-17  
+**Report date:** 2026-11-18  
 **Selected provider:** MEXC Futures public API — technical data qualification passed  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
-**Forward paper account:** ACTIVE GENERATION — 10 USDT seed; VSTOCK_USDT long + BILL_USDT short simulated; independently restored from verified event chain  
+**Forward paper account:** ACTIVE GENERATION — 50 USDT seed; v3 VSTOCK_USDT long + BILL_USDT short simulated; independently restored from verified event chain  
 **Historical replay:** not implemented  
-**Latest verified portfolio NAV:** 9.99139460 USDT at independent restore snapshot (cash 9.99829460 USDT; two simulated positions open)  
-**Performance claims:** none
+**Latest verified portfolio NAV:** 49.88652776 USDT at 2026-11-18 04:39:33 UTC (two simulated positions open)  
+**Performance claims:** none; sample gates remain unmet
 
 ## Provider selection and evidence
 
@@ -36,7 +36,7 @@ Romanian derivatives-product/account eligibility has not been independently conf
 | Correction factor | 1.0 | Provisional |
 | ATR | Wilder 14 | Risk experiment |
 | ATR multiplier | 3.0 | Provisional |
-| Initial paper capital | 10 USDT | New v2 generation initialized 2026-11-17; one simulated long/short pair open |
+| Initial paper capital | 50 USDT | Active v3 generation initialized 2026-11-18; one simulated long/short pair open |
 | Long / short allocation | 50% / 50% NAV | Dollar-neutral target, not beta-neutral |
 
 ## Implemented on main
@@ -207,9 +207,9 @@ The state branch remains intentionally unprotected. The accepted residual risk i
 
 
 
-## 2026-11-17 — Active $10 generation, manual launcher and five-minute entry retries
+## 2026-11-17 — Archived $10 generation, manual launcher and five-minute entry retries
 
-**This section is the current operating state and supersedes older readiness / $1 account status statements above.**
+**Historical record only.** This $10 generation was subsequently superseded by the $50 v3 account initialized on 2026-11-18; it remains in the immutable event chain as archived history.
 
 ### Manual start cue
 
@@ -288,7 +288,7 @@ The event report now includes `rebalance_actions` and `portfolio_daily_risk_rese
 No live orders, private endpoints, credentials or wallet access were introduced.
 
  
-## 2026-11-17 — Standalone paper performance ledger
+## 2026-11-17 — Standalone paper performance ledger (historical implementation milestone)
 
 The root-level [PAPER_PERFORMANCE_REPORT.md](PAPER_PERFORMANCE_REPORT.md) is the independent human-readable performance file.
 
@@ -296,7 +296,23 @@ The root-level [PAPER_PERFORMANCE_REPORT.md](PAPER_PERFORMANCE_REPORT.md) is the
 - It contains the full mark-to-market equity curve, daily equity marks, drawdown by risk session and lifetime/cross-session maximum drawdown, sample-gated Sortino/Sharpe/CAGR/Calmar and other statistics, cash/NAV/P&L/fees/funding/exposure, open positions, and timestamped opening, increase, reduction, close, funding and risk-reset records.
 - Session drawdown is kept separate from lifetime drawdown; resetting the operational risk window cannot erase historical MDD.
 - Trade history uses explicit fill and funding payloads. Persisted position changes are a backstop and are labelled when exact execution details were not stored.
-- Only active account generation `mexc-usdt-forward-10usdt-v2` is included; the archived $1 generation is excluded. Invalid batches, broken links, duplicate IDs and forks stop publication rather than generating a misleading report.
+- At the time of this implementation milestone the report selected the $10 generation. The current report selects only `mexc-usdt-forward-50usdt-v3`; both earlier $1 and $10 generations are excluded. Invalid batches, broken links, duplicate IDs and forks stop publication rather than generating a misleading report.
 - Sortino and other daily statistics remain unavailable until their existing sample thresholds are satisfied.
 
 The report does not imply any live trading. The strategy uses public data and simulated fills only.
+
+
+## 2026-11-18 — Active $50 USDT account, single-writer workflow and readable equity chart
+
+**Current operating state. This section supersedes the prior $1 and $10 activation summaries.**
+
+- **Only active account:** `mexc-usdt-forward-50usdt-v3`
+- **Strategy generation:** `trend-quality-daily-cross-sectional-v3-50usdt`
+- **Initial capital / starting cash:** 50.00000000 USDT. The older `mexc-usdt-forward` ($1) and `mexc-usdt-forward-10usdt-v2` ($10) generations remain immutable archived records; they are not restored or reported by the active cycle.
+- **Initialization:** MEXC workflow run [44236973900](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44236973900), after the verified recovery-probe/fresh-checkout handshake. No historical trades or equity were imported.
+- **Latest persisted snapshot before this report refresh:** MEXC run [44238786882](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44238786882), timestamp 2026-11-18 04:39:33.310 UTC. NAV 49.88652776 USDT; two simulated legs remain open.
+- **Last observed pair:** long VSTOCK_USDT, 0.11 base units; short BILL_USDT, 11,600 base units. At the latest snapshot, long and short notionals were 45.83810000 and 45.95920000 USDT. Dollar imbalance was 0.12110000 USDT, or 0.243% of NAV—inside the 0.5% monitoring limit, so no unnecessary simulated adjustment was made.
+- **Latest run's evidence is a mark-to-market snapshot, not a return-history claim.** There are only two persisted intraday NAV observations and one daily return observation. Sharpe, Sortino, CAGR, Calmar and daily-equity drawdown statistics remain unavailable under their existing sample gates. The current NAV change is not evidence of strategy profitability.
+- **Active workflow on main:** [▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml). Manual dispatch requires the `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY` choice and run titles show `MANUAL`; the scheduled cadence is best-effort every five minutes. The read-only MEXC public preflight is labelled diagnostic-only. The retired Polymarket state-writing workflow was removed.
+- **Equity chart:** UTC dates and exact times now render on separate lines; the first and latest observations are anchored to opposite chart edges, duplicate two-point midpoint labels are removed, and crowded intermediate labels are suppressed. All underlying event timestamps and NAV values remain unchanged.
+- **Paper-only boundary:** no live orders, private exchange endpoints, API credentials or wallet access. The state branch remains unprotected; application-level hash-chain verification and fast-forward-only writes do not prevent a privileged repository writer from manually rewriting branch history.
