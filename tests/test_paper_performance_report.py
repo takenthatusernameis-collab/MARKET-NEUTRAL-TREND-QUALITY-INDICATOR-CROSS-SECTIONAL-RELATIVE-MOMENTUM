@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from decimal import Decimal
+import xml.etree.ElementTree as ET
 
 import pytest
 
 from trend_quality.event_journal import build_event_batch, write_batch_atomic
-from trend_quality.paper_performance_report import render_performance_report
+from trend_quality.paper_performance_report import (
+    _equity_curve_svg,
+    render_performance_report,
+)
 
 ACCOUNT_ID = "mexc-usdt-forward-50usdt-v3"
 STRATEGY_ID = "trend-quality-daily-cross-sectional-v3-50usdt"
@@ -389,3 +394,74 @@ def test_report_renders_metrics_and_open_positions_after_svg_refactor(tmp_path: 
     assert "| VSTOCK_USDT | long | 0.02 | 426.35 | 419.00 |" in report
     assert "| BILL_USDT | short | 2500 | 0.003974 | 0.003950 |" in report
     assert "Full mark-to-market equity history" in report
+
+
+
+def test_two_point_equity_curve_labels_do_not_duplicate_or_overlap() -> None:
+    points = [
+        {"timestamp_ms": 1794976007111, "nav": "50.01072776"},
+        {"timestamp_ms": 1794976773310, "nav": "49.88652776"},
+    ]
+    svg = _equity_curve_svg(points, Decimal("50"))
+    root = ET.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    text_nodes = root.findall(".//svg:text", namespace)
+    nodes_by_text: dict[str, list[ET.Element]] = {}
+    for node in text_nodes:
+        nodes_by_text.setdefault("".join(node.itertext()), []).append(node)
+
+    assert len(nodes_by_text["2026-11-18"]) == 2
+    assert len(nodes_by_text["04:26:47 UTC"]) == 1
+    assert len(nodes_by_text["04:39:33 UTC"]) == 1
+    first_date, last_date = nodes_by_text["2026-11-18"]
+    assert float(first_date.attrib["x"]) < float(last_date.attrib["x"])
+    assert first_date.attrib["y"] == last_date.attrib["y"]
+
+    first_time = nodes_by_text["04:26:47 UTC"][0]
+    last_time = nodes_by_text["04:39:33 UTC"][0]
+    observation_count = nodes_by_text["2 persisted NAV observations"][0]
+    assert first_time.attrib["y"] == last_time.attrib["y"]
+    assert float(observation_count.attrib["y"]) > float(first_time.attrib["y"]) + 24
+    assert "Start: 50.0107 USDT" in svg
+    assert "Latest: 49.8865 USDT" in svg
+
+
+def test_one_point_equity_curve_uses_one_centered_utc_label() -> None:
+    svg = _equity_curve_svg(
+        [{"timestamp_ms": 1794976007111, "nav": "50.01072776"}],
+        Decimal("50"),
+    )
+    root = ET.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    labels = [
+        node for node in root.findall(".//svg:text", namespace)
+        if "".join(node.itertext()) in {"2026-11-18", "04:26:47 UTC"}
+    ]
+    assert [ "".join(node.itertext()) for node in labels ] == [
+        "2026-11-18",
+        "04:26:47 UTC",
+    ]
+    assert len({node.attrib["x"] for node in labels}) == 1
+
+
+def test_dense_equity_history_suppresses_crowded_interior_time_ticks() -> None:
+    start = 1794976007111
+    points = [
+        {"timestamp_ms": start + index * 1_000, "nav": str(50 + index / 100)}
+        for index in range(20)
+    ]
+    svg = _equity_curve_svg(points, Decimal("50"))
+    root = ET.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    date_labels = [
+        node for node in root.findall(".//svg:text", namespace)
+        if len("".join(node.itertext())) == 10
+        and "".join(node.itertext()).count("-") == 2
+    ]
+    time_labels = [
+        node for node in root.findall(".//svg:text", namespace)
+        if "".join(node.itertext()).endswith(" UTC")
+    ]
+    assert len(date_labels) == 2
+    assert len(time_labels) == 2
+    assert len({node.attrib["x"] for node in date_labels}) == 2
