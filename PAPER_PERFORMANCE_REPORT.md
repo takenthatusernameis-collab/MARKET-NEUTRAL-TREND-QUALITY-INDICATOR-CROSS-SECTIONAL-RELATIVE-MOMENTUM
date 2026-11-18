@@ -1,9 +1,9 @@
 # MEXC Paper Performance Report
 
-Generated: 2026-11-18 02:56:18.442 UTC  
+Generated: 2026-11-18 03:50:40.192 UTC  
 Account: mexc-usdt-forward-10usdt-v2  
 Strategy generation: trend-quality-daily-cross-sectional-v2-10usdt  
-Workflow run: [44226285442](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44226285442) (run #70, attempt 1; outcome: success)
+Workflow run: [44233139536](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44233139536) (run #71, attempt 1; outcome: success)
 
 This standalone report is rebuilt from the dedicated state branch after every MEXC paper workflow run. The complete source event chain is verified before publication to main.
 
@@ -12,10 +12,10 @@ This standalone report is rebuilt from the dedicated state branch after every ME
 | Metric | Current value |
 |---|---:|
 | Initial capital | 10.00000000 USDT |
-| **Net asset value (NAV)** | **9.95063426 USDT** |
-| Total return from initial capital | -0.4937% |
+| **Net asset value (NAV)** | **9.88893426 USDT** |
+| Total return from initial capital | -1.1107% |
 | Cash | 9.78573426 USDT |
-| Unrealized P&L | 0.16490000 USDT |
+| Unrealized P&L | 0.10320000 USDT |
 | Realized gross P&L | -0.21020000 USDT |
 | Fees paid | 0.00457086 USDT |
 | Confirmed funding | 0.00050512 USDT |
@@ -23,12 +23,12 @@ This standalone report is rebuilt from the dedicated state branch after every ME
 | Open positions | 2 |
 | Fully closed position trades | 1 |
 | Closed-trade win rate | +0.000% |
-| Gross exposure | 1.5849× NAV |
-| Net exposure | 0.3778× NAV |
-| Long / short notional | 6.00540000 / 9.76500000 USDT |
+| Gross exposure | 1.5996× NAV |
+| Net exposure | 0.3864× NAV |
+| Long / short notional | 5.99870000 / 9.82000000 USDT |
 
-Latest portfolio valuation: 2026-11-18 02:55:55.848 UTC.
-Latest saved account event: 2026-11-18 02:55:55.848 UTC.
+Latest portfolio valuation: 2026-11-18 03:50:16.780 UTC.
+Latest saved account event: 2026-11-18 03:50:16.780 UTC.
 
 ## Risk and performance metrics
 
@@ -44,7 +44,7 @@ Latest saved account event: 2026-11-18 02:55:55.848 UTC.
 | Recovery period after maximum drawdown | Unavailable — Maximum drawdown has not recovered by the latest observation | Requires recovery to the prior peak |
 | Closed-trade expectancy | -0.214 USDT | Fully closed position trades only |
 | Profit factor | 0.000× | Fully closed position trades only |
-| Current risk-window drawdown | +0.0000% | Versus current risk-window peak 9.95063426 USDT |
+| Current risk-window drawdown | -0.6201% | Versus current risk-window peak 9.95063426 USDT |
 
 **Lifetime / cross-session maximum drawdown:** -3.9103%.
 **Worst individual risk-session maximum drawdown:** -3.9103%.
@@ -56,14 +56,14 @@ Risk-session drawdown resets only at a successful new-pair entry, daily rebalanc
 | Session | Start (UTC) | Starting NAV | Latest NAV | Session return | Maximum drawdown | Marks |
 |---:|---|---:|---:|---:|---:|---:|
 | 1 | 2026-11-17 00:00:00.000 UTC | 10.00000000 | 9.63759972 | -3.6240% | -3.9103% | 28 |
-| 2 | 2026-11-18 02:55:55.848 UTC | 9.95063426 | 9.95063426 | +0.0000% | +0.0000% | 1 |
+| 2 | 2026-11-18 02:55:55.848 UTC | 9.95063426 | 9.88893426 | -0.6201% | -0.6201% | 2 |
 
 Lifetime drawdown peak: 2026-11-17 01:51:41.256 UTC.
 Lifetime drawdown trough: 2026-11-17 14:19:07.961 UTC (NAV 9.63749972 USDT).
 
 ## Equity curve
 
-All persisted mark-to-market observations (29 points):
+All persisted mark-to-market observations (30 points):
 
 ![Trend-Quality paper portfolio equity curve](equity_curve.svg)
 
@@ -112,13 +112,14 @@ Daily-equity observations: 2; daily metric status: AVAILABLE_WITH_SAMPLE_GATES (
 | 2026-11-17 20:44:58.311 UTC | 9.75669972 | -2.43300275000% | -2.721866276965202908571114420% | 8.35240000 | 10.00250000 |
 | 2026-11-17 22:29:49.278 UTC | 9.63759972 | -3.62400275000% | -3.909340120884637903132165160% | 8.33080000 | 10.10000000 |
 | 2026-11-18 02:55:55.848 UTC | 9.95063426 | -0.49365735000% | 0% | 6.00540000 | 9.76500000 |
+| 2026-11-18 03:50:16.780 UTC | 9.88893426 | -1.11065735000% | -0.6200609765853955843286136500% | 5.99870000 | 9.82000000 |
 
 ## Open positions
 
 | Symbol | Side | Quantity | Entry | Mark | Notional (USDT) | Unrealized P&L (USDT) | Entry UTC |
 |---|---|---:|---:|---:|---:|---:|---|
-| BILL_USDT | short | 2500 | 0.003974 | 0.003906 | 9.76500000 | 0.17000000 | 2026-11-17 01:11:31.864 UTC |
-| SPOTSTOCK_USDT | long | 0.01 | 601.05 | 600.54 | 6.00540000 | -0.00510000 | 2026-11-18 02:55:55.848 UTC |
+| BILL_USDT | short | 2500 | 0.003974 | 0.003928 | 9.82000000 | 0.11500000 | 2026-11-17 01:11:31.864 UTC |
+| SPOTSTOCK_USDT | long | 0.01 | 601.05 | 599.87 | 5.99870000 | -0.01180000 | 2026-11-18 02:55:55.848 UTC |
 
 ## Full timestamped trade and funding history
 
@@ -135,9 +136,9 @@ Explicit fills and funding records are shown directly. Persisted before/after po
 
 ## Data integrity and operating boundary
 
-Verified global event batches: **33**.
-Events for this account/strategy generation: **30** (29 carry full account-state snapshots).
-Latest global event-batch hash: ccb58d03324da7701f4303c395160c076dcc04a06c94dd0f423399faa6b5e3d2.
+Verified global event batches: **34**.
+Events for this account/strategy generation: **31** (30 carry full account-state snapshots).
+Latest global event-batch hash: a7372a9cee24b9d5e895869902787c8c43438154cf2168feced14923c4ffebbd.
 All batches were hash-verified and the complete parent-hash chain was checked for a single genesis, missing parents, duplicate identifiers and forks.
 The archived $1 account generation is excluded; only the active $10 USDT account is reported.
 Paper simulation only: no live orders, private exchange endpoints, credentials or wallet access.
