@@ -13,8 +13,8 @@ import time
 import urllib.error
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from email.utils import parsedate_to_datetime
 from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
