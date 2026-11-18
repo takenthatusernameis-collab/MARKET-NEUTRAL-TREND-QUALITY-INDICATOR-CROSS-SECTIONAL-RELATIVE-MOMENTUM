@@ -470,3 +470,66 @@ def test_pending_retry_preserves_positions_and_signal_when_execution_fails(monke
     assert portfolio["positions"][0]["quantity"] == "0.1"
     assert portfolio["pending_entry_signal"] is pending
     assert pending["attempt_count"] == 1
+
+
+def test_portfolio_neutrality_gate_rejects_large_imbalance_and_one_sided_book() -> None:
+    cycle = load_cycle_module()
+
+    balanced = {
+        "cash": "100",
+        "positions": [
+            {
+                "instrument_id": 1,
+                "symbol": "LONG_USDT",
+                "side": "long",
+                "quantity": "1",
+                "entry_price": "50",
+                "last_mark_price": "50",
+            },
+            {
+                "instrument_id": 2,
+                "symbol": "SHORT_USDT",
+                "side": "short",
+                "quantity": "1",
+                "entry_price": "50",
+                "last_mark_price": "50",
+            },
+        ],
+    }
+    marks = {
+        1: {"mark_price": "50", "timestamp_ms": 1_800_000_000_000},
+        2: {"mark_price": "50", "timestamp_ms": 1_800_000_000_000},
+    }
+    metrics = cycle._require_market_neutrality(balanced, marks)
+    assert Decimal(metrics["imbalance_nav_fraction"]) == Decimal("0")
+
+    imbalanced = {
+        **balanced,
+        "positions": [
+            {**balanced["positions"][0], "quantity": "1.1"},
+            balanced["positions"][1],
+        ],
+    }
+    try:
+        cycle._require_market_neutrality(imbalanced, marks)
+    except cycle.MEXCExecutionUnavailable as exc:
+        assert "exceeds" in str(exc)
+    else:
+        raise AssertionError("a materially imbalanced portfolio must fail closed")
+
+    one_sided = {**balanced, "positions": balanced["positions"][:1]}
+    try:
+        cycle._require_market_neutrality(one_sided, marks)
+    except cycle.MEXCExecutionUnavailable as exc:
+        assert "both a positive long and short" in str(exc)
+    else:
+        raise AssertionError("a one-sided portfolio must fail closed")
+
+
+def test_new_active_account_uses_fifty_usdt_seed_and_neutral_sizing_gate() -> None:
+    cycle = load_cycle_module()
+    assert cycle.INITIAL_CAPITAL == Decimal("50")
+    assert cycle.ACCOUNT_ID == "mexc-usdt-forward-50usdt-v3"
+    assert cycle.STRATEGY_ID == "trend-quality-daily-cross-sectional-v3-50usdt"
+    assert cycle.MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION == Decimal("0.005")
+
