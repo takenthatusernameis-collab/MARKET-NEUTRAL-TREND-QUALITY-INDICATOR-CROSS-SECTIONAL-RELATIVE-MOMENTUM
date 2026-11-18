@@ -53,6 +53,7 @@ from trend_quality.ranking import Candidate
 DAY_MS = 86_400_000
 BOOTSTRAP_DAYS = 365
 DEFAULT_BOOTSTRAP_BATCH_SIZE = 150
+MAX_EXCHANGE_CLOCK_SKEW_MS = 5_000
 MAX_SHORTFALL_BPS = Decimal("10")
 MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION = Decimal("0.005")
 STOP_ATR_MULTIPLE = Decimal("3")
@@ -169,7 +170,11 @@ def _stale_or_missing_position_marks(
             continue
         age = now_ms - int(ticker.get("timestamp_ms", 0))
         mark = dec(ticker.get("mark_price"))
-        if age < 0 or age > max_age_ms or mark <= 0:
+        if (
+            age < -MAX_EXCHANGE_CLOCK_SKEW_MS
+            or age > max_age_ms
+            or mark <= 0
+        ):
             missing.append(str(position["symbol"]))
     return sorted(set(missing))
 
@@ -444,7 +449,11 @@ def _current_position_tickers(
         timestamp_ms = int(ticker["timestamp_ms"])
         age_ms = now_ms - timestamp_ms
         mark = dec(ticker.get("mark_price"))
-        if age_ms < 0 or age_ms > 300_000 or mark <= 0:
+        if (
+            age_ms < -MAX_EXCHANGE_CLOCK_SKEW_MS
+            or age_ms > 300_000
+            or mark <= 0
+        ):
             missing.append(symbol)
             errors.append(
                 f"{symbol}: ticker failed freshness gate "
