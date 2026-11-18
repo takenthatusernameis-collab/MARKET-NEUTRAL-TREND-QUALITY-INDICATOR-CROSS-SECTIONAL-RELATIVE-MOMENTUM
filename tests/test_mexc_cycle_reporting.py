@@ -465,17 +465,26 @@ def test_daily_refresh_candidates_include_missing_latest_candles() -> None:
             "bootstrap_attempts": 0,
             "first_seen_at_ms": 2,
         },
+        "3": {
+            "bootstrap_complete": True,
+            "history_status": "INSUFFICIENT_HISTORY",
+            "last_checked_daily_bar_ms": latest_bar,
+            "last_candle_timestamp_ms": latest_bar - cycle.DAY_MS,
+            "bootstrap_attempts": 0,
+            "first_seen_at_ms": 3,
+        },
     }
     instruments = [
         {"instrument_id": 1, "symbol": "STALE_USDT"},
         {"instrument_id": 2, "symbol": "FRESH_USDT"},
+        {"instrument_id": 3, "symbol": "NEW_LISTING_USDT"},
     ]
 
     pending = cycle._daily_refresh_candidates(
         instruments, manifest_rows, latest_bar
     )
 
-    assert [row["instrument_id"] for row in pending] == [1]
+    assert [row["instrument_id"] for row in pending] == [1, 3]
 
 
 def test_daily_refresh_watermark_waits_for_full_coverage() -> None:

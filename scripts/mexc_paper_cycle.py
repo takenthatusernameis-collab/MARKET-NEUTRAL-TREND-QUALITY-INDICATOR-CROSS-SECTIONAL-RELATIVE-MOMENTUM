@@ -108,11 +108,7 @@ def _daily_refresh_candidates(
         last_checked = record.get("last_checked_daily_bar_ms")
         last_candle = record.get("last_candle_timestamp_ms")
         latest_candle_missing = (
-            record.get("history_status") == "AVAILABLE"
-            and (
-                last_candle is None
-                or int(last_candle) < latest_bar_ms
-            )
+            last_candle is None or int(last_candle) < latest_bar_ms
         )
         if (
             not bool(record.get("bootstrap_complete"))
