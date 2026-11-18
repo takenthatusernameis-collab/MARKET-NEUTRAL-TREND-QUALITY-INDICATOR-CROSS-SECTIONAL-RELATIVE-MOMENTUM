@@ -1,4 +1,6 @@
-name: MEXC Public API Integration Preflight
+name: "READ-ONLY — MEXC PUBLIC API PREFLIGHT — NO PAPER ACCOUNT"
+
+run-name: "READ-ONLY PREFLIGHT — NO PAPER STATE — run #${{ github.run_number }}"
 
 on:
   push:
@@ -18,7 +20,7 @@ concurrency:
 
 jobs:
   public-data:
-    name: Verify public MEXC market-data contracts
+    name: "READ-ONLY MEXC CONTRACT CHECK — no account or paper-state changes"
     runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
