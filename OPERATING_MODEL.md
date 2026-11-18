@@ -4,14 +4,14 @@
 **Provider:** MEXC Futures public market data  
 **Account mode:** USDT-settled paper simulation only  
 **Active account generation:** 50 USDT seed — `mexc-usdt-forward-50usdt-v3` / `trend-quality-daily-cross-sectional-v3-50usdt`  
-**Scheduler:** one GitHub Actions cron, every five minutes (*/5 * * * *)  
+**Scheduler:** GitHub Actions every five minutes (*/5 * * * *) plus a daily-close backup at 00:01 UTC (1 0 * * *)  
 **Manual launcher:** [▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
 
 This document is the authoritative operating contract for the MEXC forward-paper workflow. It supersedes older instructions that imply a five-minute strategy-decision loop, hourly strategy decisions, or independent per-leg 25% drawdown stops.
 
 ## 1. One scheduler, two modes
 
-The workflow is invoked by the same five-minute cron on every run. It determines its mode from the latest fully completed MEXC UTC daily candle and the persisted daily-workflow watermark.
+Both scheduled triggers invoke the same workflow and active account. It determines its mode from the latest fully completed MEXC UTC daily candle and the persisted daily-workflow watermark; the daily-close trigger is a backup attempt, not a separate strategy cycle.
 
 ### Daily-close research and decision mode
 
@@ -43,13 +43,13 @@ This mode does not refresh the full research universe, backfill candles, recalcu
 
 ### Manual on-demand start
 
-Open the [GitHub Actions paper workflow](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml), select the workflow named **▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO**, choose branch `main`, then select **Run workflow** and confirm the required choice `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`. The run title begins **▶ MANUAL PAPER RUN — MEXC $50 USDT**. This invokes the same existing $50 v3 account cycle immediately; it does not create a new account or bypass the data, ranking, execution, persistence or risk gates. The YAML retains the automatic five-minute schedule, which is best-effort rather than a continuous service. The separate MEXC public preflight is read-only and serialized behind the paper writer. It runs automatically on `main` when `.github/workflows/mexc-public-preflight.yml`, `scripts/mexc_public_preflight.py`, `src/trend_quality/mexc_api.py` or `pyproject.toml` changes; manual dispatch remains available. It has no recurring schedule, so ordinary five-minute paper monitoring does not trigger a second data poll. The retired Polymarket state-writer workflow has been removed.
+Open the [GitHub Actions paper workflow](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml), select the workflow named **▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO**, choose branch `main`, then select **Run workflow** and confirm the required choice `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`. The run title begins **▶ MANUAL PAPER RUN — MEXC $50 USDT**. This invokes the same existing $50 v3 account cycle immediately; it does not create a new account or bypass the data, ranking, execution, persistence or risk gates. The YAML retains the automatic five-minute schedule and adds a dedicated 00:01 UTC daily-close attempt. Both are best-effort rather than a continuous service. The separate MEXC public preflight is read-only and serialized behind the paper writer. It runs automatically on `main` when `.github/workflows/mexc-public-preflight.yml`, `scripts/mexc_public_preflight.py`, `src/trend_quality/mexc_api.py` or `pyproject.toml` changes; manual dispatch remains available. It has no recurring schedule, so ordinary five-minute paper monitoring does not trigger a second data poll. The retired Polymarket state-writer workflow has been removed.
 
 ### Public API pacing and access-denial handling
 
 MEXC's [Futures API domain announcement](https://www.mexc.co/announcements/article/futures-api-access-domain-update-17827791532974) says the former `https://contract.mexc.com` host was discontinued on 2026-01-19 and identifies `https://api.mexc.com` as the current host. The [current contract-information documentation](https://www.mexc.io/api-docs/futures/market-endpoints/get-contract-info) specifies `/api/v1/contract/detail/country`. The adapter uses that host and route, with **1.5 seconds minimum between requests** (about 0.67 requests/second), a 7.5× lower request rate than the previous 0.20-second setting. HTTP 429 / API code 510 triggers at least 60 seconds of exponential cooldown; transient 5xx/network failures use exponential backoff, and `Retry-After` is respected when present.
 
-The read-only MEXC preflight is **manual-dispatch only** and shares the paper cycle's non-cancelling `paper-state-branch-single-writer` concurrency group. It is not triggered automatically by code pushes or a schedule, and must not issue a concurrent burst of public requests while the portfolio workflow is backfilling history or marking positions.
+The read-only MEXC preflight shares the paper cycle's non-cancelling `paper-state-branch-single-writer` concurrency group. It runs automatically on `main` when its workflow, preflight script, MEXC public adapter or dependency manifest changes; manual dispatch remains available. It has no recurring schedule and must not issue a concurrent burst of public requests while the portfolio workflow is backfilling history or marking positions.
 
 An HTTP 403 is treated as an access denial, not retried or bypassed. The prior November 18, 2026 403 was returned while the client was still using MEXC's retired `contract.mexc.com` host; that obsolete-domain defect is now corrected, although a successful post-fix hosted preflight is still required to prove end-to-end access. Diagnostics record the endpoint path without query parameters, response server/content type/retry-after headers when available, and a short response-body/provider-message excerpt. A 403 during bootstrap stops the batch immediately; do not continue issuing requests to the denied endpoint. The workflow must remain paper-only and must not use proxies, VPNs, alternate IPs, private endpoints, credentials or other circumvention methods.
 
