@@ -49949,9 +49949,9 @@
   "last_processed_daily_bar_ms": 1794873600000,
   "last_research_daily_bar_ms": 1794873600000,
   "last_snapshot_ms": 1794973816780,
-  "last_state_recovery_probe_ms": 1794877852005,
+  "last_state_recovery_probe_ms": 1794975529987,
   "provider": "mexc",
   "schema_version": 1,
   "selected_provider": "mexc",
-  "updated_at_ms": 1794973816780
+  "updated_at_ms": 1794975529987
 }
