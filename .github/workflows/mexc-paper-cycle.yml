@@ -51,6 +51,7 @@ jobs:
       # A new account generation first publishes a verified recovery probe.
       # The next invocation must read it from this fresh checkout before creating
       # financial paper state; the probe run itself never initializes capital.
+      # Every later snapshot also checks pair neutrality and can size-correct drift.
       - name: Check out immutable paper-event branch
         uses: actions/checkout@v4
         with:
