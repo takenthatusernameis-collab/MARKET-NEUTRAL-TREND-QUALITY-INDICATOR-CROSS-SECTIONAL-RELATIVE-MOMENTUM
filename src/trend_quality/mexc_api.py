@@ -449,7 +449,7 @@ class MEXCPublicClient:
         return _integer(payload.get("data"), "server time", minimum=1)
 
     def contract_details(self) -> list[dict[str, Any]]:
-        payload = self._request("/api/v1/contract/detail/country")
+        payload = self._request("/api/v1/contract/detail")
         rows = _payload_rows(payload)
         if not rows:
             raise MEXCAPIError("MEXC contract detail returned no instruments")
