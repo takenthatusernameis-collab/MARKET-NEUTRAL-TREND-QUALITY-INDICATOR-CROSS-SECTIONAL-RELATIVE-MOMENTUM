@@ -533,3 +533,204 @@ def test_new_active_account_uses_fifty_usdt_seed_and_neutral_sizing_gate() -> No
     assert cycle.STRATEGY_ID == "trend-quality-daily-cross-sectional-v3-50usdt"
     assert cycle.MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION == Decimal("0.005")
 
+
+
+def test_five_minute_neutrality_rebalance_adds_only_the_underweight_leg() -> None:
+    from trend_quality.execution import SimulatedFill
+    from trend_quality.mexc_portfolio import initial_portfolio_state, open_paper_position
+
+    cycle = load_cycle_module()
+    now_ms = 1_800_000_000_000
+    long_instrument = {
+        "instrument_id": 1760,
+        "symbol": "SPOTSTOCK_USDT",
+        "category": "crypto",
+        "contract_size": "0.01",
+        "quantity_step_contracts": "1",
+        "min_contracts": "1",
+        "max_contracts": "20000",
+        "max_leverage": 20,
+        "taker_fee_rate": "0",
+    }
+    short_instrument = {
+        "instrument_id": 1899,
+        "symbol": "BILL_USDT",
+        "category": "crypto",
+        "contract_size": "100",
+        "quantity_step_contracts": "1",
+        "min_contracts": "1",
+        "max_contracts": "2000",
+        "max_leverage": 20,
+        "taker_fee_rate": "0",
+    }
+
+    def fill(side: str, quantity: str, price: str) -> SimulatedFill:
+        qty = Decimal(quantity)
+        px = Decimal(price)
+        return SimulatedFill(
+            side=side,
+            requested_quantity=qty,
+            filled_quantity=qty,
+            average_price=px,
+            reference_price=px,
+            notional=qty * px,
+            fee=Decimal("0"),
+            shortfall=Decimal("0"),
+            shortfall_bps=Decimal("0"),
+            complete=True,
+            levels_consumed=1,
+        )
+
+    state = initial_portfolio_state(Decimal("50"))
+    long_ticker = {"mark_price": "600.54", "mid_price": "600.54"}
+    short_ticker = {"mark_price": "0.003906", "mid_price": "0.003906"}
+    open_paper_position(
+        state, long_instrument, long_ticker, "long", Decimal("1"),
+        fill("buy", "0.08", "600.54"), now_ms - 86_400_000,
+    )
+    open_paper_position(
+        state, short_instrument, short_ticker, "short", Decimal("0.0002"),
+        fill("sell", "12000", "0.003906"), now_ms - 86_400_000,
+    )
+
+    class Store:
+        def load_candles(self, instrument_id: int, *, start_timestamp_ms: int):
+            assert instrument_id == 1899
+            return [
+                {
+                    "timestamp_ms": now_ms - (40 - day) * 86_400_000,
+                    "high": "0.0040",
+                    "low": "0.0038",
+                    "close": "0.0039",
+                }
+                for day in range(40)
+            ]
+
+    class PublicBookClient:
+        def server_time_ms(self) -> int:
+            return now_ms + 100
+
+        def orderbook(self, symbol: str, depth: int):
+            price = "600.54" if symbol == "SPOTSTOCK_USDT" else "0.003906"
+            return {
+                "timestamp_ms": now_ms,
+                "bids": [{"price": price, "quantity_contracts": "100000"}],
+                "asks": [{"price": price, "quantity_contracts": "100000"}],
+            }
+
+        def tickers(self):
+            return [
+                {
+                    "symbol": "SPOTSTOCK_USDT",
+                    "timestamp_ms": now_ms + 100,
+                    "mark_price": "600.54",
+                    "mid_price": "600.54",
+                    "last_price": "600.54",
+                },
+                {
+                    "symbol": "BILL_USDT",
+                    "timestamp_ms": now_ms + 100,
+                    "mark_price": "0.003906",
+                    "mid_price": "0.003906",
+                    "last_price": "0.003906",
+                },
+            ]
+
+    client = PublicBookClient()
+    before = cycle._portfolio_neutrality_metrics(
+        state,
+        {
+            1760: {"mark_price": "600.54"},
+            1899: {"mark_price": "0.003906"},
+        },
+    )
+    assert Decimal(before["imbalance_nav_fraction"]) > Decimal("0.005")
+
+    result = cycle._rebalance_existing_pair(
+        client,
+        state,
+        [long_instrument, short_instrument],
+        {
+            1760: {"mark_price": "600.54", "mid_price": "600.54"},
+            1899: {"mark_price": "0.003906", "mid_price": "0.003906"},
+        },
+        Store(),
+        now_ms,
+    )
+
+    assert result["status"] == "REBALANCED"
+    assert len(result["actions"]) == 1
+    assert result["actions"][0]["symbol"] == "BILL_USDT"
+    assert result["actions"][0]["action"] == "INCREASED"
+    assert Decimal(state["positions"][1]["quantity"]) == Decimal("12300")
+    assert Decimal(result["portfolio_neutrality"]["imbalance_nav_fraction"]) <= Decimal("0.005")
+
+
+def test_a_single_leg_stop_flattens_the_entire_market_neutral_pair() -> None:
+    cycle = load_cycle_module()
+    now_ms = 1_800_000_000_000
+    state = {
+        "cash": "100",
+        "realized_gross_pnl": "0",
+        "fees_paid": "0",
+        "closed_trade_net_pnls": [],
+        "positions": [
+            {
+                "instrument_id": 1,
+                "symbol": "LONG_USDT",
+                "side": "long",
+                "quantity": "1",
+                "entry_price": "100",
+                "entry_fee": "0",
+                "entry_timestamp_ms": now_ms - 1,
+                "last_mark_price": "100",
+                "stop_price": "100",
+            },
+            {
+                "instrument_id": 2,
+                "symbol": "SHORT_USDT",
+                "side": "short",
+                "quantity": "1",
+                "entry_price": "100",
+                "entry_fee": "0",
+                "entry_timestamp_ms": now_ms - 1,
+                "last_mark_price": "100",
+                "stop_price": "110",
+            },
+        ],
+    }
+    instruments = {
+        1: {"instrument_id": 1, "symbol": "LONG_USDT", "contract_size": "1", "taker_fee_rate": "0"},
+        2: {"instrument_id": 2, "symbol": "SHORT_USDT", "contract_size": "1", "taker_fee_rate": "0"},
+    }
+
+    class PublicBookClient:
+        def server_time_ms(self) -> int:
+            return now_ms + 10
+
+        def orderbook(self, symbol: str, depth: int):
+            return {
+                "timestamp_ms": now_ms,
+                "bids": [{"price": "99", "quantity_contracts": "100"}],
+                "asks": [{"price": "101", "quantity_contracts": "100"}],
+            }
+
+    exits, trailing = cycle._process_stops(
+        PublicBookClient(),
+        state,
+        instruments,
+        {
+            1: {"last_price": "99", "mark_price": "99"},
+            2: {"last_price": "100", "mark_price": "100"},
+        },
+        {},
+        now_ms - 86_400_000,
+        now_ms,
+    )
+
+    assert trailing == []
+    assert len(exits) == 2
+    assert state["positions"] == []
+    assert exits[0]["pair_stop_triggered_by"] == ["LONG_USDT"]
+
+
