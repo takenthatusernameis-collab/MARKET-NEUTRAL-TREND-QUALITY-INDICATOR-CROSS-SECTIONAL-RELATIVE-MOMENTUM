@@ -7,6 +7,7 @@ import pytest
 
 from trend_quality.mexc_api import (
     MEXCAPIError,
+    MEXCForbiddenError,
     MEXCPublicClient,
     is_active_cross_perpetual,
     is_active_cross_usdt_perpetual,
@@ -249,3 +250,36 @@ def test_bulk_ticker_keeps_instruments_with_absent_best_quotes() -> None:
     assert row["funding_rate"] == "0"
     assert row["turnover_24h_quote"] == "0"
     assert row["next_funding_timestamp_ms"] is None
+
+
+
+def test_http_403_reports_public_endpoint_and_provider_message() -> None:
+    def forbidden_transport(
+        path: str, params: Mapping[str, Any]
+    ) -> tuple[int, Any]:
+        assert path == "/api/v1/contract/kline/BTC_USDT"
+        return 403, {"code": 511, "message": "endpoint temporarily inaccessible"}
+
+    client = MEXCPublicClient(
+        minimum_interval_seconds=0,
+        retries=3,
+        transport=forbidden_transport,
+    )
+    with pytest.raises(MEXCForbiddenError) as raised:
+        client.candles(
+            "BTC_USDT",
+            start_timestamp_ms=1_700_000_000_000,
+            end_timestamp_ms=1_700_086_400_000,
+        )
+
+    message = str(raised.value)
+    assert "HTTP 403" in message
+    assert "/api/v1/contract/kline/BTC_USDT" in message
+    assert "code=511" in message
+    assert "endpoint temporarily inaccessible" in message
+    assert "?" not in message
+
+
+def test_public_client_uses_conservative_default_request_interval() -> None:
+    client = MEXCPublicClient(transport=lambda _path, _params: (200, success(1)))
+    assert client.minimum_interval_seconds == pytest.approx(0.20)

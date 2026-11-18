@@ -440,9 +440,9 @@ def _equity_curve_svg(
         'The dashed line marks initial account capital.</desc>',
         '<rect width="100%" height="100%" fill="#ffffff"/>',
         '<g font-family="Arial, sans-serif" fill="#222">',
-        f'<text x="{width / 2:.0f}" y="29" text-anchor="middle" font-size="22" font-weight="bold">'
+        f'<text x="{width / 2:.0f}" y="29" text-anchor="middle" font-size="26" font-weight="bold">'
         'Trend-Quality Paper Portfolio — Equity Curve</text>',
-        f'<text x="{width / 2:.0f}" y="55" text-anchor="middle" font-size="14" fill="#666">'
+        f'<text x="{width / 2:.0f}" y="55" text-anchor="middle" font-size="18" fill="#666">'
         'USDT net asset value · persisted mark-to-market observations · paper only</text>',
     ]
 
@@ -508,7 +508,7 @@ def _equity_curve_svg(
         parts.extend([
             f'<line x1="{left}" y1="{y:.2f}" x2="{plot_right}" y2="{y:.2f}" '
             'stroke="#e5e7eb" stroke-width="1"/>',
-            f'<text x="{left - 14}" y="{y + 4:.2f}" text-anchor="end" font-size="12" '
+            f'<text x="{left - 14}" y="{y + 4:.2f}" text-anchor="end" font-size="17" '
             f'fill="#555">{html.escape(label)}</text>',
         ])
 
@@ -530,7 +530,7 @@ def _equity_curve_svg(
             f'<line x1="{left}" y1="{reference_y:.2f}" x2="{plot_right}" y2="{reference_y:.2f}" '
             'stroke="#c27a12" stroke-width="1.5" stroke-dasharray="7 5"/>',
             f'<text x="{plot_right - 8}" y="{reference_label_y:.2f}" '
-            'text-anchor="end" font-size="12" fill="#9a5b08">'
+            'text-anchor="end" font-size="17" fill="#9a5b08">'
             f'Initial capital: {html.escape(format(reference, ",.4f"))} USDT</text>',
         ])
 
@@ -543,9 +543,9 @@ def _equity_curve_svg(
         'stroke-linejoin="round" stroke-linecap="round"/>',
         f'<circle cx="{coords[0][0]:.2f}" cy="{coords[0][1]:.2f}" r="4.5" fill="#1976d2"/>',
         f'<circle cx="{coords[-1][0]:.2f}" cy="{coords[-1][1]:.2f}" r="4.5" fill="#1976d2"/>',
-        f'<text x="{left}" y="83" font-size="14" fill="#333">'
+        f'<text x="{left}" y="83" font-size="19" fill="#333">'
         f'Start: {html.escape(format(first_value, ",.4f"))} USDT</text>',
-        f'<text x="{plot_right}" y="83" text-anchor="end" font-size="14" fill="#333">'
+        f'<text x="{plot_right}" y="83" text-anchor="end" font-size="19" fill="#333">'
         f'Latest: {html.escape(format(last_value, ",.4f"))} USDT '
         f'({roi:+.2f}% vs initial)</text>',
     ])
@@ -597,13 +597,13 @@ def _equity_curve_svg(
             anchor = "middle"
         parts.extend([
             f'<text x="{label_x:.2f}" y="{height - 78}" text-anchor="{anchor}" '
-            f'font-size="14" font-weight="bold" fill="#444">{html.escape(date_label)}</text>',
+            f'font-size="19" font-weight="bold" fill="#444">{html.escape(date_label)}</text>',
             f'<text x="{label_x:.2f}" y="{height - 54}" text-anchor="{anchor}" '
-            f'font-size="13" fill="#555">{html.escape(time_label)}</text>',
+            f'font-size="18" fill="#555">{html.escape(time_label)}</text>',
         ])
 
     parts.extend([
-        f'<text x="{plot_right}" y="{height - 10}" text-anchor="end" font-size="12" fill="#777">'
+        f'<text x="{plot_right}" y="{height - 10}" text-anchor="end" font-size="16" fill="#777">'
         f'{len(points):,} persisted NAV observations</text>',
         "</g></svg>",
         "",

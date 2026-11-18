@@ -5,6 +5,8 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from trend_quality.ranking import Candidate
 
 
@@ -122,6 +124,8 @@ def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     assert "I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY" in mexc
     assert "group: paper-state-branch-single-writer" in mexc
     assert "cancel-in-progress: false" in mexc
+    assert "group: paper-state-branch-single-writer" in preflight
+    assert "cancel-in-progress: false" in preflight
     assert "PAPER_STATE_WRITE_ENABLED: ${{ vars.PAPER_STATE_WRITE_ENABLED || 'true' }}" in mexc
     assert "STATE_PROTECTION_TOKEN" not in mexc
     assert "STATE_PROTECTION_TOKEN" not in cycle_source
@@ -319,6 +323,58 @@ def test_initialized_paper_account_restores_from_probe_chained_state(tmp_path) -
     assert probe_verified is True
 
 
+
+
+
+
+def test_bootstrap_stops_after_first_http_403_instead_of_hammering_endpoints() -> None:
+    from trend_quality.mexc_api import MEXCForbiddenError
+
+    cycle = load_cycle_module()
+
+    class FakeStore:
+        manifest = {
+            "instruments": {
+                "1": {
+                    "bootstrap_complete": False,
+                    "bootstrap_attempts": 0,
+                    "first_seen_at_ms": 1,
+                },
+                "2": {
+                    "bootstrap_complete": False,
+                    "bootstrap_attempts": 0,
+                    "first_seen_at_ms": 2,
+                },
+            }
+        }
+
+        def load_all_candles(self):
+            return {}
+
+    class ForbiddenClient:
+        calls: list[str] = []
+
+        def candles(self, symbol, **_kwargs):
+            self.calls.append(symbol)
+            raise MEXCForbiddenError(
+                "MEXC returned HTTP 403 for /api/v1/contract/kline/" + symbol
+            )
+
+    client = ForbiddenClient()
+    instruments = [
+        {"instrument_id": 1, "symbol": "AAA_USDT", "create_time_ms": 1},
+        {"instrument_id": 2, "symbol": "BBB_USDT", "create_time_ms": 1},
+    ]
+    with pytest.raises(MEXCForbiddenError, match="AAA_USDT"):
+        cycle._bootstrap_or_increment(
+            client,
+            FakeStore(),
+            instruments,
+            server_ms=1_800_000_000_000,
+            latest_completed_bar_ms=1_799_913_600_000,
+            batch_size=2,
+        )
+    assert client.calls == ["AAA_USDT"]
 
 
 
