@@ -30,11 +30,13 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm_paper_account == 'I_CONFIRM_ACTIVE_100_USDT_PAPER_ONLY' }}
     name: "ACTIVE $100 USDT PAPER ACCOUNT — daily full refresh / five-minute monitoring and retries"
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # 355-minute job ceiling; keep 15 minutes for durable checkpoint publication and reports.
+    timeout-minutes: 355
     env:
       MARKET_DATA_DIR: ../market-data
       PAPER_STATE_DIR: ../state
-      BOOTSTRAP_BATCH_SIZE: "150"
+      # 0 means process every currently discovered active cross-margin perpetual.
+      BOOTSTRAP_BATCH_SIZE: "0"
       PYTHONUNBUFFERED: "1"
       PAPER_STATE_WRITE_ENABLED: ${{ vars.PAPER_STATE_WRITE_ENABLED || 'true' }}
       GITHUB_REPOSITORY: ${{ github.repository }}
@@ -77,6 +79,8 @@ jobs:
         id: cycle
         working-directory: strategy
         shell: bash
+        # Stop data collection at 340 minutes so the always-run publisher has 15 minutes.
+        timeout-minutes: 340
         run: |
           mkdir -p ../market-data/data/reports/mexc
           set -o pipefail
