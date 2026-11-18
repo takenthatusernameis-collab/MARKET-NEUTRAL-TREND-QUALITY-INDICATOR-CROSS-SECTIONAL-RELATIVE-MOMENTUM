@@ -9,6 +9,8 @@ from trend_quality.mexc_api import (
     MEXCAPIError,
     MEXCForbiddenError,
     MEXCPublicClient,
+    _retry_after_seconds,
+    _retry_delay_seconds,
     is_active_cross_perpetual,
     is_active_cross_usdt_perpetual,
     normalize_instrument,
@@ -100,7 +102,7 @@ def test_normalizer_preserves_contract_multipliers_and_unknown_categories() -> N
 
 def test_instruments_research_all_cross_settlements_and_usdt_execution_subset() -> None:
     client = client_for({
-        "/api/v1/contract/detail": success([
+        "/api/v1/contract/detail/country": success([
             contract(),
             contract(id=18, symbol="ETH_USDT", positionOpenType=2, conceptPlate=["stock"]),
             contract(id=19, symbol="ISO_USDT", positionOpenType=1),
@@ -210,13 +212,21 @@ def test_funding_history_paginates_and_keeps_negative_rates() -> None:
     assert rows[0]["funding_rate"] == "-0.0002"
 
 
-def test_only_official_mexc_api_host_is_accepted() -> None:
+def test_only_current_official_mexc_api_host_is_accepted() -> None:
+    client = MEXCPublicClient(
+        minimum_interval_seconds=0,
+        retries=0,
+        transport=lambda _path, _params: (200, success(1)),
+    )
+    assert client.base_url == "https://api.mexc.com"
+    with pytest.raises(ValueError, match="official MEXC"):
+        MEXCPublicClient(base_url="https://contract.mexc.com")
     with pytest.raises(ValueError, match="official MEXC"):
         MEXCPublicClient(base_url="https://example.com")
 
 
 def test_malformed_market_response_fails_closed() -> None:
-    client = client_for({"/api/v1/contract/detail": {"success": False, "code": 6001}})
+    client = client_for({"/api/v1/contract/detail/country": {"success": False, "code": 6001}})
     with pytest.raises(MEXCAPIError):
         client.contract_details()
 
@@ -254,9 +264,13 @@ def test_bulk_ticker_keeps_instruments_with_absent_best_quotes() -> None:
 
 
 def test_http_403_reports_public_endpoint_and_provider_message() -> None:
+    calls = 0
+
     def forbidden_transport(
         path: str, params: Mapping[str, Any]
     ) -> tuple[int, Any]:
+        nonlocal calls
+        calls += 1
         assert path == "/api/v1/contract/kline/BTC_USDT"
         return 403, {"code": 511, "message": "endpoint temporarily inaccessible"}
 
@@ -278,8 +292,40 @@ def test_http_403_reports_public_endpoint_and_provider_message() -> None:
     assert "code=511" in message
     assert "endpoint temporarily inaccessible" in message
     assert "?" not in message
+    assert calls == 1
 
 
-def test_public_client_uses_conservative_default_request_interval() -> None:
+def test_http_429_uses_long_exponential_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+    sleeps: list[float] = []
+
+    def rate_limited_then_success(
+        _path: str, _params: Mapping[str, Any]
+    ) -> tuple[int, Any]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return 429, {"success": False, "code": 510}
+        return 200, success(1_700_000_000_000)
+
+    monkeypatch.setattr("trend_quality.mexc_api.time.sleep", sleeps.append)
+    client = MEXCPublicClient(
+        minimum_interval_seconds=0,
+        retries=1,
+        transport=rate_limited_then_success,
+    )
+    assert client.server_time_ms() == 1_700_000_000_000
+    assert calls == 2
+    assert sleeps == [60.0]
+
+
+def test_retry_after_is_parsed_and_never_shortens_rate_limit_cooldown() -> None:
+    assert _retry_after_seconds("90") == pytest.approx(90.0)
+    assert _retry_delay_seconds(429, 0, 90.0) == pytest.approx(90.0)
+    assert _retry_delay_seconds(429, 1, 10.0) == pytest.approx(120.0)
+    assert _retry_delay_seconds(503, 1, 10.0) == pytest.approx(10.0)
+
+
+def test_public_client_uses_substantially_slower_default_request_interval() -> None:
     client = MEXCPublicClient(transport=lambda _path, _params: (200, success(1)))
-    assert client.minimum_interval_seconds == pytest.approx(0.20)
+    assert client.minimum_interval_seconds == pytest.approx(1.5)
