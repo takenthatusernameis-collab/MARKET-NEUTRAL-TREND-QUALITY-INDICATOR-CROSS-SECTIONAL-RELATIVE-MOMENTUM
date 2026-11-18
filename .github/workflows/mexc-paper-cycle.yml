@@ -110,6 +110,7 @@ jobs:
           PAPER_STATE_DIR: ../state
           MARKET_DATA_DIR: ../market-data
           PAPER_STATUS_PATH: ../PAPER_STATUS.md
+          PAPER_TRADE_JOURNAL_PATH: ../PAPER_TRADE_JOURNAL.md
           PAPER_EQUAL_EQUITY_SVG_PATH: ../equal_exposure_equity_curve.svg
           PAPER_ALTERNATIVE_EQUITY_SVG_PATH: ../alternative_path_equity_curve.svg
           PAPER_WORKFLOW_OUTCOME: ${{ steps.cycle.outcome }}
@@ -129,9 +130,10 @@ jobs:
             git -C strategy fetch origin main
             git -C strategy checkout -B main origin/main
             cp PAPER_STATUS.md strategy/PAPER_STATUS.md
+            cp PAPER_TRADE_JOURNAL.md strategy/PAPER_TRADE_JOURNAL.md
             cp equal_exposure_equity_curve.svg strategy/equal_exposure_equity_curve.svg
             cp alternative_path_equity_curve.svg strategy/alternative_path_equity_curve.svg
-            git -C strategy add PAPER_STATUS.md equal_exposure_equity_curve.svg alternative_path_equity_curve.svg
+            git -C strategy add PAPER_STATUS.md PAPER_TRADE_JOURNAL.md equal_exposure_equity_curve.svg alternative_path_equity_curve.svg
             if git -C strategy diff --cached --quiet; then
               echo "Compact paper status is unchanged."
               exit 0
@@ -152,6 +154,7 @@ jobs:
           path: |
             market-data/data/reports/mexc/
             PAPER_STATUS.md
+            PAPER_TRADE_JOURNAL.md
             equal_exposure_equity_curve.svg
             alternative_path_equity_curve.svg
           if-no-files-found: warn

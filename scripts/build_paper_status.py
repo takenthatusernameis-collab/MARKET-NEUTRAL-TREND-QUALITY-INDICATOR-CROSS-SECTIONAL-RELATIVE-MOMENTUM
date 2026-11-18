@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from trend_quality.market_data_store import MarketDataStore
-from trend_quality.paper_status import render_paper_status
+from trend_quality.paper_status import render_paper_status, render_primary_trade_journal
 
 DAY_MS = 86_400_000
 
@@ -29,6 +29,11 @@ def main() -> int:
         "--output",
         type=Path,
         default=Path(os.environ.get("PAPER_STATUS_PATH", "PAPER_STATUS.md")),
+    )
+    parser.add_argument(
+        "--journal-output",
+        type=Path,
+        default=Path(os.environ.get("PAPER_TRADE_JOURNAL_PATH", "PAPER_TRADE_JOURNAL.md")),
     )
     parser.add_argument(
         "--equal-svg-output",
@@ -78,8 +83,15 @@ def main() -> int:
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report, encoding="utf-8")
+    journal = render_primary_trade_journal(
+        args.state_dir,
+        generated_at_ms=generated_at_ms,
+        workflow_metadata=metadata,
+    )
+    args.journal_output.parent.mkdir(parents=True, exist_ok=True)
+    args.journal_output.write_text(journal, encoding="utf-8")
     print(
-        f"Built compact paper status: {args.output}; "
+        f"Built compact paper status: {args.output}; journal: {args.journal_output}; "
         f"equal curve: {args.equal_svg_output}; "
         f"alternative curve: {args.alternative_svg_output}"
     )

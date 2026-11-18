@@ -12,6 +12,7 @@
 - Latest workflow run: [44303345661](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44303345661) · run #91, attempt 1 · success · schedule
 - Latest processed daily candle: —
 - Latest account event: —
+- Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)
 
 ## Current performance
 
@@ -30,6 +31,10 @@
 | Sharpe ratio | Unavailable — sample gate not met |
 | Sortino ratio | Unavailable — sample gate not met |
 | Annualized daily volatility | Unavailable — sample gate not met |
+
+## Drawdown by risk session
+
+No risk sessions have been recorded yet. Lifetime and per-session maximum drawdown will populate from the primary account's persisted NAV marks.
 
 ## Open positions
 

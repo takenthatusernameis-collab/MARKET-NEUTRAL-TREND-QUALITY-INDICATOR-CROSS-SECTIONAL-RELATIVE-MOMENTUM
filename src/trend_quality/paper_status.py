@@ -514,6 +514,238 @@ def _metric(metrics: dict[str, Any], key: str, percent: bool = False) -> str:
     return f"{number * 100:+.2f}%" if percent else f"{number:.3f}"
 
 
+
+
+def _drawdown_summary(
+    events: list[dict[str, Any]],
+    initial_capital: Decimal,
+) -> tuple[Decimal | None, Decimal | None, list[dict[str, Any]]]:
+    """Calculate lifetime and per-risk-session drawdown from persisted NAV marks."""
+    points: dict[int, dict[str, Any]] = {}
+    session_by_stamp: dict[int, int] = {}
+    baselines: dict[int, Decimal] = {}
+    for event in events:
+        payload = event.get("payload", {})
+        state = payload.get("portfolio_state", {}) if isinstance(payload, dict) else {}
+        if not isinstance(state, dict):
+            continue
+        risk = state.get("daily_risk", {})
+        risk = risk if isinstance(risk, dict) else {}
+        try:
+            session_start = int(risk.get("starting_timestamp_ms") or 0)
+        except (TypeError, ValueError):
+            session_start = 0
+        if session_start > 0 and risk.get("starting_nav") is not None:
+            baselines[session_start] = _dec(risk["starting_nav"])
+        for row in state.get("equity_curve", []) or []:
+            if not isinstance(row, dict) or row.get("timestamp_ms") is None:
+                continue
+            stamp = int(row["timestamp_ms"])
+            points[stamp] = dict(row)
+            if session_start > 0 and stamp >= session_start:
+                session_by_stamp[stamp] = session_start
+            elif stamp not in session_by_stamp:
+                day_start = int(
+                    datetime.fromtimestamp(stamp / 1000, tz=UTC)
+                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                    .timestamp() * 1000
+                )
+                session_by_stamp[stamp] = day_start
+                baselines.setdefault(day_start, _dec(row.get("nav")))
+
+    if not points:
+        return None, None, []
+
+    peak = initial_capital
+    lifetime_mdd = ZERO
+    for stamp in sorted(points):
+        nav = _dec(points[stamp].get("nav"))
+        if nav > peak:
+            peak = nav
+        if peak > ZERO:
+            lifetime_mdd = min(lifetime_mdd, nav / peak - ONE)
+
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for stamp in sorted(points):
+        grouped.setdefault(session_by_stamp.get(stamp, 0), []).append(points[stamp])
+
+    sessions: list[dict[str, Any]] = []
+    for start, rows in sorted(grouped.items()):
+        baseline = baselines.get(start, _dec(rows[0].get("nav")))
+        session_peak = baseline
+        worst = ZERO
+        for row in rows:
+            nav = _dec(row.get("nav"))
+            if nav > session_peak:
+                session_peak = nav
+            if session_peak > ZERO:
+                worst = min(worst, nav / session_peak - ONE)
+        sessions.append({
+            "start_timestamp_ms": start,
+            "observations": len(rows),
+            "starting_nav": baseline,
+            "latest_nav": _dec(rows[-1].get("nav")),
+            "max_drawdown": worst,
+        })
+    worst_session = min((row["max_drawdown"] for row in sessions), default=None)
+    return lifetime_mdd, worst_session, sessions
+
+
+def render_primary_trade_journal(
+    state_dir: Path,
+    *,
+    generated_at_ms: int,
+    workflow_metadata: dict[str, str] | None = None,
+) -> str:
+    """Render timestamped fills and funding for the primary v4 account only."""
+    events = [
+        event for event in _load_events(Path(state_dir))
+        if event.get("account_id") == ACCOUNT_ID
+        and event.get("strategy_id") == STRATEGY_ID
+    ]
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+
+    def add_fill(
+        item: dict[str, Any],
+        event: dict[str, Any],
+        fallback_action: str | None = None,
+    ) -> None:
+        action = str(item.get("action") or fallback_action or "").upper()
+        if action not in {"OPENED", "INCREASED", "REDUCED", "CLOSED"}:
+            return
+        instrument_id = str(item.get("instrument_id", ""))
+        symbol = str(item.get("symbol", instrument_id or "—"))
+        quantity = item.get("quantity", item.get("filled_quantity", ""))
+        price = item.get(
+            "entry_price",
+            item.get("exit_price", item.get("average_price", item.get("fill_price", ""))),
+        )
+        stamp = (
+            item.get("timestamp_ms")
+            or item.get("fill_timestamp_ms")
+            or item.get("entry_timestamp_ms")
+            or item.get("exit_timestamp_ms")
+            or event.get("occurred_at_ms")
+        )
+        signature = (
+            str(event.get("event_id", "")),
+            action,
+            instrument_id,
+            str(quantity),
+            str(price),
+        )
+        if signature in seen:
+            return
+        seen.add(signature)
+        rows.append({
+            "timestamp_ms": int(stamp or 0),
+            "symbol": symbol,
+            "side": str(item.get("side", "—")),
+            "action": action,
+            "quantity": str(quantity or "—"),
+            "price": str(price or "—"),
+            "fee": str(item.get(
+                "fee",
+                item.get("entry_fee", item.get("exit_fee", item.get("fee_usdt", "0"))),
+            )),
+            "realized_net_pnl": str(item.get(
+                "realized_net_pnl",
+                item.get("net_pnl", item.get("net_pnl_usdt", "—")),
+            )),
+            "funding": "—",
+            "event_id": str(event.get("event_id", "—")),
+        })
+
+    for event in events:
+        payload = event.get("payload", {})
+        details = payload.get("details", {}) if isinstance(payload, dict) else {}
+        details = details if isinstance(details, dict) else {}
+        for field, fallback in (
+            ("fills", None),
+            ("portfolio_refresh_close_actions", "CLOSED"),
+            ("portfolio_refresh_open_actions", "OPENED"),
+            ("stop_exits", "CLOSED"),
+            ("emergency_exits", "CLOSED"),
+        ):
+            values = details.get(field, [])
+            if isinstance(values, list):
+                for item in values:
+                    if isinstance(item, dict):
+                        add_fill(item, event, fallback)
+
+        retry = details.get("entry_retry")
+        if isinstance(retry, dict) and isinstance(retry.get("fills"), list):
+            for item in retry["fills"]:
+                if isinstance(item, dict):
+                    add_fill(item, event)
+
+        funding_values = details.get("funding_events", [])
+        if isinstance(funding_values, list):
+            for item in funding_values:
+                if not isinstance(item, dict):
+                    continue
+                stamp = (
+                    item.get("timestamp_ms")
+                    or item.get("settle_time_ms")
+                    or event.get("occurred_at_ms")
+                )
+                rows.append({
+                    "timestamp_ms": int(stamp or 0),
+                    "symbol": str(item.get("symbol", item.get("instrument_id", "—"))),
+                    "side": str(item.get("side", "—")),
+                    "action": "FUNDING",
+                    "quantity": str(item.get("quantity", "—")),
+                    "price": str(item.get("mark_price", "—")),
+                    "fee": "—",
+                    "realized_net_pnl": "—",
+                    "funding": str(item.get(
+                        "cashflow_usdt",
+                        item.get("cashflow", item.get("amount_usdt", "—")),
+                    )),
+                    "event_id": str(event.get("event_id", "—")),
+                })
+
+    rows.sort(key=lambda row: (row["timestamp_ms"], row["event_id"], row["action"]))
+    metadata = workflow_metadata or {}
+    run_id = metadata.get("run_id", "")
+    run_url = metadata.get("run_url", "")
+    run_link = f"[{run_id}]({run_url})" if run_id and run_url else (run_id or "Not yet run")
+    lifetime_mdd: Decimal | None = None
+    worst_session_mdd: Decimal | None = None
+    session_drawdowns: list[dict[str, Any]] = []
+    lines = [
+        "# Primary Paper Trade Journal — MEXC $100 USDT v4",
+        "",
+        "**Primary equal-exposure account only.** This journal is reconstructed from the verified, append-only v4 event chain. It contains no alternative-path trades or shadow executions.",
+        "",
+        f"- Account: `{ACCOUNT_ID}`",
+        f"- Strategy generation: `{STRATEGY_ID}`",
+        "- Starting capital: **100.00000000 USDT**",
+        f"- Generated: {_utc(generated_at_ms)}",
+        f"- Latest workflow: {run_link}",
+        f"- Recorded primary events: **{len(rows)}**",
+        "",
+        "| Timestamp (UTC) | Symbol | Side | Action | Quantity | Price | Fee (USDT) | Realized net P&L (USDT) | Funding (USDT) | Event ID |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|---|",
+    ]
+    if rows:
+        for row in rows:
+            lines.append(
+                f"| {_utc(row['timestamp_ms'])} | {row['symbol']} | {row['side']} "
+                f"| {row['action']} | {row['quantity']} | {row['price']} "
+                f"| {row['fee']} | {row['realized_net_pnl']} | {row['funding']} "
+                f"| `{row['event_id']}` |"
+            )
+    else:
+        lines.append("| No primary fills or funding events recorded yet | — | — | — | — | — | — | — | — | — |")
+    lines.extend([
+        "",
+        "This journal covers only the primary paper account. The inverse-volatility alternative path has no separate trade journal, positions or event stream.",
+        "",
+    ])
+    return "\n".join(lines)
+
 def render_paper_status(
     state_dir: Path,
     history: dict[int, list[dict[str, Any]]],
@@ -559,6 +791,9 @@ def render_paper_status(
             events, history, initial, generated_at_ms
         )
         snapshot = _nav_and_exposure(state)
+        lifetime_mdd, worst_session_mdd, session_drawdowns = _drawdown_summary(
+            events, initial
+        )
         metrics = performance_summary(state).get("metrics", {})
         positions = list(state.get("positions", []))
         risk = state.get("daily_risk", {})
@@ -588,6 +823,9 @@ def render_paper_status(
             "long_notional": ZERO, "short_notional": ZERO,
             "gross_exposure": ZERO, "net_exposure": ZERO,
         }
+        lifetime_mdd = None
+        worst_session_mdd = None
+        session_drawdowns = []
         metrics, positions, current_dd = {}, [], ZERO
         latest_bar, latest_state_time = None, None
         fees_paid, confirmed_funding = ZERO, ZERO
@@ -660,6 +898,14 @@ def render_paper_status(
         else "- No reconstruction warnings."
     )
 
+    session_rows = [
+        (
+            f"| {_utc(row['start_timestamp_ms'])} | {row['starting_nav']:,.8f} "
+            f"| {row['latest_nav']:,.8f} | {row['max_drawdown'] * 100:+.3f}% "
+            f"| {row['observations']} |"
+        )
+        for row in session_drawdowns
+    ] or ["| No risk sessions observed | — | — | — | 0 |"]
     lines = [
         "# ACTIVE PAPER STATUS — MEXC $100 USDT",
         "",
@@ -679,6 +925,7 @@ def render_paper_status(
         ),
         f"- Latest processed daily candle: {current_bar}",
         f"- Latest account event: {_utc(latest_state_time)}",
+        "- Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)",
         "",
         "## Current performance",
         "",
@@ -694,12 +941,20 @@ def render_paper_status(
         f"| Gross exposure | {snapshot['gross_exposure']:.3f}× NAV |",
         f"| Net exposure | {snapshot['net_exposure']:.3f}× NAV |",
         f"| Current drawdown from risk-window peak | {current_dd * 100:+.3f}% |",
+        f"| Lifetime / cross-session maximum drawdown | {('Unavailable — no account observations yet' if lifetime_mdd is None else f'{lifetime_mdd * 100:+.3f}%')} |",
+        f"| Worst risk-session maximum drawdown | {('Unavailable — no account observations yet' if worst_session_mdd is None else f'{worst_session_mdd * 100:+.3f}%')} |",
         f"| Sharpe ratio | {_metric(metrics, 'sharpe')} |",
         f"| Sortino ratio | {_metric(metrics, 'sortino')} |",
         (
             f"| Annualized daily volatility | "
             f"{_metric(metrics, 'annualized_daily_volatility', True)} |"
         ),
+        "",
+        "### Maximum drawdown by risk session",
+        "",
+        "| Session start (UTC) | Starting NAV | Latest NAV | Max drawdown | Marks |",
+        "|---|---:|---:|---:|---:|",
+        *session_rows,
         "",
         "## Open positions",
         "",
