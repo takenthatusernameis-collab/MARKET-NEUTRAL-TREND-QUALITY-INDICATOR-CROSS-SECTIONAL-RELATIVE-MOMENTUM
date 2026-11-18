@@ -31,6 +31,37 @@ class MEXCAPIError(RuntimeError):
     """Raised for invalid public responses or failed API requests."""
 
 
+class MEXCForbiddenError(MEXCAPIError):
+    """Raised when MEXC or an upstream edge denies a public API request."""
+
+
+def _http_error_message(
+    path: str,
+    status: int,
+    *,
+    detail: str | None = None,
+    headers: Mapping[str, Any] | None = None,
+    body: str | None = None,
+) -> str:
+    """Expose safe endpoint diagnostics without including query strings or secrets."""
+    parts = [f"MEXC returned HTTP {status} for {path}"]
+    if headers is not None:
+        server = headers.get("Server")
+        content_type = headers.get("Content-Type")
+        retry_after = headers.get("Retry-After")
+        if server:
+            parts.append(f"server={str(server)[:80]}")
+        if content_type:
+            parts.append(f"content_type={str(content_type)[:100]}")
+        if retry_after:
+            parts.append(f"retry_after={str(retry_after)[:40]}")
+    if detail:
+        parts.append(f"response={ ' '.join(str(detail).split())[:220] }")
+    if body:
+        parts.append(f"body={ ' '.join(str(body).split())[:220] }")
+    return "; ".join(parts)
+
+
 def _decimal(value: object, field: str, *, allow_zero: bool = False) -> Decimal:
     try:
         result = Decimal(str(value))
@@ -199,7 +230,7 @@ class MEXCPublicClient:
         base_url: str = DEFAULT_BASE_URL,
         *,
         timeout_seconds: float = 12.0,
-        minimum_interval_seconds: float = 0.11,
+        minimum_interval_seconds: float = 0.20,
         retries: int = 3,
         transport: Transport | None = None,
     ) -> None:
@@ -247,9 +278,23 @@ class MEXCPublicClient:
                         status = int(response.status)
                         payload = json.loads(response.read(8_000_000).decode("utf-8"))
                 if status == 429 or status >= 500:
-                    raise MEXCAPIError(f"Retryable MEXC HTTP status {status}")
+                    raise MEXCAPIError(
+                        f"Retryable MEXC HTTP status {status} for {path}"
+                    )
                 if status != 200:
-                    raise MEXCAPIError(f"MEXC returned HTTP {status}")
+                    detail = None
+                    if isinstance(payload, dict):
+                        response_code = payload.get("code")
+                        response_message = payload.get("message") or payload.get("msg")
+                        if response_code is not None or response_message:
+                            detail = (
+                                f"code={response_code!r}; "
+                                f"message={str(response_message or '')[:160]}"
+                            )
+                    message = _http_error_message(path, status, detail=detail)
+                    if status == 403:
+                        raise MEXCForbiddenError(message)
+                    raise MEXCAPIError(message)
                 if not isinstance(payload, dict):
                     raise MEXCAPIError("MEXC response is not a JSON object")
                 if payload.get("success") is not True or str(payload.get("code", "0")) != "0":
@@ -260,7 +305,19 @@ class MEXCPublicClient:
                 return payload
             except urllib.error.HTTPError as exc:
                 if exc.code != 429 and exc.code < 500:
-                    raise MEXCAPIError(f"MEXC returned HTTP {exc.code}") from exc
+                    try:
+                        body = exc.read(512).decode("utf-8", errors="replace")
+                    except OSError:
+                        body = None
+                    message = _http_error_message(
+                        path,
+                        exc.code,
+                        headers=exc.headers,
+                        body=body,
+                    )
+                    if exc.code == 403:
+                        raise MEXCForbiddenError(message) from exc
+                    raise MEXCAPIError(message) from exc
                 last_error = exc
             except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
                 last_error = exc
