@@ -48,7 +48,7 @@ from trend_quality.ranking import Candidate
 
 DAY_MS = 86_400_000
 BOOTSTRAP_DAYS = 365
-DEFAULT_BOOTSTRAP_BATCH_SIZE = 150
+DEFAULT_BOOTSTRAP_BATCH_SIZE = 0
 DAILY_REFRESH_BATCH_VERSION = 1
 DAILY_REFRESH_CHECKPOINT_EVERY = 25
 MAX_EXCHANGE_CLOCK_SKEW_MS = 5_000
@@ -155,6 +155,17 @@ def _daily_refresh_complete(
             ) or 0
         ) >= latest_bar_ms
         for row in instruments
+    )
+
+
+def _resolve_batch_size(requested_batch_size: int, available_count: int) -> int:
+    """Resolve 0 to the full live universe; positive values remain an explicit cap."""
+    if requested_batch_size < 0:
+        raise ValueError("BOOTSTRAP_BATCH_SIZE cannot be negative")
+    if available_count < 1:
+        raise ValueError("The active perpetual universe is empty")
+    return available_count if requested_batch_size == 0 else min(
+        requested_batch_size, available_count
     )
 
 
@@ -1782,15 +1793,11 @@ def _paper_state_writer_requested() -> bool:
 def _run() -> int:
     market_data_dir = Path(os.environ.get("MARKET_DATA_DIR", "market-data"))
     state_dir = Path(os.environ.get("PAPER_STATE_DIR", "state"))
-    batch_size = max(
-        1,
-        min(
-            int(os.environ.get(
-                "BOOTSTRAP_BATCH_SIZE", str(DEFAULT_BOOTSTRAP_BATCH_SIZE)
-            )),
-            300,
-        ),
-    )
+    requested_batch_size = int(os.environ.get(
+        "BOOTSTRAP_BATCH_SIZE", str(DEFAULT_BOOTSTRAP_BATCH_SIZE)
+    ))
+    if requested_batch_size < 0:
+        raise ValueError("BOOTSTRAP_BATCH_SIZE cannot be negative")
     store = MarketDataStore(market_data_dir, provider="mexc")
     client = MEXCPublicClient()
     server_ms = client.server_time_ms()
@@ -1884,6 +1891,13 @@ def _run() -> int:
         )
 
     instruments = client.instruments()
+    batch_size = _resolve_batch_size(requested_batch_size, len(instruments))
+    print(
+        f"[mexc-history] resolved batch size={batch_size} for "
+        f"{len(instruments)} active cross-margin perpetuals "
+        f"(0 configuration means full universe)",
+        flush=True,
+    )
     instrument_by_id = {
         int(row["instrument_id"]): row for row in instruments
     }
