@@ -21,7 +21,7 @@
 4. Set the required confirmation to `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`.
 5. Confirm the run. Its title will start with **▶ MANUAL PAPER RUN — MEXC $50 USDT**.
 
-Manual dispatch and the five-minute scheduler use the same account ID and strategy ID. Neither trigger creates a new financial account generation. The MEXC public preflight is a read-only diagnostic, not the paper account workflow. The retired Polymarket paper-state workflow has been removed.
+Manual dispatch and the five-minute scheduler use the same account ID and strategy ID. Neither trigger creates a new financial account generation. The MEXC public preflight is a manual-only, read-only diagnostic, not the paper account workflow. The retired Polymarket paper-state workflow has been removed.
 
 ## Archived generations
 
@@ -34,7 +34,7 @@ Their events are not deleted or overwritten. The current MEXC cycle and performa
 
 ## Last persisted snapshot
 
-On 2026-11-18 04:54:39.546 UTC, run [44239954487](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44239954487) recorded NAV 50.13572776 USDT and two simulated open positions: VSTOCK_USDT long (0.11 base units) and BILL_USDT short (11,600 base units). Dollar notionals were 45.820500 and 45.692400 USDT; the 0.128100 USDT imbalance was 0.256% of NAV, below the 0.5% band. The subsequent post-merge cycle (#76) returned MEXC HTTP 403 before a new snapshot and submitted zero orders; its state-derived performance report and chart still rebuilt/published successfully. Consult the linked report for the latest verified values.
+On 2026-11-18 05:37:15.935 UTC, run [44245469767](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44245469767) recorded NAV 49.66302776 USDT and two simulated open positions: VSTOCK_USDT long (0.11 base units) and BILL_USDT short (11,500 base units). Dollar notionals were 45.822700 and 45.770000 USDT; the 0.052700 USDT imbalance was 0.1061% of NAV, below the 0.5% band. The run reduced the short position by 100 units through a paper-only partial fill. No live order was submitted. Consult the linked report for the latest verified values.
 
 ## Operating boundary
 
