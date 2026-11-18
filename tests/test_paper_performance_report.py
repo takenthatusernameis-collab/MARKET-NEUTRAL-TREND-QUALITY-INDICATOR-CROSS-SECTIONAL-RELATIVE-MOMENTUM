@@ -469,3 +469,29 @@ def test_dense_equity_history_suppresses_crowded_interior_time_ticks() -> None:
     assert len(date_labels) == 2
     assert len(time_labels) == 2
     assert len({node.attrib["x"] for node in date_labels}) == 2
+
+
+
+def test_equity_curve_uses_phone_legible_svg_typography() -> None:
+    start = 1_800_000_000_000
+    svg = _equity_curve_svg(
+        [
+            {"timestamp_ms": start, "nav": "50"},
+            {"timestamp_ms": start + 60_000, "nav": "49.9"},
+        ],
+        Decimal("50"),
+    )
+    root = ET.fromstring(svg)
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    nodes = root.findall(".//svg:text", namespace)
+    by_text = {"".join(node.itertext()): node for node in nodes}
+
+    assert root.attrib["viewBox"] == "0 0 1120 500"
+    assert int(by_text["Trend-Quality Paper Portfolio — Equity Curve"].attrib["font-size"]) >= 26
+    assert int(by_text["2026-11-13"].attrib["font-size"]) >= 19
+    assert int(by_text["2026-11-13"].attrib["font-size"]) == 19
+    assert int(by_text["2 persisted NAV observations"].attrib["font-size"]) >= 16
+    assert int(by_text["Latest: 49.9000 USDT (-0.20% vs initial)"].attrib["font-size"]) >= 19
+    times = [node for node in nodes if "".join(node.itertext()).endswith("UTC")]
+    assert len(times) == 2
+    assert all(int(node.attrib["font-size"]) >= 18 for node in times)
