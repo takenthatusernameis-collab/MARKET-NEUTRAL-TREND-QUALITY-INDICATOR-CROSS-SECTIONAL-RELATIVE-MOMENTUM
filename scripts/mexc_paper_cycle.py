@@ -98,6 +98,7 @@ def _cycle_status_requires_attention(status: str) -> bool:
         "RETRY_EXECUTION_BLOCKED",
         "RETRY_NO_EXECUTABLE_PAIR",
         "EMERGENCY_FLATTEN_PENDING_RETRY",
+        "NEUTRALITY_REBALANCE_BLOCKED",
         "UNAVAILABLE_",
     ))
 
@@ -237,6 +238,167 @@ def _require_market_neutrality(
             f"{MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION}"
         )
     return metrics
+
+
+def _rebalance_existing_pair(
+    client: MEXCPublicClient,
+    state: dict[str, Any],
+    instruments: list[dict[str, Any]],
+    tickers: dict[int, dict[str, Any]],
+    store: MarketDataStore,
+    now_ms: int,
+) -> dict[str, Any]:
+    """Restore dollar neutrality for the held long/short pair on fresh venue lots."""
+    positions = list(state.get("positions", []))
+    if not positions:
+        return {
+            "status": "NO_OPEN_PAIR",
+            "actions": [],
+            "portfolio_neutrality": _portfolio_neutrality_metrics(state, tickers),
+            "ticker_by_id": tickers,
+            "timestamp_ms": now_ms,
+        }
+    if len(positions) != 2 or {str(row.get("side")) for row in positions} != {"long", "short"}:
+        raise MEXCExecutionUnavailable(
+            "Neutrality rebalance requires exactly one open long and one open short"
+        )
+
+    instruments_by_id = {
+        int(row["instrument_id"]): row for row in instruments
+    }
+    positions_by_side = {str(row["side"]): row for row in positions}
+    long_position = positions_by_side["long"]
+    short_position = positions_by_side["short"]
+    long_id = int(long_position["instrument_id"])
+    short_id = int(short_position["instrument_id"])
+    long_instrument = instruments_by_id.get(long_id)
+    short_instrument = instruments_by_id.get(short_id)
+    long_ticker = tickers.get(long_id)
+    short_ticker = tickers.get(short_id)
+    if any(value is None for value in (
+        long_instrument, short_instrument, long_ticker, short_ticker
+    )):
+        raise MEXCExecutionUnavailable(
+            "Cannot rebalance neutrality without both current contracts and marks"
+        )
+
+    current_metrics = _portfolio_neutrality_metrics(state, tickers)
+    if Decimal(current_metrics["imbalance_nav_fraction"]) <= MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION:
+        return {
+            "status": "WITHIN_NEUTRALITY_BAND",
+            "actions": [],
+            "portfolio_neutrality": current_metrics,
+            "ticker_by_id": tickers,
+            "timestamp_ms": now_ms,
+        }
+
+    nav = Decimal(current_metrics["nav_usdt"])
+    long_mid = dec(long_ticker.get("mid_price"))
+    short_mid = dec(short_ticker.get("mid_price"))
+    if long_mid <= 0 or short_mid <= 0:
+        raise MEXCExecutionUnavailable("Cannot size a neutrality correction from invalid mids")
+
+    pair_size = size_neutral_mexc_pair(
+        long_instrument,
+        short_instrument,
+        nav,
+        long_mid,
+        short_mid,
+        max_imbalance_nav_fraction=MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION,
+    )
+    if pair_size is None:
+        raise MEXCExecutionUnavailable(
+            "Current held pair has no executable lot combination inside the neutrality band"
+        )
+
+    trial = deepcopy(state)
+    trial_by_id = {
+        int(row["instrument_id"]): row for row in trial.get("positions", [])
+    }
+    targets = {
+        "long": pair_size["long_quantity"],
+        "short": pair_size["short_quantity"],
+    }
+    actions: list[dict[str, Any]] = []
+    execution_ms = now_ms
+
+    for side in ("long", "short"):
+        position = trial_by_id[
+            int(positions_by_side[side]["instrument_id"])
+        ]
+        instrument = instruments_by_id[int(position["instrument_id"])]
+        ticker = tickers[int(position["instrument_id"])]
+        current_quantity = dec(position["quantity"])
+        target_quantity = targets[side]
+        delta = target_quantity - current_quantity
+        if delta == 0:
+            continue
+
+        _step, minimum_quantity, _maximum, _contract_size = base_quantity_rules(
+            instrument, dec(ticker.get("mid_price"))
+        )
+        if abs(delta) < minimum_quantity:
+            continue
+
+        if side == "long":
+            order_side = "buy" if delta > 0 else "sell"
+        else:
+            order_side = "sell" if delta > 0 else "buy"
+        simulated, _book = _fill(
+            client, instrument, order_side, abs(delta), execution_ms
+        )
+        execution_ms = client.server_time_ms()
+
+        if delta > 0:
+            history = store.load_candles(
+                int(position["instrument_id"]),
+                start_timestamp_ms=max(0, execution_ms - BOOTSTRAP_DAYS * DAY_MS),
+            )
+            atr = _atr(history)
+            if atr is None:
+                raise MEXCExecutionUnavailable(
+                    f"Cannot safely increase {instrument['symbol']} without ATR history"
+                )
+            actions.append(increase_paper_position(
+                trial,
+                position,
+                instrument,
+                ticker,
+                atr,
+                simulated,
+                execution_ms,
+                stop_atr_multiple=STOP_ATR_MULTIPLE,
+            ))
+        else:
+            actions.append(reduce_paper_position(
+                trial, position, simulated, execution_ms
+            ))
+
+    fresh_tickers, missing = _ticker_maps(instruments, client.tickers())
+    check_ms = client.server_time_ms()
+    position_gaps = _stale_or_missing_position_marks(
+        list(trial.get("positions", [])), fresh_tickers, check_ms
+    )
+    if missing or position_gaps:
+        raise MEXCExecutionUnavailable(
+            "Cannot verify post-rebalance neutrality with fresh marks; "
+            f"missing instruments={missing[:5]}, stale positions={position_gaps[:5]}"
+        )
+
+    neutrality = _require_market_neutrality(trial, fresh_tickers)
+    if not actions:
+        raise MEXCExecutionUnavailable(
+            "Lot minimums prevent correcting the breached portfolio neutrality band"
+        )
+    state.clear()
+    state.update(trial)
+    return {
+        "status": "REBALANCED",
+        "actions": actions,
+        "portfolio_neutrality": neutrality,
+        "ticker_by_id": fresh_tickers,
+        "timestamp_ms": check_ms,
+    }
 
 
 def _ticker_maps(
@@ -1235,8 +1397,9 @@ def _process_stops(
     latest_completed_bar_ms: int,
     now_ms: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    exits: list[dict[str, Any]] = []
+    """Update trailing stops and flatten the pair if either leg is stopped."""
     trailing: list[dict[str, Any]] = []
+    triggered_symbols: list[str] = []
     for position in list(state.get("positions", [])):
         iid = int(position["instrument_id"])
         ticker = tickers.get(iid)
@@ -1276,18 +1439,28 @@ def _process_stops(
                     "stop_price": str(stop),
                 })
         if stop_is_triggered(position, last_price):
-            quantity = dec(position["quantity"])
-            close_side = "sell" if position["side"] == "long" else "buy"
-            try:
-                simulated, _ = _fill(
-                    client, instrument, close_side, quantity, now_ms
-                )
-                detail = close_paper_position(state, position, simulated, now_ms)
-                exits.append(detail)
-            except Exception as exc:
-                position["stop_triggered_unfilled"] = True
-                position["stop_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
-    return exits, trailing
+            triggered_symbols.append(str(position["symbol"]))
+
+    if not triggered_symbols:
+        return [], trailing
+
+    # A market-neutral strategy must never leave the opposite leg running alone.
+    state["pending_entry_signal"] = None
+    try:
+        exits = _close_all(client, state, instruments_by_id, now_ms)
+        for item in exits:
+            item["pair_stop_triggered_by"] = triggered_symbols
+        return exits, trailing
+    except Exception as exc:
+        state["emergency_liquidation_pending"] = True
+        risk = state.setdefault("daily_risk", {})
+        risk["flattened"] = False
+        risk["flatten_attempts"] = int(risk.get("flatten_attempts", 0)) + 1
+        risk["flatten_error"] = (
+            f"Pair stop triggered by {triggered_symbols}; "
+            f"{type(exc).__name__}: {str(exc)[:180]}"
+        )
+        return [], trailing
 
 
 def _branch_files_missing(state_dir: Path) -> bool:
@@ -1324,6 +1497,9 @@ def _snapshot_only_cycle(
     risk_status = "NOT_APPLICABLE_NO_INITIALIZED_PAPER_ACCOUNT"
     state_changed = False
     entry_retry_report: dict[str, Any] | None = None
+    neutrality_report: dict[str, str] | None = None
+    neutrality_rebalance_actions: list[dict[str, Any]] = []
+    pair_stop_triggered_symbols: list[str] = []
 
     if portfolio is not None:
         positions = list(portfolio.get("positions", []))
@@ -1437,6 +1613,19 @@ def _snapshot_only_cycle(
             state_changed = bool(state_changed or funding_events)
 
         risk = portfolio.setdefault("daily_risk", {})
+        pair_stop_triggered_symbols = [
+            str(position["symbol"])
+            for position in portfolio.get("positions", [])
+            if (
+                (ticker := ticker_by_id.get(int(position["instrument_id"]))) is not None
+                and dec(ticker.get("last_price")) > 0
+                and stop_is_triggered(position, dec(ticker.get("last_price")))
+            )
+        ]
+        if pair_stop_triggered_symbols:
+            # Flatten both legs atomically when either leg's ATR stop is hit.
+            portfolio["emergency_liquidation_pending"] = True
+            portfolio["pending_entry_signal"] = None
         pending_flatten = bool(
             risk.get("stop_triggered")
             or portfolio.get("emergency_liquidation_pending")
@@ -1528,8 +1717,66 @@ def _snapshot_only_cycle(
                 portfolio["daily_risk"]["flattened"] = True
                 portfolio["emergency_liquidation_pending"] = False
                 risk_status = "EMERGENCY_STOP_ACTIVE_BOOK_ALREADY_FLAT"
+            elif pair_stop_triggered_symbols:
+                risk_status = "PAIR_STOP_FLATTENED"
             else:
                 risk_status = "MONITORING_ONLY_NO_STRATEGY_DECISIONS"
+
+            if (
+                portfolio.get("positions")
+                and not risk.get("stop_triggered")
+                and not portfolio.get("emergency_liquidation_pending")
+            ):
+                try:
+                    neutral_result = _rebalance_existing_pair(
+                        client,
+                        portfolio,
+                        position_instruments,
+                        ticker_by_id,
+                        store,
+                        server_ms,
+                    )
+                    neutrality_report = neutral_result["portfolio_neutrality"]
+                    neutrality_rebalance_actions = neutral_result["actions"]
+                    ticker_by_id.update(neutral_result["ticker_by_id"])
+                    if neutrality_rebalance_actions:
+                        server_ms = int(neutral_result["timestamp_ms"])
+                        nav = portfolio_nav(portfolio, ticker_by_id)
+                        long_notional = sum(
+                            (
+                                dec(row["quantity"])
+                                * dec(ticker_by_id[int(row["instrument_id"])]["mark_price"])
+                                for row in portfolio.get("positions", [])
+                                if row["side"] == "long"
+                            ),
+                            Decimal("0"),
+                        )
+                        short_notional = sum(
+                            (
+                                dec(row["quantity"])
+                                * dec(ticker_by_id[int(row["instrument_id"])]["mark_price"])
+                                for row in portfolio.get("positions", [])
+                                if row["side"] == "short"
+                            ),
+                            Decimal("0"),
+                        )
+                        snapshot = append_equity_snapshot(
+                            portfolio, server_ms, nav, long_notional, short_notional
+                        )
+                        risk_status = "NEUTRALITY_REBALANCED"
+                        state_changed = True
+                except Exception as exc:
+                    risk_status = (
+                        "NEUTRALITY_REBALANCE_BLOCKED:"
+                        f"{type(exc).__name__}:{str(exc)[:180]}"
+                    )
+                    try:
+                        neutrality_report = _portfolio_neutrality_metrics(
+                            portfolio, ticker_by_id
+                        )
+                    except Exception:
+                        neutrality_report = None
+                    state_changed = True
 
         if writer_enabled and state_changed:
             details = {
@@ -1543,6 +1790,9 @@ def _snapshot_only_cycle(
                 "missing_position_marks": missing_symbols,
                 "ordinary_strategy_decisions": entry_retry_report is not None,
                 "entry_retry": entry_retry_report,
+                "portfolio_neutrality": neutrality_report,
+                "neutrality_rebalance_actions": neutrality_rebalance_actions,
+                "pair_stop_triggered_symbols": pair_stop_triggered_symbols,
                 "live_orders_submitted": 0,
             }
             state_event = _publish_event(
@@ -1609,7 +1859,9 @@ def _snapshot_only_cycle(
         ),
         "state_write_mode": state_write_mode,
         "paper_decision_status": (
-            entry_retry_report["status"] if entry_retry_report is not None else risk_status
+            risk_status if str(risk_status).startswith("NEUTRALITY_REBALANCE_BLOCKED")
+            else entry_retry_report["status"] if entry_retry_report is not None
+            else risk_status
         ),
         "entry_retry": entry_retry_report,
         "ticker_coverage": len(ticker_by_id),
@@ -1627,6 +1879,9 @@ def _snapshot_only_cycle(
         "excluded_or_unranked_sample": [],
         "portfolio": portfolio_report,
         "portfolio_snapshot": snapshot,
+        "portfolio_neutrality": neutrality_report,
+        "neutrality_rebalance_actions": neutrality_rebalance_actions,
+        "pair_stop_triggered_symbols": pair_stop_triggered_symbols,
         "funding_events": funding_events,
                 "emergency_exits": emergency_exits,
         "unresolved_funding_count": unresolved_funding,
@@ -1936,6 +2191,12 @@ def _run() -> int:
                         latest_bar_ms,
                         server_ms,
                     )
+                    if stop_exits:
+                        paper_decision_status = "PAIR_STOP_FLATTENED"
+                        portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
+                        portfolio["last_processed_daily_bar_ms"] = latest_bar_ms
+                    elif portfolio.get("emergency_liquidation_pending"):
+                        paper_decision_status = "EMERGENCY_FLATTEN_PENDING_RETRY"
                 state_changed = bool(
                     state_changed or funding_events or stop_exits or trailing_updates
                 )
@@ -1946,6 +2207,7 @@ def _run() -> int:
             and not portfolio.get("daily_risk", {}).get("stop_triggered")
             and not portfolio.get("emergency_liquidation_pending")
             and not position_mark_gaps
+            and not stop_exits
         ):
             portfolio["last_decision_attempt_daily_bar_ms"] = latest_bar_ms
             portfolio["pending_entry_signal"] = _pending_entry_signal(
