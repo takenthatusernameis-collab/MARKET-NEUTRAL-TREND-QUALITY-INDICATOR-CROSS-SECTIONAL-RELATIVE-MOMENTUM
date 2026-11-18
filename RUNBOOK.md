@@ -34,7 +34,7 @@ Successful preflight and UTC daily boundary evidence: [GitHub Actions run 439761
 - Convert contract-count depth and Kline volume using contractSize for the supported USDT linear execution path. For other settlements, retain contract counts and native quote turnover; never label non-USDT turnover as USDT.
 - Use volUnit, minVol, maxVol, priceUnit, contractSize and fee fields from the instrument record.
 
-The MEXC workflow is scheduled every five minutes. Initial history bootstrap is up to 365 days, 150 instruments per default batch; later calls begin after the last stored completed daily candle. New listings get a one-time resumable backfill. Only completed Day1 bars may feed Q. Representative sampled bars opened at 00:00 UTC; every timestamp still requires validation.
+The MEXC workflow is scheduled every five minutes, with an additional daily-close backup attempt at 00:01 UTC. Initial history bootstrap is up to 365 days, 150 instruments per default batch; later calls begin after the last stored completed daily candle. New listings get a one-time resumable backfill. Only completed Day1 bars may feed Q. Representative sampled bars opened at 00:00 UTC; every timestamp still requires validation.
 
 Public market data and ranking reports belong on the market-data branch, not the financial event branch. The first workflow run completed 150 bootstrap instruments and left 911 pending but its market-data commit was blocked by the repository ignore rule. The workflow now force-adds the data directory. Confirm a subsequent successful commit before describing market data as durably persisted.
 
