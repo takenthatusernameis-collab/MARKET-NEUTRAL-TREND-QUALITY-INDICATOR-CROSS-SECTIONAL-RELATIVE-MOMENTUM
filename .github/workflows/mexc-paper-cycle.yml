@@ -28,7 +28,7 @@ jobs:
   cycle:
     name: ▶ Manual start, five-minute entry retries and portfolio monitoring
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     env:
       MARKET_DATA_DIR: ../market-data
       PAPER_STATE_DIR: ../state
@@ -63,7 +63,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
-      - name: Run five-minute public-data and ranking cycle
+      - name: Run MEXC data, daily-decision and five-minute monitoring cycle
         id: cycle
         working-directory: strategy
         shell: bash
