@@ -2,33 +2,74 @@
 
 **🟢 ACTIVE · PAPER ONLY · NO LIVE ORDERS**
 
-**Correct workflow:** [▶ ACTIVE PAPER ACCOUNT — MEXC $100 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
+**Correct workflow:** [Open active workflow](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
 
 - Account: `mexc-usdt-forward-100usdt-v4`
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
-- Account state: **READY — AWAITING FIRST FINANCIAL WORKFLOW EVENT**
-- First eligible candle: latest genuinely completed UTC daily candle; no account candle watermark has been consumed.
-- Previous $50 simulations: archived, excluded from this account.
+- Account state: **READY — WAITING FOR FIRST FINANCIAL PAPER EVENT**
+- Last report build: 2026-11-18 12:23:48 UTC
+- Latest workflow run: [44303345661](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44303345661) · run #91, attempt 1 · success · schedule
+- Latest processed daily candle: —
+- Latest account event: —
 
-## Initial state
+## Current performance
 
-No v4 trades, fees, returns, open positions or performance observations have been created yet. The 100 USDT amount is the authorized starting capital, not a reported NAV after trading. The next eligible manual or scheduled cycle must verify the state recovery handshake, restore full market history, and pass data and simulated-execution gates before creating financial state.
+| Metric | Value |
+|---|---:|
+| Initial capital | 100.00000000 USDT |
+| **NAV** | **100.00000000 USDT** |
+| Total return | +0.000% |
+| Cash | 100.00000000 USDT |
+| Unrealized P&L | +0.00000000 USDT |
+| Fees paid | 0.00000000 USDT |
+| Confirmed funding | +0.00000000 USDT |
+| Gross exposure | 0.000× NAV |
+| Net exposure | 0.000× NAV |
+| Current drawdown from risk-window peak | +0.000% |
+| Sharpe ratio | Unavailable — sample gate not met |
+| Sortino ratio | Unavailable — sample gate not met |
+| Annualized daily volatility | Unavailable — sample gate not met |
+
+## Open positions
+
+| Symbol | Side | Quantity | Entry price | Mark | Notional (USDT) |
+|---|---|---:|---:|---:|---:|
+| No open positions yet | — | — | — | — | — |
 
 ## Primary path — equal exposure
 
-The primary paper strategy sizes the long and short legs independently toward equal USDT notional, approximately 1× NAV per leg before MEXC contract-lot rounding.
+The live forward-paper strategy sizes the long and short legs independently toward equal USDT notional (approximately 1× NAV per leg before lot rounding).
 
 ![Equal-exposure strategy equity curve](equal_exposure_equity_curve.svg)
 
-## Alternative path — inverse-volatility sizing
+## Alternative path — volatility-weighted sizing
 
-The second curve is a **visual-only counterfactual**. It will reuse exactly the same primary-path selected symbols, directions and rebalance timestamps. The quieter asset will receive the larger share of the same initial 100 USDT equity budget. At each rebalance, a lagged 30-completed-day inverse-volatility allocation will be used; any estimated reduction in pair volatility will be translated into a leverage multiplier to bring modeled volatility back toward the equal-exposure path. The alternative has no independent trade journal and cannot submit orders.
+This chart is a **visual-only counterfactual**, not an executed account. It reuses the primary strategy’s exact selected symbols, sides and rebalance timestamps; only the notional split changes. No alternative trade journal is created.
+
+At each rebalance, the quieter leg receives the larger share using inverse 30-completed-day realized volatility. The leverage overlay is the ratio of equal-exposure pair volatility to the inverse-volatility pair’s base estimated volatility. It increases modeled gross exposure only when the alternative has lower estimated volatility. Estimates use only data available at that rebalance.
+
+- Latest long / short allocation: **50.0% / 50.0%** of alternative gross notional.
+- Latest volatility-matching leverage multiplier: **1.000×**.
+- Estimated base volatility reduction before leverage: **+0.00%**.
+- Volatility observations used: **0**; status: `AWAITING_FIRST_PAIR`.
 
 ![Inverse-volatility alternative equity curve](alternative_path_equity_curve.svg)
 
-The alternative curve is a model estimate, not an executable account. It will disclose missing-history fallbacks and does not assume that nonlinear market impact, liquidation risk, borrowing or exchange leverage constraints are costless.
+**Model limitations:** the counterfactual scales observed primary entry/exit fees and funding by shadow notional. It does not model additional nonlinear market impact, depth constraints, liquidation limits or exchange leverage caps for larger hypothetical exposure. It is not an executable leverage recommendation.
 
-## Workflow and evidence
+## Next workflow action
 
-The correct active workflow is the one linked above. It runs manually or on its five-minute / 00:01 UTC schedule. Candle data and old event records are preserved; only the new v4 account has a clean decision watermark. A failed history or execution gate must be reported as blocked, not counted as a successful strategy rebalance.
+The next eligible cycle can process the latest genuine completed UTC daily candle; the new account has no consumed-candle watermark.
+
+The daily-candle watermark is not advanced by this report. Only the paper workflow can consume a completed candle after full-history and execution gates pass. A blocked or incomplete run remains visible.
+
+## Historical separation
+
+The v3 $50 USDT generation and its preliminary snapshots are archived and excluded from this account’s NAV, returns, equity curves and metrics. The immutable event ledger remains intact.
+
+## Alternative-path reconstruction notes
+
+- No reconstruction warnings.
+
+This is the compact live status page. The former detailed v3 report is retained under `archive/2026-11-18/` for audit purposes only.
