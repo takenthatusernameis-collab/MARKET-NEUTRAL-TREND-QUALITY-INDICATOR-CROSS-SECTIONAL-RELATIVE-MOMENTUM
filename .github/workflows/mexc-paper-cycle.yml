@@ -1,6 +1,6 @@
 name: "ACTIVE — MEXC $50 USDT PAPER ONLY — MANUAL / AUTO CYCLE"
 
-run-name: "ACTIVE $50 USDT PAPER — ${{ github.event_name == 'workflow_dispatch' && 'MANUAL' || (github.event_name == 'schedule' && 'SCHEDULED' || 'PUSH') }} — run #${{ github.run_number }}"
+run-name: "${{ github.event_name == 'workflow_dispatch' && '▶ MANUAL PAPER RUN — MEXC $50 USDT' || (github.event_name == 'schedule' && '⏱ SCHEDULED PAPER RUN — MEXC $50 USDT' || '⚙ PUSH-TRIGGERED PAPER RUN — MEXC $50 USDT') }} — run #${{ github.run_number }}"
 
 on:
   push:
@@ -36,7 +36,7 @@ concurrency:
 jobs:
   cycle:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm_paper_account == 'I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY' }}
-    name: "ACTIVE — $50 USDT PAPER — daily decision / five-minute monitoring"
+    name: "ACTIVE $50 USDT PAPER ACCOUNT — daily decision / five-minute monitoring"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
