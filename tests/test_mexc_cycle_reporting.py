@@ -74,6 +74,44 @@ def test_execution_ranking_report_can_omit_supplementary_b() -> None:
 
 
 
+def test_current_position_marks_use_all_market_server_timestamp_not_trade_time() -> None:
+    cycle = load_cycle_module()
+    now_ms = 1_800_000_000_000
+
+    class PublicTickerClient:
+        def tickers(self):
+            return [
+                {
+                    "symbol": "VSTOCK_USDT",
+                    "timestamp_ms": now_ms,
+                    "mark_price": "600.54",
+                    "last_price": "600.50",
+                },
+                {
+                    "symbol": "BILL_USDT",
+                    "timestamp_ms": now_ms,
+                    "mark_price": "0.003906",
+                    "last_price": "0.003905",
+                },
+            ]
+
+        def ticker(self, _symbol):
+            raise AssertionError("snapshot must use server-timestamped all-market feed")
+
+    positions = [
+        {"instrument_id": 101, "symbol": "VSTOCK_USDT"},
+        {"instrument_id": 202, "symbol": "BILL_USDT"},
+    ]
+    mapped, missing, errors = cycle._current_position_tickers(
+        PublicTickerClient(), positions, now_ms
+    )
+
+    assert set(mapped) == {101, 202}
+    assert mapped[202]["mark_price"] == "0.003906"
+    assert missing == []
+    assert errors == []
+
+
 def test_daily_risk_path_rejects_missing_stale_and_nonpositive_position_marks() -> None:
     cycle = load_cycle_module()
     positions = [{"instrument_id": 7, "symbol": "TEST_USDT"}]
