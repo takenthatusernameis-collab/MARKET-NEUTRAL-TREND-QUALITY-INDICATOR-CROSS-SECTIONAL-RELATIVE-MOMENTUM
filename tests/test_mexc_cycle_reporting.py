@@ -700,8 +700,18 @@ def test_a_single_leg_stop_flattens_the_entire_market_neutral_pair() -> None:
         ],
     }
     instruments = {
-        1: {"instrument_id": 1, "symbol": "LONG_USDT", "contract_size": "1", "taker_fee_rate": "0"},
-        2: {"instrument_id": 2, "symbol": "SHORT_USDT", "contract_size": "1", "taker_fee_rate": "0"},
+        1: {
+            "instrument_id": 1,
+            "symbol": "LONG_USDT",
+            "contract_size": "1",
+            "taker_fee_rate": "0",
+        },
+        2: {
+            "instrument_id": 2,
+            "symbol": "SHORT_USDT",
+            "contract_size": "1",
+            "taker_fee_rate": "0",
+        },
     }
 
     class PublicBookClient:
