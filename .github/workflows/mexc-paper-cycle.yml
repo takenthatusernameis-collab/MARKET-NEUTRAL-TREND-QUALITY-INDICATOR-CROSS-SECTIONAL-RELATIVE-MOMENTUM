@@ -1,4 +1,6 @@
-name: ▶ START PAPER SIMULATION — MEXC (PAPER ONLY)
+name: "ACTIVE — MEXC $50 USDT PAPER ONLY — MANUAL / AUTO CYCLE"
+
+run-name: "ACTIVE $50 USDT PAPER — ${{ github.event_name == 'workflow_dispatch' && 'MANUAL' || (github.event_name == 'schedule' && 'SCHEDULED' || 'PUSH') }} — run #${{ github.run_number }}"
 
 on:
   push:
@@ -16,6 +18,13 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      confirm_paper_account:
+        description: "Confirm this is the ACTIVE $50 USDT MEXC PAPER account. This writes paper state only; it never places live exchange orders."
+        type: choice
+        required: true
+        options:
+          - I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY
 
 permissions:
   contents: write
@@ -26,7 +35,8 @@ concurrency:
 
 jobs:
   cycle:
-    name: ▶ Manual start, five-minute entry retries and portfolio monitoring
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm_paper_account == 'I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY' }}
+    name: "ACTIVE — $50 USDT PAPER — daily decision / five-minute monitoring"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
