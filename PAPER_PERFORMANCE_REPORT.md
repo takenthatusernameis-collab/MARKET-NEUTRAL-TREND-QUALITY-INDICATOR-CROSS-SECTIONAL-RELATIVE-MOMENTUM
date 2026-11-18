@@ -1,9 +1,9 @@
 # MEXC Paper Performance Report
 
-Generated: 2026-11-18 04:39:54.152 UTC  
+Generated: 2026-11-18 04:54:59.991 UTC  
 Account: mexc-usdt-forward-50usdt-v3  
 Strategy generation: trend-quality-daily-cross-sectional-v3-50usdt  
-Workflow run: [44238786882](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44238786882) (run #74, attempt 1; outcome: success)
+Workflow run: [44239954487](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44239954487) (run #75, attempt 1; outcome: success)
 
 This standalone report is rebuilt from the dedicated state branch after every MEXC paper workflow run. The complete source event chain is verified before publication to main.
 
@@ -12,10 +12,10 @@ This standalone report is rebuilt from the dedicated state branch after every ME
 | Metric | Current value |
 |---|---:|
 | Initial capital | 50.00000000 USDT |
-| **Net asset value (NAV)** | **49.88652776 USDT** |
-| Total return from initial capital | -0.2269% |
+| **Net asset value (NAV)** | **50.13572776 USDT** |
+| Total return from initial capital | +0.2715% |
 | Cash | 49.99082776 USDT |
-| Unrealized P&L | -0.10430000 USDT |
+| Unrealized P&L | 0.14490000 USDT |
 | Realized gross P&L | 0.00000000 USDT |
 | Fees paid | 0.00917224 USDT |
 | Confirmed funding | 0.00000000 USDT |
@@ -23,12 +23,12 @@ This standalone report is rebuilt from the dedicated state branch after every ME
 | Open positions | 2 |
 | Fully closed position trades | 0 |
 | Closed-trade win rate | Unavailable — sample gate not met |
-| Gross exposure | 1.8401× NAV |
-| Net exposure | 0.0024× NAV |
-| Long / short notional | 45.83810000 / 45.95920000 USDT |
+| Gross exposure | 1.8253× NAV |
+| Net exposure | 0.0026× NAV |
+| Long / short notional | 45.82050000 / 45.69240000 USDT |
 
-Latest portfolio valuation: 2026-11-18 04:39:33.310 UTC.
-Latest saved account event: 2026-11-18 04:39:33.310 UTC.
+Latest portfolio valuation: 2026-11-18 04:54:39.546 UTC.
+Latest saved account event: 2026-11-18 04:54:39.546 UTC.
 
 ## Risk and performance metrics
 
@@ -44,7 +44,7 @@ Latest saved account event: 2026-11-18 04:39:33.310 UTC.
 | Recovery period after maximum drawdown | Unavailable — sample gate not met | Requires recovery to the prior peak |
 | Closed-trade expectancy | Unavailable — sample gate not met USDT | Fully closed position trades only |
 | Profit factor | Unavailable — sample gate not met | Fully closed position trades only |
-| Current risk-window drawdown | -0.2483% | Versus current risk-window peak 50.01072776 USDT |
+| Current risk-window drawdown | +0.0000% | Versus current risk-window peak 50.13572776 USDT |
 
 **Lifetime / cross-session maximum drawdown:** -0.2483%.
 **Worst individual risk-session maximum drawdown:** -0.2483%.
@@ -55,20 +55,20 @@ Risk-session drawdown resets only at a successful new-pair entry, daily rebalanc
 
 | Session | Start (UTC) | Starting NAV | Latest NAV | Session return | Maximum drawdown | Marks |
 |---:|---|---:|---:|---:|---:|---:|
-| 1 | 2026-11-18 04:26:47.111 UTC | 50.01072776 | 49.88652776 | -0.2483% | -0.2483% | 2 |
+| 1 | 2026-11-18 04:26:47.111 UTC | 50.01072776 | 50.13572776 | +0.2499% | -0.2483% | 3 |
 
 Lifetime drawdown peak: 2026-11-18 04:26:47.111 UTC.
 Lifetime drawdown trough: 2026-11-18 04:39:33.310 UTC (NAV 49.88652776 USDT).
 
 ## Equity curve
 
-All persisted mark-to-market observations (2 points):
+All persisted mark-to-market observations (3 points):
 
 ![Trend-Quality paper portfolio equity curve](equity_curve.svg)
 
 The SVG uses the same hash-chain-verified mark-to-market NAV observations shown in the full history below. The dashed line marks original account capital.
 
-Observed NAV range: 49.88652776 to 50.01072776 USDT.
+Observed NAV range: 49.88652776 to 50.13572776 USDT.
 Daily-equity observations: 1; daily metric status: INSUFFICIENT_DAILY_EQUITY_HISTORY (1 daily return observations).
 
 ### Daily equity observations
@@ -83,13 +83,14 @@ Daily-equity observations: 1; daily metric status: INSUFFICIENT_DAILY_EQUITY_HIS
 |---|---:|---:|---:|---:|---:|
 | 2026-11-18 04:26:47.111 UTC | 50.01072776 | 0.0214555200% | 0% | 45.85790000 | 45.85480000 |
 | 2026-11-18 04:39:33.310 UTC | 49.88652776 | -0.2269444800% | -0.2483467159206962918229686600% | 45.83810000 | 45.95920000 |
+| 2026-11-18 04:54:39.546 UTC | 50.13572776 | 0.2714555200% | 0% | 45.82050000 | 45.69240000 |
 
 ## Open positions
 
 | Symbol | Side | Quantity | Entry | Mark | Notional (USDT) | Unrealized P&L (USDT) | Entry UTC |
 |---|---|---:|---:|---:|---:|---:|---|
-| VSTOCK_USDT | long | 0.11 | 416.92 | 416.71 | 45.83810000 | -0.02310000 | 2026-11-18 04:26:47.111 UTC |
-| BILL_USDT | short | 11600 | 0.003955 | 0.003962 | 45.95920000 | -0.08120000 | 2026-11-18 04:26:47.111 UTC |
+| VSTOCK_USDT | long | 0.11 | 416.92 | 416.55 | 45.82050000 | -0.04070000 | 2026-11-18 04:26:47.111 UTC |
+| BILL_USDT | short | 11600 | 0.003955 | 0.003939 | 45.69240000 | 0.18560000 | 2026-11-18 04:26:47.111 UTC |
 
 ## Full timestamped trade and funding history
 
@@ -103,9 +104,9 @@ Explicit fills and funding records are shown directly. Persisted before/after po
 
 ## Data integrity and operating boundary
 
-Verified global event batches: **37**.
-Events for this account/strategy generation: **3** (2 carry full account-state snapshots).
-Latest global event-batch hash: 64c0c6303ab4d32a58e6324713f1ca45d5db05987ab530c351e57cb5d26e7808.
+Verified global event batches: **38**.
+Events for this account/strategy generation: **4** (3 carry full account-state snapshots).
+Latest global event-batch hash: a1fe9de2cadfa952c9ddbe08cb5cd57d99b74ad5f8f0ffe6b1eb0896965d922e.
 All batches were hash-verified and the complete parent-hash chain was checked for a single genesis, missing parents, duplicate identifiers and forks.
 The archived $1 and $10 USDT account generations are excluded; only the active $50 USDT account is reported.
 Paper simulation only: no live orders, private exchange endpoints, credentials or wallet access.
