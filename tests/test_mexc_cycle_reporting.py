@@ -500,311 +500,146 @@ def test_fill_uses_fresh_exchange_time_after_fetching_the_orderbook() -> None:
     assert fill.filled_quantity == Decimal("0.1")
 
 
-def test_pending_retry_rebalances_existing_positions_and_clears_signal(monkeypatch) -> None:
+def test_pending_retry_performs_full_book_rebuild_and_clears_signal(monkeypatch) -> None:
     cycle = load_cycle_module()
-    pending = {
-        "daily_bar_timestamp_ms": 1_800_000_000_000,
-        "attempt_count": 0,
-        "last_attempt_ms": None,
-    }
-    portfolio = {
-        "cash": "9",
-        "positions": [
-            {
-                "instrument_id": 101,
-                "symbol": "OLD_USDT",
-                "side": "long",
-                "quantity": "0.1",
-                "entry_price": "100",
-                "last_mark_price": "100",
+    pending = {"daily_bar_timestamp_ms": 1_800_000_000_000, "attempt_count": 0, "last_attempt_ms": None}
+    old_positions = [
+        {"instrument_id": 101, "symbol": "OLD_LONG_USDT", "side": "long", "quantity": "0.1", "entry_price": "100", "last_mark_price": "100"},
+        {"instrument_id": 202, "symbol": "OLD_SHORT_USDT", "side": "short", "quantity": "0.2", "entry_price": "100", "last_mark_price": "100"},
+    ]
+    portfolio = {"cash": "9", "positions": old_positions, "pending_entry_signal": pending}
+    rebuilt_positions = [
+        {"instrument_id": 303, "symbol": "NEW_LONG_USDT", "side": "long", "quantity": "0.08", "entry_price": "100", "last_mark_price": "100"},
+        {"instrument_id": 404, "symbol": "NEW_SHORT_USDT", "side": "short", "quantity": "12800", "entry_price": "0.003906", "last_mark_price": "0.003906"},
+    ]
+    rebuilt_state = {**portfolio, "positions": rebuilt_positions, "pending_entry_signal": pending}
+    closes = [
+        {"action": "CLOSED", "symbol": "OLD_LONG_USDT", "exit_price": "99"},
+        {"action": "CLOSED", "symbol": "OLD_SHORT_USDT", "exit_price": "101"},
+    ]
+    opens = [
+        {"action": "OPENED", "symbol": "NEW_LONG_USDT", "entry_price": "100"},
+        {"action": "OPENED", "symbol": "NEW_SHORT_USDT", "entry_price": "0.003906"},
+    ]
+    call_args = {}
+
+    def fake_rebuild(_client, state, _rankings, _history, _tickers, _instruments, now_ms, *, max_pairs):
+        assert state is portfolio
+        call_args["now_ms"] = now_ms
+        call_args["max_pairs"] = max_pairs
+        return {
+            "status": "PAIR_REBUILT",
+            "portfolio_state": rebuilt_state,
+            "execution_timestamp_ms": now_ms + 500,
+            "pair": ("mexc:303", "mexc:404"),
+            "candidate_fill_estimates": [],
+            "close_actions": closes,
+            "open_actions": opens,
+            "portfolio_neutrality": {
+                "long_notional_usdt": "48",
+                "short_notional_usdt": "49.9968",
+                "imbalance_usdt": "1.9968",
+                "imbalance_nav_fraction": "0.039936",
             },
-            {
-                "instrument_id": 202,
-                "symbol": "SHORT_USDT",
-                "side": "short",
-                "quantity": "0.2",
-                "entry_price": "100",
-                "last_mark_price": "100",
-            },
-        ],
-        "pending_entry_signal": pending,
-    }
+        }
 
-    class PublicBookClient:
-        def server_time_ms(self) -> int:
-            return 1_800_000_001_000
-
-    def fake_try_pair(*args, **kwargs):
-        return ([{"instrument_id": 101}], [], ("mexc:101", "mexc:202"))
-
-    def fake_apply(_client, trial, proposed, _instruments, now_ms):
-        assert trial["positions"][0]["symbol"] == "OLD_USDT"
-        trial["positions"][0]["quantity"] = "0.2"
-        return [], [{"action": "INCREASED", "timestamp_ms": now_ms}]
-
-    monkeypatch.setattr(cycle, "_try_pair", fake_try_pair)
-    monkeypatch.setattr(cycle, "_apply_selected_pair", fake_apply)
-    monkeypatch.setattr(cycle, "portfolio_nav", lambda *_args: Decimal("10"))
-    monkeypatch.setattr(
-        cycle, "reset_daily_risk_window", lambda *_args, **_kwargs: {"reset": True}
-    )
-
+    monkeypatch.setattr(cycle, "_rebuild_fresh_portfolio", fake_rebuild)
+    monkeypatch.setattr(cycle, "portfolio_nav", lambda *_args: Decimal("50"))
+    monkeypatch.setattr(cycle, "reset_daily_risk_window", lambda *_args, **_kwargs: {"reset": True})
     report = cycle._retry_pending_pair(
-        PublicBookClient(),
-        portfolio,
-        pending,
-        None,
-        {},
-        {},
-        {},
-        pending["daily_bar_timestamp_ms"],
-        pending["daily_bar_timestamp_ms"],
+        object(), portfolio, pending, None, {}, {}, {},
+        pending["daily_bar_timestamp_ms"], pending["daily_bar_timestamp_ms"],
     )
 
-    assert report["status"] == "RETRY_PAIR_REBALANCED"
-    assert portfolio["positions"][0]["quantity"] == "0.2"
+    assert report["status"] == "RETRY_PAIR_REBUILT"
+    assert call_args == {"now_ms": pending["daily_bar_timestamp_ms"], "max_pairs": 5}
+    assert portfolio["positions"] == rebuilt_positions
     assert portfolio["pending_entry_signal"] is None
+    assert report["close_actions"] == closes
+    assert report["open_actions"] == opens
+    assert report["fills"] == closes + opens
+    assert report["risk_window_reset"] == {"reset": True}
 
 
-def test_pending_retry_preserves_positions_and_signal_when_execution_fails(monkeypatch) -> None:
+
+def test_pending_retry_preserves_book_and_signal_when_full_rebuild_fails(monkeypatch) -> None:
     cycle = load_cycle_module()
-    pending = {
-        "daily_bar_timestamp_ms": 1_800_000_000_000,
-        "attempt_count": 0,
-        "last_attempt_ms": None,
-    }
-    portfolio = {
-        "cash": "9",
-        "positions": [{
-            "instrument_id": 101,
-            "symbol": "OLD_USDT",
-            "side": "long",
-            "quantity": "0.1",
-            "last_mark_price": "100",
-        }],
-        "pending_entry_signal": pending,
-    }
+    pending = {"daily_bar_timestamp_ms": 1_800_000_000_000, "attempt_count": 0, "last_attempt_ms": None}
+    old_positions = [
+        {"instrument_id": 101, "symbol": "OLD_LONG_USDT", "side": "long", "quantity": "0.1", "last_mark_price": "100"},
+        {"instrument_id": 202, "symbol": "OLD_SHORT_USDT", "side": "short", "quantity": "0.2", "last_mark_price": "100"},
+    ]
+    portfolio = {"cash": "9", "positions": old_positions, "pending_entry_signal": pending}
 
-    class PublicBookClient:
-        def server_time_ms(self) -> int:
-            return 1_800_000_001_000
-
-    def fail_try_pair(*args, **kwargs):
+    def fail_rebuild(*_args, **_kwargs):
         raise cycle.MEXCExecutionUnavailable("stale public depth")
 
-    monkeypatch.setattr(cycle, "_try_pair", fail_try_pair)
-
+    monkeypatch.setattr(cycle, "_rebuild_fresh_portfolio", fail_rebuild)
     report = cycle._retry_pending_pair(
-        PublicBookClient(),
-        portfolio,
-        pending,
-        None,
-        {},
-        {},
-        {},
-        pending["daily_bar_timestamp_ms"],
-        pending["daily_bar_timestamp_ms"],
+        object(), portfolio, pending, None, {}, {}, {},
+        pending["daily_bar_timestamp_ms"], pending["daily_bar_timestamp_ms"],
     )
-
     assert report["status"] == "RETRY_EXECUTION_BLOCKED"
-    assert portfolio["positions"][0]["quantity"] == "0.1"
+    assert portfolio["positions"] == old_positions
     assert portfolio["pending_entry_signal"] is pending
     assert pending["attempt_count"] == 1
 
 
-def test_portfolio_neutrality_gate_rejects_large_imbalance_and_one_sided_book() -> None:
-    cycle = load_cycle_module()
 
+def test_two_sided_portfolio_reports_imbalance_without_percentage_gate() -> None:
+    cycle = load_cycle_module()
     balanced = {
         "cash": "100",
         "positions": [
-            {
-                "instrument_id": 1,
-                "symbol": "LONG_USDT",
-                "side": "long",
-                "quantity": "1",
-                "entry_price": "50",
-                "last_mark_price": "50",
-            },
-            {
-                "instrument_id": 2,
-                "symbol": "SHORT_USDT",
-                "side": "short",
-                "quantity": "1",
-                "entry_price": "50",
-                "last_mark_price": "50",
-            },
+            {"instrument_id": 1, "symbol": "LONG_USDT", "side": "long", "quantity": "1", "entry_price": "50", "last_mark_price": "50"},
+            {"instrument_id": 2, "symbol": "SHORT_USDT", "side": "short", "quantity": "1", "entry_price": "50", "last_mark_price": "50"},
         ],
     }
     marks = {
         1: {"mark_price": "50", "timestamp_ms": 1_800_000_000_000},
         2: {"mark_price": "50", "timestamp_ms": 1_800_000_000_000},
     }
-    metrics = cycle._require_market_neutrality(balanced, marks)
+    metrics = cycle._validate_two_sided_portfolio(balanced, marks)
     assert Decimal(metrics["imbalance_nav_fraction"]) == Decimal("0")
-
     imbalanced = {
         **balanced,
-        "positions": [
-            {**balanced["positions"][0], "quantity": "1.1"},
-            balanced["positions"][1],
-        ],
+        "positions": [{**balanced["positions"][0], "quantity": "1.1"}, balanced["positions"][1]],
     }
-    try:
-        cycle._require_market_neutrality(imbalanced, marks)
-    except cycle.MEXCExecutionUnavailable as exc:
-        assert "exceeds" in str(exc)
-    else:
-        raise AssertionError("a materially imbalanced portfolio must fail closed")
-
+    imbalanced_metrics = cycle._validate_two_sided_portfolio(imbalanced, marks)
+    assert Decimal(imbalanced_metrics["imbalance_usdt"]) > 0
+    assert Decimal(imbalanced_metrics["imbalance_nav_fraction"]) > Decimal("0.005")
     one_sided = {**balanced, "positions": balanced["positions"][:1]}
-    try:
-        cycle._require_market_neutrality(one_sided, marks)
-    except cycle.MEXCExecutionUnavailable as exc:
-        assert "both a positive long and short" in str(exc)
-    else:
-        raise AssertionError("a one-sided portfolio must fail closed")
+    with pytest.raises(cycle.MEXCExecutionUnavailable, match="exactly one long and one short"):
+        cycle._validate_two_sided_portfolio(one_sided, marks)
 
 
-def test_new_active_account_uses_fifty_usdt_seed_and_neutral_sizing_gate() -> None:
+
+def test_active_account_keeps_fifty_usdt_seed_without_neutrality_threshold() -> None:
     cycle = load_cycle_module()
     assert cycle.INITIAL_CAPITAL == Decimal("50")
     assert cycle.ACCOUNT_ID == "mexc-usdt-forward-50usdt-v3"
     assert cycle.STRATEGY_ID == "trend-quality-daily-cross-sectional-v3-50usdt"
-    assert cycle.MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION == Decimal("0.005")
+    assert not hasattr(cycle, "MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION")
+    assert not hasattr(cycle, "_rebalance_existing_pair")
+    assert hasattr(cycle, "_validate_two_sided_portfolio")
 
 
-
-def test_five_minute_neutrality_rebalance_adds_only_the_underweight_leg() -> None:
-    from trend_quality.execution import SimulatedFill
-    from trend_quality.mexc_portfolio import initial_portfolio_state, open_paper_position
+def test_five_minute_snapshot_monitors_risk_without_portfolio_construction() -> None:
+    import inspect
 
     cycle = load_cycle_module()
-    now_ms = 1_800_000_000_000
-    long_instrument = {
-        "instrument_id": 1760,
-        "symbol": "SPOTSTOCK_USDT",
-        "category": "crypto",
-        "contract_size": "0.01",
-        "quantity_step_contracts": "1",
-        "min_contracts": "1",
-        "max_contracts": "20000",
-        "max_leverage": 20,
-        "taker_fee_rate": "0",
-    }
-    short_instrument = {
-        "instrument_id": 1899,
-        "symbol": "BILL_USDT",
-        "category": "crypto",
-        "contract_size": "100",
-        "quantity_step_contracts": "1",
-        "min_contracts": "1",
-        "max_contracts": "2000",
-        "max_leverage": 20,
-        "taker_fee_rate": "0",
-    }
+    snapshot_source = inspect.getsource(cycle._snapshot_only_cycle)
+    for forbidden in (
+        "_try_pair(", "_rebuild_fresh_portfolio(", "_apply_selected_pair(",
+        "size_mexc_leg(", "_validate_two_sided_portfolio(",
+    ):
+        assert forbidden not in snapshot_source
+    assert "_current_position_tickers(" in snapshot_source
+    assert "_process_funding(" in snapshot_source
+    assert "append_equity_snapshot(" in snapshot_source
+    assert "_close_all(" in snapshot_source
 
-    def fill(side: str, quantity: str, price: str) -> SimulatedFill:
-        qty = Decimal(quantity)
-        px = Decimal(price)
-        return SimulatedFill(
-            side=side,
-            requested_quantity=qty,
-            filled_quantity=qty,
-            average_price=px,
-            reference_price=px,
-            notional=qty * px,
-            fee=Decimal("0"),
-            shortfall=Decimal("0"),
-            shortfall_bps=Decimal("0"),
-            complete=True,
-            levels_consumed=1,
-        )
 
-    state = initial_portfolio_state(Decimal("50"))
-    long_ticker = {"mark_price": "600.54", "mid_price": "600.54"}
-    short_ticker = {"mark_price": "0.003906", "mid_price": "0.003906"}
-    open_paper_position(
-        state, long_instrument, long_ticker, "long", Decimal("1"),
-        fill("buy", "0.08", "600.54"), now_ms - 86_400_000,
-    )
-    open_paper_position(
-        state, short_instrument, short_ticker, "short", Decimal("0.0002"),
-        fill("sell", "12000", "0.003906"), now_ms - 86_400_000,
-    )
-
-    class Store:
-        def load_candles(self, instrument_id: int, *, start_timestamp_ms: int):
-            assert instrument_id == 1899
-            return [
-                {
-                    "timestamp_ms": now_ms - (40 - day) * 86_400_000,
-                    "high": "0.0040",
-                    "low": "0.0038",
-                    "close": "0.0039",
-                }
-                for day in range(40)
-            ]
-
-    class PublicBookClient:
-        def server_time_ms(self) -> int:
-            return now_ms + 100
-
-        def orderbook(self, symbol: str, depth: int):
-            bid = "600.53" if symbol == "SPOTSTOCK_USDT" else "0.003905"
-            ask = "600.55" if symbol == "SPOTSTOCK_USDT" else "0.003907"
-            return {
-                "timestamp_ms": now_ms,
-                "bids": [{"price": bid, "quantity_contracts": "100000"}],
-                "asks": [{"price": ask, "quantity_contracts": "100000"}],
-            }
-
-        def tickers(self):
-            return [
-                {
-                    "symbol": "SPOTSTOCK_USDT",
-                    "timestamp_ms": now_ms + 100,
-                    "mark_price": "600.54",
-                    "mid_price": "600.54",
-                    "last_price": "600.54",
-                },
-                {
-                    "symbol": "BILL_USDT",
-                    "timestamp_ms": now_ms + 100,
-                    "mark_price": "0.003906",
-                    "mid_price": "0.003906",
-                    "last_price": "0.003906",
-                },
-            ]
-
-    client = PublicBookClient()
-    before = cycle._portfolio_neutrality_metrics(
-        state,
-        {
-            1760: {"mark_price": "600.54"},
-            1899: {"mark_price": "0.003906"},
-        },
-    )
-    assert Decimal(before["imbalance_nav_fraction"]) > Decimal("0.005")
-
-    result = cycle._rebalance_existing_pair(
-        client,
-        state,
-        [long_instrument, short_instrument],
-        {
-            1760: {"mark_price": "600.54", "mid_price": "600.54"},
-            1899: {"mark_price": "0.003906", "mid_price": "0.003906"},
-        },
-        Store(),
-        now_ms,
-    )
-
-    assert result["status"] == "REBALANCED"
-    assert len(result["actions"]) == 1
-    assert result["actions"][0]["symbol"] == "BILL_USDT"
-    assert result["actions"][0]["action"] == "INCREASED"
-    assert Decimal(state["positions"][1]["quantity"]) == Decimal("12300")
-    assert Decimal(result["portfolio_neutrality"]["imbalance_nav_fraction"]) <= Decimal("0.005")
 
 
 def test_a_single_leg_stop_flattens_the_entire_market_neutral_pair() -> None:

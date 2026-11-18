@@ -350,11 +350,14 @@ def test_execution_pair_accepts_independent_lot_rounding_without_percentage_gate
             return now_ms
 
         def orderbook(self, symbol: str, depth: int) -> dict[str, Any]:
-            price = long_price if symbol == "SPOTSTOCK_USDT" else short_price
+            if symbol == "SPOTSTOCK_USDT":
+                bid, ask = long_price - Decimal("0.01"), long_price + Decimal("0.01")
+            else:
+                bid, ask = short_price - Decimal("0.000001"), short_price + Decimal("0.000001")
             return {
                 "timestamp_ms": now_ms,
-                "bids": [{"price": str(price), "quantity_contracts": "100000000"}],
-                "asks": [{"price": str(price), "quantity_contracts": "100000000"}],
+                "bids": [{"price": str(bid), "quantity_contracts": "100000000"}],
+                "asks": [{"price": str(ask), "quantity_contracts": "100000000"}],
             }
 
     pair = cycle._try_pair(
@@ -374,79 +377,51 @@ def test_execution_pair_accepts_independent_lot_rounding_without_percentage_gate
     )
 
 
-def test_joint_pair_sizing_respects_lot_grids_and_neutrality_tolerance() -> None:
-    from trend_quality.mexc_paper import size_neutral_mexc_pair
+def test_independent_leg_sizing_respects_venue_lots_without_joint_neutrality_search() -> None:
+    from trend_quality.mexc_paper import size_mexc_leg
 
     long_instrument = {
         **instrument(1760, "SPOTSTOCK_USDT"),
-        "contract_size": "0.01",
-        "quantity_step_contracts": "1",
-        "min_contracts": "1",
-        "max_contracts": "20000",
+        "contract_size": "0.01", "quantity_step_contracts": "1",
+        "min_contracts": "1", "max_contracts": "20000",
     }
     short_instrument = {
         **instrument(1899, "BILL_USDT"),
-        "contract_size": "100",
-        "quantity_step_contracts": "1",
-        "min_contracts": "1",
-        "max_contracts": "2000",
+        "contract_size": "100", "quantity_step_contracts": "1",
+        "min_contracts": "1", "max_contracts": "2000",
     }
+    long_quantity = size_mexc_leg(long_instrument, Decimal("50"), Decimal("600.54"))
+    short_quantity = size_mexc_leg(short_instrument, Decimal("50"), Decimal("0.003906"))
+    long_notional = long_quantity * Decimal("600.54")
+    short_notional = short_quantity * Decimal("0.003906")
 
-    sized = size_neutral_mexc_pair(
-        long_instrument,
-        short_instrument,
-        Decimal("50"),
-        Decimal("600.54"),
-        Decimal("0.003906"),
-    )
-    assert sized is not None
-    assert sized["long_quantity"] == Decimal("0.08")
-    assert sized["short_quantity"] == Decimal("12300")
-    assert sized["long_notional"] == Decimal("48.0432")
-    assert sized["short_notional"] == Decimal("48.043800")
-    assert sized["imbalance_fraction"] <= Decimal("0.005")
-    assert sized["long_notional"] <= Decimal("50")
-    assert sized["short_notional"] <= Decimal("50")
-
-    # The former 10-USDT sizing cannot reach the same neutrality band for
-    # these venue lot sizes. It must not fabricate a one-sided executable pair.
-    assert size_neutral_mexc_pair(
-        long_instrument,
-        short_instrument,
-        Decimal("10"),
-        Decimal("600.54"),
-        Decimal("0.003906"),
-    ) is None
+    assert long_quantity == Decimal("0.08")
+    assert short_quantity == Decimal("12800")
+    assert long_notional == Decimal("48.0432")
+    assert short_notional == Decimal("49.996800")
+    assert long_notional <= Decimal("50")
+    assert short_notional <= Decimal("50")
+    assert abs(long_notional - short_notional) / Decimal("50") > Decimal("0.005")
 
 
-def test_joint_pair_sizing_never_rounds_an_unaffordable_leg() -> None:
-    from trend_quality.mexc_paper import size_neutral_mexc_pair
+def test_independent_leg_sizing_never_rounds_a_below_minimum_lot_up() -> None:
+    from trend_quality.mexc_paper import size_mexc_leg
 
-    long_instrument = {
+    coarse_long = {
         **instrument(11, "COARSE_LONG_USDT"),
-        "contract_size": "1",
-        "quantity_step_contracts": "10",
-        "min_contracts": "10",
-        "max_contracts": "100000",
+        "contract_size": "1", "quantity_step_contracts": "10",
+        "min_contracts": "10", "max_contracts": "100000",
     }
-    short_instrument = {
+    fine_short = {
         **instrument(22, "FINE_SHORT_USDT"),
-        "contract_size": "0.001",
-        "quantity_step_contracts": "1",
-        "min_contracts": "1",
-        "max_contracts": "100000000",
+        "contract_size": "0.001", "quantity_step_contracts": "1",
+        "min_contracts": "1", "max_contracts": "100000000",
     }
+    long_quantity = size_mexc_leg(coarse_long, Decimal("50"), Decimal("6"))
+    short_quantity = size_mexc_leg(fine_short, Decimal("50"), Decimal("0.01"))
 
-    sized = size_neutral_mexc_pair(
-        long_instrument,
-        short_instrument,
-        Decimal("50"),
-        Decimal("1"),
-        Decimal("0.01"),
-    )
-    assert sized is not None
-    assert sized["long_notional"] <= Decimal("50")
-    assert sized["short_notional"] <= Decimal("50")
-    assert sized["imbalance_fraction"] <= Decimal("0.005")
+    assert long_quantity == Decimal("0")
+    assert short_quantity > 0
+    assert short_quantity * Decimal("0.01") <= Decimal("50")
 
 
