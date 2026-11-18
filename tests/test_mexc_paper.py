@@ -404,7 +404,7 @@ def test_joint_pair_sizing_respects_lot_grids_and_neutrality_tolerance() -> None
     ) is None
 
 
-def test_joint_pair_sizing_never_rounds_an_unaffordable_leg_up() -> None:
+def test_joint_pair_sizing_never_rounds_an_unaffordable_leg() -> None:
     from trend_quality.mexc_paper import size_neutral_mexc_pair
 
     long_instrument = {
@@ -426,11 +426,12 @@ def test_joint_pair_sizing_never_rounds_an_unaffordable_leg_up() -> None:
         long_instrument,
         short_instrument,
         Decimal("50"),
-        Decimal("10"),
+        Decimal("1"),
         Decimal("0.01"),
     )
     assert sized is not None
     assert sized["long_notional"] <= Decimal("50")
     assert sized["short_notional"] <= Decimal("50")
     assert sized["imbalance_fraction"] <= Decimal("0.005")
+
 
