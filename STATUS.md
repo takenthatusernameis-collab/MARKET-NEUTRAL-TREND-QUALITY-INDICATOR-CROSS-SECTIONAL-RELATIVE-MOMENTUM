@@ -1,7 +1,7 @@
 # Market-Neutral Trend-Quality System — Status
 
 **Report date:** 2026-11-18  
-**Selected provider:** MEXC Futures public API — technical data qualification passed  
+**Selected provider:** MEXC Futures public API — sampled qualification passed; intermittent HTML HTTP 403 at /api/v1/contract/ping observed on 2026-11-18 05:38 UTC  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
 **Forward paper account:** ACTIVE GENERATION — 50 USDT seed; v3 VSTOCK_USDT long + BILL_USDT short simulated; independently restored from verified event chain  
 **Historical replay:** not implemented  
