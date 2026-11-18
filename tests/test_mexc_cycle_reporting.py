@@ -322,6 +322,58 @@ def test_initialized_paper_account_restores_from_probe_chained_state(tmp_path) -
 
 
 
+
+def test_bootstrap_stops_after_first_http_403_instead_of_hammering_endpoints() -> None:
+    from trend_quality.mexc_api import MEXCForbiddenError
+
+    cycle = load_cycle_module()
+
+    class FakeStore:
+        manifest = {
+            "instruments": {
+                "1": {
+                    "bootstrap_complete": False,
+                    "bootstrap_attempts": 0,
+                    "first_seen_at_ms": 1,
+                },
+                "2": {
+                    "bootstrap_complete": False,
+                    "bootstrap_attempts": 0,
+                    "first_seen_at_ms": 2,
+                },
+            }
+        }
+
+        def load_all_candles(self):
+            return {}
+
+    class ForbiddenClient:
+        calls: list[str] = []
+
+        def candles(self, symbol, **_kwargs):
+            self.calls.append(symbol)
+            raise MEXCForbiddenError(
+                "MEXC returned HTTP 403 for /api/v1/contract/kline/" + symbol
+            )
+
+    client = ForbiddenClient()
+    instruments = [
+        {"instrument_id": 1, "symbol": "AAA_USDT", "create_time_ms": 1},
+        {"instrument_id": 2, "symbol": "BBB_USDT", "create_time_ms": 1},
+    ]
+    with pytest.raises(MEXCForbiddenError, match="AAA_USDT"):
+        cycle._bootstrap_or_increment(
+            client,
+            FakeStore(),
+            instruments,
+            server_ms=1_800_000_000_000,
+            latest_completed_bar_ms=1_799_913_600_000,
+            batch_size=2,
+        )
+    assert client.calls == ["AAA_USDT"]
+
+
+
 def test_daily_decision_is_not_consumed_until_history_coverage_passes() -> None:
     cycle = load_cycle_module()
     latest_bar = 1_800_000_000_000
