@@ -28,6 +28,8 @@
 | Gross exposure | 0.000× NAV |
 | Net exposure | 0.000× NAV |
 | Current drawdown from risk-window peak | +0.000% |
+| Lifetime / cross-session maximum drawdown | Unavailable — no account observations yet |
+| Worst risk-session maximum drawdown | Unavailable — no risk sessions observed yet |
 | Sharpe ratio | Unavailable — sample gate not met |
 | Sortino ratio | Unavailable — sample gate not met |
 | Annualized daily volatility | Unavailable — sample gate not met |
