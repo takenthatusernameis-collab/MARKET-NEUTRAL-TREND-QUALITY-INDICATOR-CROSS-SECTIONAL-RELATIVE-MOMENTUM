@@ -357,3 +357,80 @@ def test_daily_pair_rebalance_trades_only_required_position_deltas() -> None:
     assert positions[101]["entry_timestamp_ms"] == original_entry_times[101]
     assert positions[202]["entry_timestamp_ms"] == original_entry_times[202]
     assert state["closed_trade_net_pnls"] == []
+
+
+def test_joint_pair_sizing_respects_lot_grids_and_neutrality_tolerance() -> None:
+    from trend_quality.mexc_paper import size_neutral_mexc_pair
+
+    long_instrument = {
+        **instrument(1760, "SPOTSTOCK_USDT"),
+        "contract_size": "0.01",
+        "quantity_step_contracts": "1",
+        "min_contracts": "1",
+        "max_contracts": "20000",
+    }
+    short_instrument = {
+        **instrument(1899, "BILL_USDT"),
+        "contract_size": "100",
+        "quantity_step_contracts": "1",
+        "min_contracts": "1",
+        "max_contracts": "2000",
+    }
+
+    sized = size_neutral_mexc_pair(
+        long_instrument,
+        short_instrument,
+        Decimal("50"),
+        Decimal("600.54"),
+        Decimal("0.003906"),
+    )
+    assert sized is not None
+    assert sized["long_quantity"] == Decimal("0.08")
+    assert sized["short_quantity"] == Decimal("12300")
+    assert sized["long_notional"] == Decimal("48.0432")
+    assert sized["short_notional"] == Decimal("48.043800")
+    assert sized["imbalance_fraction"] <= Decimal("0.005")
+    assert sized["long_notional"] <= Decimal("50")
+    assert sized["short_notional"] <= Decimal("50")
+
+    # The former 10-USDT sizing cannot reach the same neutrality band for
+    # these venue lot sizes. It must not fabricate a one-sided executable pair.
+    assert size_neutral_mexc_pair(
+        long_instrument,
+        short_instrument,
+        Decimal("10"),
+        Decimal("600.54"),
+        Decimal("0.003906"),
+    ) is None
+
+
+def test_joint_pair_sizing_never_rounds_an_unaffordable_leg_up() -> None:
+    from trend_quality.mexc_paper import size_neutral_mexc_pair
+
+    long_instrument = {
+        **instrument(11, "COARSE_LONG_USDT"),
+        "contract_size": "1",
+        "quantity_step_contracts": "10",
+        "min_contracts": "10",
+        "max_contracts": "100000",
+    }
+    short_instrument = {
+        **instrument(22, "FINE_SHORT_USDT"),
+        "contract_size": "0.001",
+        "quantity_step_contracts": "1",
+        "min_contracts": "1",
+        "max_contracts": "100000000",
+    }
+
+    sized = size_neutral_mexc_pair(
+        long_instrument,
+        short_instrument,
+        Decimal("50"),
+        Decimal("10"),
+        Decimal("0.01"),
+    )
+    assert sized is not None
+    assert sized["long_notional"] <= Decimal("50")
+    assert sized["short_notional"] <= Decimal("50")
+    assert sized["imbalance_fraction"] <= Decimal("0.005")
+
