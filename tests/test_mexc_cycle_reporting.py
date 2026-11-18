@@ -182,9 +182,18 @@ def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     assert "def _state_branch_protection" not in cycle_source
 
     assert not retired_polymarket.exists()
-    assert "DIAGNOSTIC ONLY — MANUAL READ-ONLY MEXC PREFLIGHT" in preflight
-    assert "on:\n  workflow_dispatch:" in preflight
-    assert "push:" not in preflight.split("permissions:", 1)[0]
+    assert "DIAGNOSTIC ONLY — READ-ONLY MEXC PREFLIGHT" in preflight
+    assert "AUTOMATIC READ-ONLY MEXC PREFLIGHT" in preflight
+    assert "on:\n  push:\n    branches: [main]" in preflight
+    assert "\n  workflow_dispatch:" in preflight
+    for trigger_path in (
+        ".github/workflows/mexc-public-preflight.yml",
+        "scripts/mexc_public_preflight.py",
+        "src/trend_quality/mexc_api.py",
+        "pyproject.toml",
+    ):
+        assert f'      - "{trigger_path}"' in preflight
+    assert "schedule:" not in preflight
     assert "permissions:\n  contents: read" in preflight
     assert "contents: write" not in preflight
 
