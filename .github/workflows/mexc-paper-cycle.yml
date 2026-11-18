@@ -16,7 +16,7 @@ on:
       - "scripts/mexc_paper_cycle.py"
       - ".github/workflows/mexc-paper-cycle.yml"
   schedule:
-    # Frequent monitoring and delayed-data recovery.
+    # Five-minute marking/risk monitoring plus retries of a pending frozen daily signal.
     - cron: "*/5 * * * *"
     # Dedicated UTC daily-close attempt; the candle watermark keeps this idempotent
     # if a five-minute poll has already processed the same completed candle.
@@ -40,7 +40,7 @@ concurrency:
 jobs:
   cycle:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm_paper_account == 'I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY' }}
-    name: "ACTIVE $50 USDT PAPER ACCOUNT — daily decision / five-minute monitoring"
+    name: "ACTIVE $50 USDT PAPER ACCOUNT — daily full refresh / five-minute monitoring and retries"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -65,7 +65,8 @@ jobs:
       # A new account generation first publishes a verified recovery probe.
       # The next invocation must read it from this fresh checkout before creating
       # financial paper state; the probe run itself never initializes capital.
-      # Every later snapshot also checks pair neutrality and can size-correct drift.
+      # Five-minute snapshots never resize or neutral-rebalance open positions.
+      # They may retry the same frozen daily signal until its first successful full rebuild.
       - name: Check out immutable paper-event branch
         uses: actions/checkout@v4
         with:
@@ -83,7 +84,7 @@ jobs:
           python -m pip install -e .
       # MEXC Futures REST now uses api.mexc.com with 1.5-second minimum request pacing.
       # This is the sole active $50 USDT paper-account writer; no live orders are sent.
-      - name: Run MEXC data, daily-decision and five-minute monitoring cycle
+      - name: Run MEXC data, daily full portfolio refresh and five-minute monitoring/retry cycle
         id: cycle
         working-directory: strategy
         shell: bash

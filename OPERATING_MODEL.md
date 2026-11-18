@@ -22,8 +22,8 @@ The first workflow invocation that observes a newly completed UTC daily candle r
 3. Refresh instrument lifecycle and perform one bounded, resumable candle-bootstrap/incremental-history batch.
 4. Validate completed daily candles and data coverage.
 5. Recalculate exchange-neutral Q/B/ATR features and cross-sectional research/execution rankings.
-6. If the paper-account state-write gate is open and the data gate passes, process due funding, assess the portfolio-level emergency limit, evaluate daily ATR/trailing exits, then select the daily pair and rebalance both retained legs toward equal USDT notional using only the required quantity deltas. Close/reopen only the contract(s) actually replaced.
-7. Persist the daily decision/risk event and human-readable research/performance reports.
+6. If the state-write and data gates pass, process funding, assess the combined emergency limit and daily ATR exits, select the daily pair, close the entire existing book, then open both selected legs from fresh public order books—even when both contract symbols are unchanged. Each leg independently targets about 1× current NAV notional (about 50 USDT per leg at a 50 USDT NAV), rounded down to its venue lot size. Record the resulting dollar-notional gap; there is no percentage-neutrality rejection gate.
+7. Persist the daily execution result, close/open fees and slippage, risk event and human-readable research/performance reports.
 
 The daily workload is keyed to the completed UTC daily candle timestamp, not the cron start minute. A given daily candle must not cause duplicate heavy work or duplicate portfolio decisions. The bootstrap batch is deliberately bounded; incomplete bootstrap is resumed on a later daily-close cycle, not by repeating the heavy workload every five minutes.
 
@@ -37,9 +37,11 @@ Every invocation that does not observe a new daily candle performs a monitoring-
 - Apply confirmed funding settlements exactly once as accounting events; unresolved settlement marks remain unresolved and are not replaced with zero.
 - Check the combined-book emergency daily drawdown threshold.
 - Retry a previously triggered but incomplete emergency flatten.
+- Monitor ATR stop conditions and flatten the pair if the existing risk rule triggers.
+- Retry a pending execution of the same frozen daily shortlist, at most five candidate pairs per five-minute invocation, using fresh tickers and order books.
 - Publish the portfolio valuation/risk event when the paper-state persistence gate is open.
 
-This mode does not refresh the full research universe, backfill candles, recalculate Q rankings, or run ordinary ATR/trailing-stop decisions. It has one narrowly scoped exception when the portfolio is flat: if the latest daily decision persisted a valid executable long and short shortlist but its first simulated pair attempt failed, the five-minute invocation may retry that frozen shortlist. It fetches fresh public tickers and order books, checks at most five candidate pairs per invocation, and persists the attempt/result. It does not recalculate Q, does not create a new signal, and does not reuse an old order book. The pending shortlist expires when a new completed UTC daily candle is observed. If the original daily decision had no executable long/short shortlist at all, no retry is scheduled; the system waits for the next daily decision. Once a pair is open, snapshot mode returns to monitoring-only. A monitoring run may also close positions only to complete an already-triggered emergency flatten.
+This mode never recalculates Q, selects a new signal, resizes a position, or performs neutrality rebalancing. A pending daily execution is the only portfolio-construction exception: until it succeeds or a newer daily candle closes, each five-minute invocation retries the same persisted shortlist. A retry simulates a full close of both existing legs followed by fresh entries in both selected legs. If any required fill cannot be modelled, the paper ledger remains unchanged and the pending signal is retained. On the first successful rebuild, the pending signal is cleared; further five-minute runs return to valuation and risk monitoring only. A new portfolio construction is not attempted again until the next completed UTC daily candle. A monitoring run may still flatten positions to complete an ATR or combined emergency exit.
 
 ### Manual on-demand start
 
@@ -75,18 +77,18 @@ Sizing is calculated as NAV × margin allocation × leverage ÷ reference price,
 Only USDT-quoted and USDT-settled contracts can enter this homogeneous paper account. Other settlement types may remain in research rankings, but must not be mixed into USDT NAV without a separately validated conversion and settlement model.
 
 
-### Daily pair maintenance and equal-notional rebalance
+### Daily full-book refresh and simple lot rounding
 
-Every eligible completed daily candle is a fresh sizing checkpoint, even when the selected long and short contracts are unchanged.
+Every eligible completed daily candle is a fresh portfolio-construction checkpoint, even when the selected long and short contracts are unchanged.
 
-- The two legs target equal USDT notional: each target is `NAV × 50% margin allocation × 2× leverage` (approximately 1× current NAV per leg). This is dollar-notional neutrality, not beta neutrality.
-- If the selected instrument and side are already held, calculate `target_quantity − current_quantity` and simulate only that signed delta. A positive delta adds quantity; a negative delta reduces quantity and realizes P&L only on the reduced slice. Entry fees, weighted-average entry price, margin, partial realized P&L and funding watermarks are updated proportionally.
-- Do not close and reopen an unchanged contract just to rebalance it. A retained leg keeps its original position identity/entry timestamp; only the changed quantity is added or removed.
-- If the long or short contract is replaced, close only the replaced position and open its replacement. The other retained leg stays open and is independently resized toward its target.
-- MEXC lot increments, minimum quantity, current book depth and impact limits remain binding. When the required adjustment is below the venue's minimum executable quantity, or the current book cannot fill it, leave that leg unchanged and report the constraint. Never round the delta up or force a full close merely to make the exposure numbers look equal. Any remaining imbalance caused by venue precision/minimums must remain visible in the report.
-- The workflow reports the action and signed quantity delta for every leg under `rebalance_actions`, alongside the simulated fills and costs.
+- Each leg targets `NAV × 50% margin allocation × 2× leverage` (about 1× current NAV notional per leg; about 50 USDT per leg when NAV is 50 USDT).
+- Each leg is sized independently and rounded down to its own MEXC contract increment. The final long/short dollar-notional difference is measured and reported, but is not rejected by a 0.5%-of-NAV tolerance or another percentage gate.
+- At every daily execution, simulate closing **both** existing legs, then simulate opening **both** selected legs from fresh order books—even if the contract symbols and target quantities have not changed. This intentionally incurs close and open fees/slippage every day to stress-test turnover and friction.
+- A completed refresh gives both positions fresh entry timestamps and records explicit close and open fills, fees, slippage and realised P&L in the independent trade history.
+- If any required close or entry cannot be modelled safely, commit none of that attempted refresh to the paper ledger. Keep the persisted book and frozen daily shortlist intact; retry the same shortlist on subsequent five-minute workflow invocations, at most five candidate pairs per invocation, until success or the next completed daily candle. Failed attempts do not book partial simulated fills or fees.
+- Once the rebuild succeeds, clear the pending daily signal. No further construction or resizing occurs during that candle; five-minute runs only monitor equity, funding and risk exits.
 
-After a successful daily pair decision/rebalance—including a decision that retains the same pair with no executable quantity change—the 25% drawdown window is reset to the post-rebalance NAV and peak NAV, with the reset timestamp recorded. This treats the maintained pair as a fresh daily trade window. The separate UTC-day return baseline is preserved, so a delayed decision/rebalance cannot erase the day's earlier performance. The pre-rebalance equity/risk snapshot is evaluated **before** this reset. If that check has already triggered the emergency stop, or an emergency flatten remains pending, the daily rebalance is blocked and the reset helper refuses to clear the latch. A later five-minute retry that opens a previously pending daily signal likewise starts the new risk window at its post-fill NAV.
+After a successful daily full refresh, reset the 25% combined drawdown window to post-refresh NAV and peak NAV, with the reset timestamp recorded. Preserve the separate UTC-day return baseline. The pre-refresh equity/risk snapshot is evaluated **before** this reset. A latched emergency stop or pending emergency flatten cannot be cleared by the reset helper. Emergency/ATR exits remain permitted between daily portfolio refreshes; ordinary re-entry waits for the next eligible daily signal.
 
 
 ## 3. Combined portfolio emergency stop

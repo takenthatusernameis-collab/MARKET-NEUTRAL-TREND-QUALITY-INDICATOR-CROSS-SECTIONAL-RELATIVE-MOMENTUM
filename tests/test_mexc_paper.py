@@ -221,11 +221,9 @@ def test_frozen_daily_entry_shortlist_round_trips_for_five_minute_retries() -> N
 
 
 
-def test_daily_pair_rebalance_trades_only_required_position_deltas() -> None:
-    script_path = (
-        Path(__file__).resolve().parents[1] / "scripts" / "mexc_paper_cycle.py"
-    )
-    spec = importlib.util.spec_from_file_location("mexc_paper_cycle_rebalance", script_path)
+def test_daily_refresh_closes_and_reopens_even_when_same_contracts_are_selected() -> None:
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "mexc_paper_cycle.py"
+    spec = importlib.util.spec_from_file_location("mexc_paper_cycle_full_refresh", script_path)
     assert spec is not None and spec.loader is not None
     cycle = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cycle)
@@ -240,64 +238,32 @@ def test_daily_pair_rebalance_trades_only_required_position_deltas() -> None:
     def opening_fill(side: str, quantity: str) -> SimulatedFill:
         qty = Decimal(quantity)
         return SimulatedFill(
-            side=side,
-            requested_quantity=qty,
-            filled_quantity=qty,
-            average_price=Decimal("100"),
-            reference_price=Decimal("100"),
-            notional=qty * Decimal("100"),
-            fee=Decimal("0"),
-            shortfall=Decimal("0"),
-            shortfall_bps=Decimal("0"),
-            complete=True,
-            levels_consumed=1,
+            side=side, requested_quantity=qty, filled_quantity=qty,
+            average_price=Decimal("100"), reference_price=Decimal("100"),
+            notional=qty * Decimal("100"), fee=Decimal("0"),
+            shortfall=Decimal("0"), shortfall_bps=Decimal("0"),
+            complete=True, levels_consumed=1,
         )
 
-    long_position = open_paper_position(
-        state,
-        long_instrument,
-        long_ticker,
-        "long",
-        Decimal("2"),
-        opening_fill("buy", "0.8"),
-        now_ms - 86_400_000,
+    old_long = open_paper_position(
+        state, long_instrument, long_ticker, "long", Decimal("2"),
+        opening_fill("buy", "0.8"), now_ms - 86_400_000,
     )
-    short_position = open_paper_position(
-        state,
-        short_instrument,
-        short_ticker,
-        "short",
-        Decimal("2"),
-        opening_fill("sell", "1.2"),
-        now_ms - 86_400_000,
+    old_short = open_paper_position(
+        state, short_instrument, short_ticker, "short", Decimal("2"),
+        opening_fill("sell", "1.2"), now_ms - 86_400_000,
     )
-    original_entry_times = {
-        101: long_position["entry_timestamp_ms"],
-        202: short_position["entry_timestamp_ms"],
-    }
-
+    old_times = {101: old_long["entry_timestamp_ms"], 202: old_short["entry_timestamp_ms"]}
     rankings = MEXCRankings(
-        research_longs=[],
-        research_shorts=[],
-        executable_longs=[
-            Candidate("mexc:101", 3.5, 88.0, "long", 41, "bullish")
-        ],
-        executable_shorts=[
-            Candidate("mexc:202", -4.2, 91.0, "short", 36, "bearish")
-        ],
-        instruments_by_key={
-            "mexc:101": long_instrument,
-            "mexc:202": short_instrument,
-        },
+        research_longs=[], research_shorts=[],
+        executable_longs=[Candidate("mexc:101", 3.5, 88.0, "long", 41, "bullish")],
+        executable_shorts=[Candidate("mexc:202", -4.2, 91.0, "short", 36, "bearish")],
+        instruments_by_key={"mexc:101": long_instrument, "mexc:202": short_instrument},
         excluded=[],
     )
     history_rows = [
-        {
-            "timestamp_ms": now_ms - (40 - day) * 86_400_000,
-            "high": "102",
-            "low": "98",
-            "close": "100",
-        }
+        {"timestamp_ms": now_ms - (40 - day) * 86_400_000,
+         "high": "102", "low": "98", "close": "100"}
         for day in range(40)
     ]
     history = {101: history_rows, 202: history_rows}
@@ -310,53 +276,102 @@ def test_daily_pair_rebalance_trades_only_required_position_deltas() -> None:
         def orderbook(self, symbol: str, depth: int) -> dict[str, Any]:
             return {
                 "timestamp_ms": now_ms,
-                "bids": [{
-                    "price": "99.99",
-                    "quantity_contracts": "100000000",
-                }],
-                "asks": [{
-                    "price": "100.01",
-                    "quantity_contracts": "100000000",
-                }],
+                "bids": [{"price": "99.99", "quantity_contracts": "100000000"}],
+                "asks": [{"price": "100.01", "quantity_contracts": "100000000"}],
             }
 
-    client = PublicBookClient()
+    result = cycle._rebuild_fresh_portfolio(
+        PublicBookClient(), state, rankings, history, tickers,
+        {101: long_instrument, 202: short_instrument}, now_ms,
+    )
+    assert result["status"] == "PAIR_REBUILT"
+    assert [row["action"] for row in result["close_actions"]] == ["CLOSED", "CLOSED"]
+    assert [row["action"] for row in result["open_actions"]] == ["OPENED", "OPENED"]
+    rebuilt = result["portfolio_state"]
+    assert {row["instrument_id"] for row in rebuilt["positions"]} == {101, 202}
+    assert all(row["entry_timestamp_ms"] == now_ms for row in rebuilt["positions"])
+    assert all(
+        row["entry_timestamp_ms"] != old_times[row["instrument_id"]]
+        for row in rebuilt["positions"]
+    )
+    assert len(rebuilt["closed_trade_net_pnls"]) == 2
+    # The source account is not changed until its caller commits the complete refresh.
+    assert {row["instrument_id"]: row["quantity"] for row in state["positions"]} == {
+        101: "0.8", 202: "1.2",
+    }
+
+
+def test_execution_pair_accepts_independent_lot_rounding_without_percentage_gate() -> None:
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "mexc_paper_cycle.py"
+    spec = importlib.util.spec_from_file_location("mexc_paper_cycle_no_tolerance", script_path)
+    assert spec is not None and spec.loader is not None
+    cycle = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cycle)
+
+    now_ms = 1_800_000_000_000
+    long_instrument = {
+        **instrument(1760, "SPOTSTOCK_USDT"),
+        "contract_size": "0.01", "quantity_step_contracts": "1",
+        "min_contracts": "1", "max_contracts": "20000",
+    }
+    short_instrument = {
+        **instrument(1899, "BILL_USDT"),
+        "contract_size": "100", "quantity_step_contracts": "1",
+        "min_contracts": "1", "max_contracts": "2000",
+    }
+    long_price = Decimal("600.54")
+    short_price = Decimal("0.003906")
+    rankings = MEXCRankings(
+        research_longs=[], research_shorts=[],
+        executable_longs=[Candidate("mexc:1760", 3.5, 88.0, "long", 41, "bullish")],
+        executable_shorts=[Candidate("mexc:1899", -4.2, 91.0, "short", 36, "bearish")],
+        instruments_by_key={"mexc:1760": long_instrument, "mexc:1899": short_instrument},
+        excluded=[],
+    )
+    history = {
+        1760: [
+            {"timestamp_ms": now_ms - (30 - day) * 86_400_000,
+             "high": "606.55", "low": "594.53", "close": "600.54"}
+            for day in range(30)
+        ],
+        1899: [
+            {"timestamp_ms": now_ms - (30 - day) * 86_400_000,
+             "high": "0.003945", "low": "0.003867", "close": "0.003906"}
+            for day in range(30)
+        ],
+    }
+    tickers = {
+        1760: {"mid_price": str(long_price), "mark_price": str(long_price)},
+        1899: {"mid_price": str(short_price), "mark_price": str(short_price)},
+    }
+
+    class PublicBookClient:
+        def server_time_ms(self) -> int:
+            return now_ms
+
+        def orderbook(self, symbol: str, depth: int) -> dict[str, Any]:
+            price = long_price if symbol == "SPOTSTOCK_USDT" else short_price
+            return {
+                "timestamp_ms": now_ms,
+                "bids": [{"price": str(price), "quantity_contracts": "100000000"}],
+                "asks": [{"price": str(price), "quantity_contracts": "100000000"}],
+            }
+
     pair = cycle._try_pair(
-        client,
-        rankings,
-        history,
-        tickers,
-        state,
-        now_ms,
+        PublicBookClient(), rankings, history, tickers,
+        initial_portfolio_state(Decimal("50")), now_ms,
     )
     assert pair is not None
-    proposed, proposed_fills, _ = pair
-    assert [Decimal(row["quantity_delta"]) for row in proposed] == [
-        Decimal("0.2"), Decimal("-0.2")
-    ]
-    assert [row["fill"].filled_quantity for row in proposed] == [
-        Decimal("0.2"), Decimal("0.2")
-    ]
-    assert [Decimal(row["quantity_base"]) for row in proposed_fills] == [
-        Decimal("0.2"), Decimal("0.2")
-    ]
-
-    close_details, resize_details = cycle._apply_selected_pair(
-        client,
-        state,
-        proposed,
-        {101: long_instrument, 202: short_instrument},
-        now_ms,
+    proposed, fills, _symbols = pair
+    notionals = {row["side"]: Decimal(row["mark_notional_usdt"]) for row in proposed}
+    assert notionals["long"] <= Decimal("50")
+    assert notionals["short"] <= Decimal("50")
+    imbalance_fraction = abs(notionals["long"] - notionals["short"]) / Decimal("50")
+    assert imbalance_fraction > Decimal("0.005")
+    assert all(
+        Decimal(row["pair_imbalance_nav_fraction"]) > Decimal("0.005")
+        for row in fills
     )
-    assert close_details == []
-    assert [row["action"] for row in resize_details] == ["INCREASED", "REDUCED"]
-    positions = {row["instrument_id"]: row for row in state["positions"]}
-    assert set(positions) == {101, 202}
-    assert Decimal(positions[101]["quantity"]) == Decimal("1")
-    assert Decimal(positions[202]["quantity"]) == Decimal("1")
-    assert positions[101]["entry_timestamp_ms"] == original_entry_times[101]
-    assert positions[202]["entry_timestamp_ms"] == original_entry_times[202]
-    assert state["closed_trade_net_pnls"] == []
 
 
 def test_joint_pair_sizing_respects_lot_grids_and_neutrality_tolerance() -> None:
