@@ -117,7 +117,7 @@ def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     )
     cycle_source = (root / "scripts" / "mexc_paper_cycle.py").read_text()
 
-    assert "ACTIVE MEXC $50 USDT PAPER ONLY" in mexc
+    assert "ACTIVE — MEXC $50 USDT PAPER ONLY" in mexc
     assert "▶ MANUAL PAPER RUN — MEXC $50 USDT" in mexc
     assert "I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY" in mexc
     assert "group: paper-state-branch-single-writer" in mexc
