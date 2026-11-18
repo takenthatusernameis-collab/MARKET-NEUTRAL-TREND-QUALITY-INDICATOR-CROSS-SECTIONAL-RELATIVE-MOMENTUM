@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: mexc-public-api-preflight
-  cancel-in-progress: true
+  group: paper-state-branch-single-writer
+  cancel-in-progress: false
 
 jobs:
   public-data:
