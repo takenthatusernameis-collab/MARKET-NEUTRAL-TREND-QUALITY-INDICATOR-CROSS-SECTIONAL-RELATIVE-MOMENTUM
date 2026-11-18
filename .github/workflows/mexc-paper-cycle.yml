@@ -48,6 +48,9 @@ jobs:
           ref: market-data
           path: market-data
           fetch-depth: 0
+      # A new account generation first publishes a verified recovery probe.
+      # The next invocation must read it from this fresh checkout before creating
+      # financial paper state; the probe run itself never initializes capital.
       - name: Check out immutable paper-event branch
         uses: actions/checkout@v4
         with:
