@@ -6,11 +6,11 @@ A paper-only research system for the Sepiashvili Trend-Quality Indicator (Q), ra
 
 ## ▶ MANUAL TRIGGER — ACTIVE $50 USDT PAPER ACCOUNT
 
-<badge>Paper only</badge> **[▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)**
+<badge>Paper only</badge> **[▶ ACTIVE PAPER ACCOUNT — MEXC $50 USDT — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)**
 
-On the GitHub Actions page, choose the workflow named **▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO**, select branch **main**, choose **Run workflow**, and set the required confirmation to `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`. The run title will begin **▶ MANUAL PAPER RUN — MEXC $50 USDT** so it is easy to distinguish from scheduled and push-triggered cycles. This is the only active portfolio-state writer. The five-minute scheduler continues to use the same $50 account; manual dispatch does not create a second account.
+On the GitHub Actions page, choose the workflow named **▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO**, select branch **main**, choose **Run workflow**, and set the required confirmation to `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`. The run title will begin **▶ MANUAL PAPER RUN — ACTIVE MEXC $50 USDT** so it is easy to distinguish from scheduled and push-triggered cycles. This is the only active portfolio-state writer. The five-minute scheduler continues to use the same $50 account; manual dispatch does not create a second account.
 
-The separate MEXC public preflight is a manual-only, read-only diagnostic, not the account workflow; it is not automatically triggered by code pushes. The retired Polymarket paper-state workflow has been removed. No exchange orders are ever sent; all executions remain simulated from public MEXC data. See [ACTIVE_PAPER_ACCOUNT.md](ACTIVE_PAPER_ACCOUNT.md) for the account identity and operating boundary.
+The separate MEXC public preflight is a manual-only, read-only diagnostic, not the account workflow; it is not automatically triggered by code pushes. It uses the same updated official host and conservative client pacing, but is not a prerequisite for a daily account decision. The retired Polymarket paper-state workflow has been removed. No exchange orders are ever sent; all executions remain simulated from public MEXC data. See [ACTIVE_PAPER_ACCOUNT.md](ACTIVE_PAPER_ACCOUNT.md) for the account identity and operating boundary.
 
 
 ## Current provider selection
@@ -49,7 +49,7 @@ The research ranking includes **every active MEXC linear perpetual with per-inst
 
 The current single-currency paper execution/account subset is **1,061 active USDT-quoted and USDT-settled contracts**. Non-USDT contracts remain in the research Q rankings but are labelled research-only for execution. Do not mix USDC, USD1, BTC or other collateral and quote-currency P&L into USDT NAV without a separately validated point-in-time conversion and settlement model.
 
-MEXC contract volume is denominated in contracts. Convert it using each instrument's contractSize only for validated linear USDT execution; use volUnit, minVol, maxVol, priceUnit and its fee rates. Public order-book quantities and Kline volume are also in contract units. amount24 and daily amount are denominated in the instrument's quote currency, not universally USDT; never mix USDC, USD1 or other quote turnover into USDT comparisons. See the [official MEXC Futures API documentation](https://mexcdevelop.github.io/apidocs/contract_v1_en/).
+MEXC contract volume is denominated in contracts. Convert it using each instrument's contractSize only for validated linear USDT execution; use volUnit, minVol, maxVol, priceUnit and its fee rates. Public order-book quantities and Kline volume are also in contract units. amount24 and daily amount are denominated in the instrument's quote currency, not universally USDT; never mix USDC, USD1 or other quote turnover into USDT comparisons. See the [current MEXC Futures API integration guide](https://www.mexc.io/api-docs/futures/integration-guide) and [contract-information endpoint](https://www.mexc.io/api-docs/futures/market-endpoints/get-contract-info). MEXC announced that Futures REST requests must use `https://api.mexc.com`; support for the former `https://contract.mexc.com` host ended on 2026-01-19. The client now uses the documented `/api/v1/contract/detail/country` route and a 1.5-second minimum interval between requests.
 
 ## Implemented components
 
