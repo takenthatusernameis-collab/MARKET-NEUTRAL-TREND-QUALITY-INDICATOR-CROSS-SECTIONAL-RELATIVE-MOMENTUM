@@ -16,7 +16,7 @@ def main() -> int:
     report: dict[str, Any] = {
         "report_utc": datetime.now(UTC).isoformat(),
         "exchange": "mexc",
-        "api_base": "https://contract.mexc.com",
+        "api_base": client.base_url,
         "public_unauthenticated_only": True,
         "credentials_used": False,
         "private_endpoints_used": False,

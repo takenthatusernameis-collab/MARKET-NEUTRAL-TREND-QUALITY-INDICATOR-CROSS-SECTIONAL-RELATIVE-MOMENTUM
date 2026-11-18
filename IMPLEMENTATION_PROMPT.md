@@ -30,7 +30,7 @@ These results prove technical API reachability and sampled endpoint contracts, n
 
 ### 0.2 MEXC data contract and exact endpoints
 
-Use only the official public MEXC Futures contract API host, https://contract.mexc.com, with no API key, private account endpoint or order method.
+Use only the current official public MEXC Futures REST host, https://api.mexc.com. Use the documented public contract-information route `/api/v1/contract/detail/country`. The former `https://contract.mexc.com` host was discontinued on 2026-01-19. Keep all access unauthenticated and read-only; do not use private account endpoints or order methods.
 
 - GET /api/v1/contract/ping — server time.
 - GET /api/v1/contract/detail — full contract metadata and universe discovery.

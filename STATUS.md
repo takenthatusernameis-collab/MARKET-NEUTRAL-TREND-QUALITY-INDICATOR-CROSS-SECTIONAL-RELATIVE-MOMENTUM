@@ -1,7 +1,7 @@
 # Market-Neutral Trend-Quality System — Status
 
 **Report date:** 2026-11-18  
-**Selected provider:** MEXC Futures public API — sampled qualification passed; intermittent HTML HTTP 403 at /api/v1/contract/ping observed on 2026-11-18 05:38 UTC  
+**Selected provider:** MEXC Futures public API — prior HTML HTTP 403 was returned while the client still used the Futures REST host that MEXC discontinued on 2026-01-19; integration is being moved to the current official host and endpoint, with post-fix hosted preflight validation still outstanding  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  
 **Forward paper account:** ACTIVE GENERATION — 50 USDT seed; v3 VSTOCK_USDT long + BILL_USDT short simulated; independently restored from verified event chain  
 **Historical replay:** not implemented  
@@ -334,3 +334,12 @@ The report does not imply any live trading. The strategy uses public data and si
 - The report and enlarged phone-readable SVG were successfully rebuilt and published after run #77. Daily-equity history still has one daily return observation, so Sharpe, Sortino, CAGR and other sample-gated metrics remain unavailable.
 - Read-only preflight run [44245469914](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44245469914) ran after the paper workflow due to the shared non-cancelling concurrency group, then received HTTP 403 for the public /api/v1/contract/ping endpoint. The response was HTML Access Denied, not a structured MEXC JSON error. The cause of the upstream denial is not established.
 - To avoid repeat, push-triggered diagnostic traffic, the read-only MEXC preflight is now manual-dispatch only. The active paper workflow remains separate and continues using the public-data fail-closed behavior.
+
+
+## 2026-11-18 — MEXC Futures REST migration and request-safety update
+
+- MEXC's official [Futures API domain announcement](https://www.mexc.co/announcements/article/futures-api-access-domain-update-17827791532974) states that the former `https://contract.mexc.com` REST host was discontinued on 2026-01-19 and the current host is `https://api.mexc.com`.
+- The current [MEXC contract-information endpoint documentation](https://www.mexc.io/api-docs/futures/market-endpoints/get-contract-info) specifies `GET /api/v1/contract/detail/country`. The adapter and preflight now use this endpoint and report the actual configured host.
+- Global client pacing has been reduced from one request per 0.20 seconds to one request per 1.5 seconds (about 0.67 requests/second). HTTP 429 and API code 510 trigger at least 60 seconds of exponential cooldown; transient 5xx/network errors use exponential backoff and server `Retry-After` is respected.
+- HTTP 403 remains non-retryable and immediately fail-closed. No proxy, VPN, alternate IP, private endpoint, credential or access-control circumvention is used.
+- The active portfolio workflow is still the single $50 USDT paper-account writer. The preflight remains a separate manual-only, read-only diagnostic. A post-migration hosted preflight has not yet completed; do not claim live API access or a full daily-cycle pass until that evidence exists.
