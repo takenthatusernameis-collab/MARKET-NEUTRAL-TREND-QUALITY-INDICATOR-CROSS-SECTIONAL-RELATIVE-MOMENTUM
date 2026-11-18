@@ -83,13 +83,13 @@ def test_current_position_marks_use_all_market_server_timestamp_not_trade_time()
             return [
                 {
                     "symbol": "VSTOCK_USDT",
-                    "timestamp_ms": now_ms,
+                    "timestamp_ms": now_ms + 356,
                     "mark_price": "600.54",
                     "last_price": "600.50",
                 },
                 {
                     "symbol": "BILL_USDT",
-                    "timestamp_ms": now_ms,
+                    "timestamp_ms": now_ms + 356,
                     "mark_price": "0.003906",
                     "last_price": "0.003905",
                 },
@@ -131,6 +131,18 @@ def test_daily_risk_path_rejects_missing_stale_and_nonpositive_position_marks() 
     assert cycle._stale_or_missing_position_marks(
         positions,
         {7: {"timestamp_ms": 1_100_000, "mark_price": "0"}},
+        1_100_000,
+    ) == ["TEST_USDT"]
+    # REST ping and WebSocket server clocks can differ by a few hundred ms.
+    assert cycle._stale_or_missing_position_marks(
+        positions,
+        {7: {"timestamp_ms": 1_100_356, "mark_price": "10"}},
+        1_100_000,
+    ) == []
+    # A materially future-dated mark still fails closed.
+    assert cycle._stale_or_missing_position_marks(
+        positions,
+        {7: {"timestamp_ms": 1_106_000, "mark_price": "10"}},
         1_100_000,
     ) == ["TEST_USDT"]
 
