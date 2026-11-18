@@ -1,5 +1,8 @@
 # Market-Neutral Trend-Quality System — Status
 
+> **Active-account status lives in [PAPER_STATUS.md](PAPER_STATUS.md).** This engineering status file contains historical implementation notes; earlier $50 v3 account snapshots are archived and are not the current forward-paper account. The active account is MEXC $100 USDT v4, paper only.
+
+
 **Report date:** 2026-11-18  
 **Selected provider:** MEXC Futures public API — prior HTML HTTP 403 was returned while the client still used the Futures REST host that MEXC discontinued on 2026-01-19; integration is being moved to the current official host and endpoint, with post-fix hosted preflight validation still outstanding  
 **Research universe:** active cross-margin USDT-settled linear perpetuals  

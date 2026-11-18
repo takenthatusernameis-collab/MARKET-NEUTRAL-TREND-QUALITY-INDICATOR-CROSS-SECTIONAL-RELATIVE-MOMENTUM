@@ -1,41 +1,44 @@
-# Active Paper Account — MEXC $50 USDT
+# ACTIVE PAPER ACCOUNT — MEXC $100 USDT
 
-<badge>Paper only</badge> **There is one active forward-paper account.**
+**🟢 ACTIVE · FORWARD PAPER ONLY · NO LIVE EXCHANGE ORDERS**
 
 | Field | Active value |
 |---|---|
 | Exchange/data venue | MEXC Futures public market data |
-| Account ID | `mexc-usdt-forward-50usdt-v3` |
-| Strategy generation | `trend-quality-daily-cross-sectional-v3-50usdt` |
-| Initial capital | **50.00000000 USDT** |
-| Account mode | Forward paper only |
-| State branch | `state` |
-| Active writer workflow | [▶ ACTIVE PAPER ACCOUNT — MEXC $50 USDT — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml) |
-| Standalone report | [PAPER_PERFORMANCE_REPORT.md](PAPER_PERFORMANCE_REPORT.md) |
+| Account ID | \`mexc-usdt-forward-100usdt-v4\` |
+| Strategy generation | \`trend-quality-daily-cross-sectional-v4-100usdt\` |
+| Starting capital | **100.00000000 USDT** |
+| Account mode | New forward-paper generation |
+| State branch | \`state\` |
+| Active workflow | [▶ RUN THIS — ACTIVE MEXC $100 USDT PAPER ONLY](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml) |
+| Live status | [PAPER_STATUS.md](PAPER_STATUS.md) |
 
-## Manual trigger
+## Manual trigger — correct workflow
 
-1. Open the linked MEXC paper workflow.
-2. Select branch `main`.
+1. Open the linked **▶ ACTIVE PAPER ACCOUNT — MEXC $100 USDT PAPER ONLY — MANUAL / AUTO** workflow.
+2. Select branch \`main\`.
 3. Select **Run workflow**.
-4. Set the required confirmation to `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`.
-5. Confirm the run. Its title will start with **▶ MANUAL PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT**.
+4. Select the confirmation \`I_CONFIRM_ACTIVE_100_USDT_PAPER_ONLY\`.
+5. Start the run. The run name begins **▶ MANUAL PAPER RUN — MEXC $100 USDT — ACTIVE ACCOUNT**.
 
-Manual dispatch and the five-minute scheduler use the same account ID and strategy ID. Neither trigger creates a new financial account generation. The MEXC public preflight is a manual-only, read-only diagnostic, not the paper account workflow. The paper workflow uses the current official Futures REST host at `https://api.mexc.com`; do not use the retired `contract.mexc.com` host. The retired Polymarket paper-state workflow has been removed.
+The same account is used by the five-minute monitor/retry schedule and the dedicated 00:01 UTC daily-close schedule. There is no push-triggered paper-account run. The workflow uses the official public MEXC Futures REST host, \`https://api.mexc.com\`, and sends no live orders.
+
+## Restart and daily-candle semantics
+
+Generation v4 is a new account, not a reset or rewrite of the v3 ledger:
+
+- Its financial starting cash is exactly **100 USDT**.
+- Its account decision watermark starts empty. The latest genuinely completed UTC daily candle is therefore eligible for the first v4 decision, subject to complete history, current marks, fresh books and successful two-leg simulated fills.
+- Shared public candle history and its market-data manifest are preserved; they are not rewritten, fabricated or backdated.
+- Immutable v3 $50 events, fills, fees, snapshots and reports remain archived and are excluded from v4 NAV, returns, curves and performance metrics.
+- The first daily decision is recorded only after the new account passes the recovery-probe/fresh-checkout protocol.
+
+A blocked data or execution gate must remain visible as blocked. It must not consume the daily decision watermark or create partial financial state.
 
 ## Archived generations
 
-The append-only event ledger retains earlier account generations:
-
-- `mexc-usdt-forward` — 1 USDT, archived.
-- `mexc-usdt-forward-10usdt-v2` — 10 USDT, archived.
-
-Their events are not deleted or overwritten. The current MEXC cycle and performance report select only the v3 $50 account; prior cash, positions, NAV, trades and returns are not imported or combined.
-
-## Last persisted snapshot
-
-On 2026-11-18 05:37:15.935 UTC, run [44245469767](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44245469767) recorded NAV 49.66302776 USDT and two simulated open positions: VSTOCK_USDT long (0.11 base units) and BILL_USDT short (11,500 base units). Dollar notionals were 45.822700 and 45.770000 USDT; the 0.052700 USDT imbalance was 0.1061% of NAV, below the 0.5% band. The run reduced the short position by 100 units through a paper-only partial fill. No live order was submitted. Consult the linked report for the latest verified values.
+The former v3 $50 account is retained under \`archive/2026-11-18/v3/\` for historical inspection only. Earlier 1 USDT and 10 USDT generations remain in the immutable state ledger. None of those generations are active, pooled into v4, or used to calculate v4 performance.
 
 ## Operating boundary
 
-Public market-data endpoints and simulated fills only. No live exchange orders, private account endpoints, credentials or wallet access. Five-minute observations are scheduled/best-effort rather than continuous. Dollar-notional neutrality is not beta neutrality or a guarantee of zero market risk. Performance metrics remain unavailable until their documented sample-size gates are met.
+Public market-data endpoints and simulated order-book fills only. No private account endpoints, API credentials, wallet access or real orders. The $100 account remains a paper-only research simulation. Dollar-notional equality is not beta neutrality or a guarantee of low market risk.

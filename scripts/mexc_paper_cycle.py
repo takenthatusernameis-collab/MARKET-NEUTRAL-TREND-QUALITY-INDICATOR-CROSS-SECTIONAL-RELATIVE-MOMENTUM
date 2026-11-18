@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Five-minute MEXC market-data and gated USDT forward-paper cycle.
+"""Daily-close and five-minute MEXC market-data and gated USDT forward-paper cycle.
 
 Public market data can be collected and ranked without state-write authorization.
 Portfolio transitions require the explicit PAPER_STATE_WRITE_ENABLED flag.
@@ -52,9 +52,9 @@ DEFAULT_BOOTSTRAP_BATCH_SIZE = 150
 MAX_EXCHANGE_CLOCK_SKEW_MS = 5_000
 MAX_SHORTFALL_BPS = Decimal("10")
 STOP_ATR_MULTIPLE = Decimal("3")
-INITIAL_CAPITAL = Decimal("50")
-ACCOUNT_ID = "mexc-usdt-forward-50usdt-v3"
-STRATEGY_ID = "trend-quality-daily-cross-sectional-v3-50usdt"
+INITIAL_CAPITAL = Decimal("100")
+ACCOUNT_ID = "mexc-usdt-forward-100usdt-v4"
+STRATEGY_ID = "trend-quality-daily-cross-sectional-v4-100usdt"
 
 
 class MEXCExecutionUnavailable(RuntimeError):

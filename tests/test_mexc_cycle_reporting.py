@@ -169,11 +169,12 @@ def test_only_active_mexc_workflow_can_write_portfolio_state() -> None:
     )
     cycle_source = (root / "scripts" / "mexc_paper_cycle.py").read_text()
 
-    assert "ACTIVE — MEXC $50 USDT PAPER ONLY" in mexc
-    assert "▶ MANUAL PAPER RUN — MEXC $50 USDT" in mexc
-    assert "I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY" in mexc
+    assert "ACTIVE PAPER ACCOUNT — MEXC $100 USDT PAPER ONLY" in mexc
+    assert "▶ MANUAL PAPER RUN — MEXC $100 USDT" in mexc
+    assert "I_CONFIRM_ACTIVE_100_USDT_PAPER_ONLY" in mexc
     assert "group: paper-state-branch-single-writer" in mexc
     assert "cancel-in-progress: false" in mexc
+    assert "  push:" not in mexc
     assert '- cron: "*/5 * * * *"' in mexc
     assert '- cron: "1 0 * * *"' in mexc
     assert "group: paper-state-branch-single-writer" in preflight
@@ -729,11 +730,11 @@ def test_two_sided_portfolio_reports_imbalance_without_percentage_gate() -> None
 
 
 
-def test_active_account_keeps_fifty_usdt_seed_without_neutrality_threshold() -> None:
+def test_active_account_uses_hundred_usdt_seed_without_neutrality_threshold() -> None:
     cycle = load_cycle_module()
-    assert cycle.INITIAL_CAPITAL == Decimal("50")
-    assert cycle.ACCOUNT_ID == "mexc-usdt-forward-50usdt-v3"
-    assert cycle.STRATEGY_ID == "trend-quality-daily-cross-sectional-v3-50usdt"
+    assert cycle.INITIAL_CAPITAL == Decimal("100")
+    assert cycle.ACCOUNT_ID == "mexc-usdt-forward-100usdt-v4"
+    assert cycle.STRATEGY_ID == "trend-quality-daily-cross-sectional-v4-100usdt"
     assert not hasattr(cycle, "MAX_NEUTRALITY_IMBALANCE_NAV_FRACTION")
     assert not hasattr(cycle, "_rebalance_existing_pair")
     assert hasattr(cycle, "_validate_two_sided_portfolio")

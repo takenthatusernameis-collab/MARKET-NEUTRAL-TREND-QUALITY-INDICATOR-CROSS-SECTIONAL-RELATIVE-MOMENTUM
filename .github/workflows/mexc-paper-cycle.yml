@@ -1,20 +1,8 @@
-name: "▶ ACTIVE PAPER ACCOUNT — ACTIVE — MEXC $50 USDT PAPER ONLY — MANUAL / AUTO"
+name: "▶ ACTIVE PAPER ACCOUNT — MEXC $100 USDT PAPER ONLY — MANUAL / AUTO"
 
-run-name: "${{ github.event_name == 'workflow_dispatch' && '▶ MANUAL PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT' || (github.event_name == 'schedule' && '⏱ SCHEDULED PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT' || '⚙ PUSH-TRIGGERED PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT') }} — run #${{ github.run_number }}"
+run-name: "${{ github.event_name == 'workflow_dispatch' && '▶ MANUAL PAPER RUN — MEXC $100 USDT — ACTIVE ACCOUNT' || '⏱ SCHEDULED PAPER RUN — MEXC $100 USDT — ACTIVE ACCOUNT' }} — run #${{ github.run_number }}"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/trend_quality/mexc_api.py"
-      - "src/trend_quality/mexc_paper.py"
-      - "src/trend_quality/mexc_portfolio.py"
-      - "src/trend_quality/market_data_store.py"
-      - "src/trend_quality/event_journal.py"
-      - "src/trend_quality/paper_performance_report.py"
-      - "scripts/build_paper_performance_report.py"
-      - "scripts/mexc_paper_cycle.py"
-      - ".github/workflows/mexc-paper-cycle.yml"
   schedule:
     # Five-minute marking/risk monitoring plus retries of a pending frozen daily signal.
     - cron: "*/5 * * * *"
@@ -24,11 +12,11 @@ on:
   workflow_dispatch:
     inputs:
       confirm_paper_account:
-        description: "Confirm this is the ACTIVE $50 USDT MEXC PAPER account. This writes paper state only; it never places live exchange orders."
+        description: "Confirm this is the ACTIVE $100 USDT MEXC PAPER account. This writes paper state only; it never places live exchange orders."
         type: choice
         required: true
         options:
-          - I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY
+          - I_CONFIRM_ACTIVE_100_USDT_PAPER_ONLY
 
 permissions:
   contents: write
@@ -40,7 +28,7 @@ concurrency:
 jobs:
   cycle:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.confirm_paper_account == 'I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY' }}
-    name: "ACTIVE $50 USDT PAPER ACCOUNT — daily full refresh / five-minute monitoring and retries"
+    name: "ACTIVE $100 USDT PAPER ACCOUNT — daily full refresh / five-minute monitoring and retries"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -114,22 +102,24 @@ jobs:
         run: |
           git fetch origin state
           git reset --hard FETCH_HEAD
-      - name: Build standalone performance report from verified state history
+      - name: Build compact $100 USDT paper status and both equity curves
         id: performance_report
         if: always() && steps.refresh_state.outcome == 'success'
         working-directory: strategy
         env:
           PAPER_STATE_DIR: ../state
-          PAPER_PERFORMANCE_REPORT_PATH: ../PAPER_PERFORMANCE_REPORT.md
-          PAPER_EQUITY_CURVE_SVG_PATH: ../equity_curve.svg
+          MARKET_DATA_DIR: ../market-data
+          PAPER_STATUS_PATH: ../PAPER_STATUS.md
+          PAPER_EQUAL_EQUITY_SVG_PATH: ../equal_exposure_equity_curve.svg
+          PAPER_ALTERNATIVE_EQUITY_SVG_PATH: ../alternative_path_equity_curve.svg
           PAPER_WORKFLOW_OUTCOME: ${{ steps.cycle.outcome }}
           PAPER_WORKFLOW_RUN_ID: ${{ github.run_id }}
           PAPER_WORKFLOW_RUN_NUMBER: ${{ github.run_number }}
           PAPER_WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           PAPER_WORKFLOW_SERVER_URL: ${{ github.server_url }}
           PAPER_WORKFLOW_REPOSITORY: ${{ github.repository }}
-        run: python scripts/build_paper_performance_report.py
-      - name: Publish standalone performance report to main
+        run: python scripts/build_paper_status.py
+      - name: Publish compact active paper status to main
         if: always() && steps.performance_report.outcome == 'success'
         shell: bash
         run: |
@@ -138,28 +128,31 @@ jobs:
           for attempt in 1 2 3; do
             git -C strategy fetch origin main
             git -C strategy checkout -B main origin/main
-            cp PAPER_PERFORMANCE_REPORT.md strategy/PAPER_PERFORMANCE_REPORT.md
-            cp equity_curve.svg strategy/equity_curve.svg
-            git -C strategy add PAPER_PERFORMANCE_REPORT.md equity_curve.svg
+            cp PAPER_STATUS.md strategy/PAPER_STATUS.md
+            cp equal_exposure_equity_curve.svg strategy/equal_exposure_equity_curve.svg
+            cp alternative_path_equity_curve.svg strategy/alternative_path_equity_curve.svg
+            git -C strategy add PAPER_STATUS.md equal_exposure_equity_curve.svg alternative_path_equity_curve.svg
             if git -C strategy diff --cached --quiet; then
-              echo "Standalone performance report is unchanged."
+              echo "Compact paper status is unchanged."
               exit 0
             fi
-            git -C strategy commit -m "Refresh MEXC paper performance report [skip ci]"
+            git -C strategy commit -m "Refresh active $100 USDT paper status [skip ci]"
             if git -C strategy push origin HEAD:main; then
               exit 0
             fi
-            echo "Report push raced with another main update; retrying from latest main."
+            echo "Status push raced with another main update; retrying from latest main."
           done
-          echo "Unable to publish report after three fast-forward retries."
+          echo "Unable to publish compact status after three fast-forward retries."
           exit 1
-      - name: Upload MEXC research report
+      - name: Upload active paper status and research data
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mexc-paper-research-report
+          name: mexc-active-100usdt-paper-status
           path: |
             market-data/data/reports/mexc/
-            equity_curve.svg
+            PAPER_STATUS.md
+            equal_exposure_equity_curve.svg
+            alternative_path_equity_curve.svg
           if-no-files-found: warn
           retention-days: 30

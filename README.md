@@ -2,13 +2,13 @@
 
 A paper-only research system for the Sepiashvili Trend-Quality Indicator (Q), ranking active cross-margin perpetual contracts and eventually maintaining one long and one short. The indicator engine is exchange-neutral; the selected market-data adapter is **MEXC Futures, USDT-settled cross-margin perpetuals**.
 
-**Standalone account performance ledger:** [PAPER_PERFORMANCE_REPORT.md](PAPER_PERFORMANCE_REPORT.md) — equity curve, per-session and lifetime maximum drawdown, sample-gated Sortino/Sharpe/CAGR metrics, account snapshot and full timestamped trade/funding activity. It is rebuilt from the verified state event chain and committed to `main` after every MEXC paper workflow run.
+**Live paper-account status:** [PAPER_STATUS.md](PAPER_STATUS.md) — compact $100 USDT account status, primary equal-exposure equity curve and visual-only inverse-volatility alternative curve. Updated after each manual or scheduled workflow run.
 
-## ▶ MANUAL TRIGGER — ACTIVE $50 USDT PAPER ACCOUNT
+## ▶ MANUAL TRIGGER — ACTIVE $100 USDT PAPER ACCOUNT
 
-<badge>Paper only</badge> **[▶ ACTIVE PAPER ACCOUNT — MEXC $50 USDT — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)**
+**🟢 Correct workflow:** [▶ ACTIVE PAPER ACCOUNT — MEXC $100 USDT PAPER ONLY — MANUAL / AUTO](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/workflows/mexc-paper-cycle.yml)
 
-On the GitHub Actions page, choose the workflow named **▶ RUN THIS — ACTIVE MEXC $50 USDT PAPER ONLY — MANUAL / AUTO**, select branch **main**, choose **Run workflow**, and set the required confirmation to `I_CONFIRM_ACTIVE_50_USDT_PAPER_ONLY`. The run title will begin **▶ MANUAL PAPER RUN — MEXC $50 USDT — ACTIVE ACCOUNT** so it is easy to distinguish from scheduled and push-triggered cycles. This is the only active portfolio-state writer. The same $50 account is invoked by a five-minute schedule plus a dedicated 00:01 UTC daily-close backup trigger; both share the same writer lock and completed-candle watermark. Manual dispatch does not create a second account.
+Choose branch **main**, select **Run workflow**, and confirm \`I_CONFIRM_ACTIVE_100_USDT_PAPER_ONLY\`. The run title starts **▶ MANUAL PAPER RUN — MEXC $100 USDT — ACTIVE ACCOUNT**. Only manual dispatch and the five-minute / 00:01 UTC scheduled triggers run the portfolio workflow; source-code pushes do not trigger account actions. The $100 v4 account has a clean decision watermark and does not import the old $50 account's financial state.
 
 The separate MEXC public preflight is a read-only diagnostic, not the account workflow. It runs automatically on `main` when its workflow, preflight script, MEXC public adapter or dependency manifest changes; manual dispatch remains available as an explicit diagnostic option. It shares the paper writer's non-cancelling concurrency group to avoid competing bursts of public API calls. It does not run on a recurring schedule and is not a prerequisite for each daily account decision. The retired Polymarket paper-state workflow has been removed. No exchange orders are ever sent; all executions remain simulated from public MEXC data. See [ACTIVE_PAPER_ACCOUNT.md](ACTIVE_PAPER_ACCOUNT.md) for the account identity and operating boundary.
 
