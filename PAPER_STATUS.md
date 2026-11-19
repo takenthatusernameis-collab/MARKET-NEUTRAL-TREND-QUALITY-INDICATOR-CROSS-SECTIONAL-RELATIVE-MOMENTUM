@@ -8,10 +8,10 @@
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
 - Account state: **INITIALIZED — FORWARD PAPER**
-- Last report build: 2026-11-19 14:14:57 UTC
-- Latest workflow run: [44541281430](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44541281430) · run #113, attempt 1 · success · workflow_dispatch
+- Last report build: 2026-11-19 19:03:31 UTC
+- Latest workflow run: [44594102453](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44594102453) · run #114, attempt 1 · success · schedule
 - Latest processed daily candle: 2026-11-18 00:00:00 UTC
-- Latest account event: 2026-11-19 14:14:17 UTC
+- Latest account event: 2026-11-19 19:02:48 UTC
 - Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)
 
 ## Current performance
@@ -19,17 +19,17 @@
 | Metric | Value |
 |---|---:|
 | Initial capital | 100.00000000 USDT |
-| **NAV** | **92.56600048 USDT** |
-| Total return | -7.434% |
+| **NAV** | **83.84700048 USDT** |
+| Total return | -16.153% |
 | Cash | 102.40850048 USDT |
-| Unrealized P&L | -9.84250000 USDT |
+| Unrealized P&L | -18.56150000 USDT |
 | Fees paid | 0.06029952 USDT |
 | Confirmed funding | +0.00000000 USDT |
-| Gross exposure | 2.261× NAV |
-| Net exposure | 0.104× NAV |
-| Current drawdown from risk-window peak | -9.998% |
-| Lifetime / cross-session maximum drawdown | -10.044% |
-| Worst risk-session maximum drawdown | -10.044% |
+| Gross exposure | 2.632× NAV |
+| Net exposure | 0.219× NAV |
+| Current drawdown from risk-window peak | -18.476% |
+| Lifetime / cross-session maximum drawdown | -18.476% |
+| Worst risk-session maximum drawdown | -18.476% |
 | Sharpe ratio | Unavailable — At least 30 daily returns are required |
 | Sortino ratio | Unavailable — Requires at least 20 daily returns and 5 negative daily returns |
 | Annualized daily volatility | Unavailable — At least 30 daily returns are required |
@@ -41,14 +41,14 @@
 | 2026-11-18 00:00:00 UTC | 100.00000000 | 100.00000000 | +0.000% | 1 |
 | 2026-11-18 15:33:17 UTC | 99.85838576 | 102.38258576 | +0.000% | 3 |
 | 2026-11-19 00:00:00 UTC | 102.40508576 | 102.40508576 | +0.000% | 1 |
-| 2026-11-19 01:20:33 UTC | 102.23450048 | 92.56600048 | -10.044% | 13 |
+| 2026-11-19 01:20:33 UTC | 102.23450048 | 83.84700048 | -18.476% | 14 |
 
 ## Open positions
 
 | Symbol | Side | Quantity | Entry price | Mark | Notional (USDT) |
 |---|---|---:|---:|---:|---:|
-| WMTSTOCK_USDT | long | 0.80 | 127.68 | 124.78 | 99.824000 |
-| BILL_USDT | short | 25500 | 0.003998 | 0.004293 | 109.471500 |
+| WMTSTOCK_USDT | long | 0.80 | 127.68 | 126.44 | 101.152000 |
+| BILL_USDT | short | 25500 | 0.003998 | 0.004687 | 119.518500 |
 
 ## Primary path — equal exposure
 
