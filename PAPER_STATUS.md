@@ -8,10 +8,10 @@
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
 - Account state: **INITIALIZED — FORWARD PAPER**
-- Last report build: 2026-11-18 20:47:58 UTC
-- Latest workflow run: [44394606913](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44394606913) · run #100, attempt 1 · success · schedule
-- Latest processed daily candle: 2026-11-17 00:00:00 UTC
-- Latest account event: 2026-11-18 20:47:22 UTC
+- Last report build: 2026-11-19 01:21:07 UTC
+- Latest workflow run: [44432297120](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44432297120) · run #101, attempt 1 · success · workflow_dispatch
+- Latest processed daily candle: 2026-11-18 00:00:00 UTC
+- Latest account event: 2026-11-19 01:20:14 UTC
 - Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)
 
 ## Current performance
@@ -19,20 +19,20 @@
 | Metric | Value |
 |---|---:|
 | Initial capital | 100.00000000 USDT |
-| **NAV** | **102.38258576 USDT** |
-| Total return | +2.383% |
-| Cash | 99.98008576 USDT |
-| Unrealized P&L | +2.40250000 USDT |
-| Fees paid | 0.01991424 USDT |
+| **NAV** | **102.23450048 USDT** |
+| Total return | +2.235% |
+| Cash | 102.40850048 USDT |
+| Unrealized P&L | -0.17400000 USDT |
+| Fees paid | 0.06029952 USDT |
 | Confirmed funding | +0.00000000 USDT |
-| Gross exposure | 1.926× NAV |
-| Net exposure | 0.025× NAV |
+| Gross exposure | 1.997× NAV |
+| Net exposure | 0.000× NAV |
 | Current drawdown from risk-window peak | +0.000% |
-| Lifetime / cross-session maximum drawdown | -0.142% |
+| Lifetime / cross-session maximum drawdown | -0.167% |
 | Worst risk-session maximum drawdown | +0.000% |
-| Sharpe ratio | Unavailable — sample gate not met |
-| Sortino ratio | Unavailable — sample gate not met |
-| Annualized daily volatility | Unavailable — sample gate not met |
+| Sharpe ratio | Unavailable — At least 30 daily returns are required |
+| Sortino ratio | Unavailable — Requires at least 20 daily returns and 5 negative daily returns |
+| Annualized daily volatility | Unavailable — At least 30 daily returns are required |
 
 ### Maximum drawdown by risk session
 
@@ -40,13 +40,15 @@
 |---|---:|---:|---:|---:|
 | 2026-11-18 00:00:00 UTC | 100.00000000 | 100.00000000 | +0.000% | 1 |
 | 2026-11-18 15:33:17 UTC | 99.85838576 | 102.38258576 | +0.000% | 3 |
+| 2026-11-19 00:00:00 UTC | 102.40508576 | 102.40508576 | +0.000% | 1 |
+| 2026-11-19 01:20:33 UTC | 102.23450048 | 102.23450048 | +0.000% | 1 |
 
 ## Open positions
 
 | Symbol | Side | Quantity | Entry price | Mark | Notional (USDT) |
 |---|---|---:|---:|---:|---:|
-| VSTOCK_USDT | long | 0.24 | 414.88 | 415.99 | 99.837600 |
-| BILL_USDT | short | 24300 | 0.004092905349794238683127572016 | 0.004005 | 97.321500 |
+| WMTSTOCK_USDT | long | 0.80 | 127.68 | 127.59 | 102.072000 |
+| BILL_USDT | short | 25500 | 0.003998 | 0.004002 | 102.051000 |
 
 ## Primary path — equal exposure
 
@@ -60,9 +62,9 @@ This chart is a **visual-only counterfactual**, not an executed account. It reus
 
 At each rebalance, the quieter leg receives the larger share using inverse 30-completed-day realized volatility. The leverage overlay is the ratio of equal-exposure pair volatility to the inverse-volatility pair’s base estimated volatility. It increases modeled gross exposure only when the alternative has lower estimated volatility. Estimates use only data available at that rebalance.
 
-- Latest long / short allocation: **83.0% / 17.0%** of alternative gross notional.
-- Latest volatility-matching leverage multiplier: **1.965×**.
-- Estimated base volatility reduction before leverage: **+49.12%**.
+- Latest long / short allocation: **82.7% / 17.3%** of alternative gross notional.
+- Latest volatility-matching leverage multiplier: **1.952×**.
+- Estimated base volatility reduction before leverage: **+48.78%**.
 - Volatility observations used: **30**; status: `RISK_MATCHED_INVERSE_VOLATILITY`.
 
 ![Inverse-volatility alternative equity curve](alternative_path_equity_curve.svg)

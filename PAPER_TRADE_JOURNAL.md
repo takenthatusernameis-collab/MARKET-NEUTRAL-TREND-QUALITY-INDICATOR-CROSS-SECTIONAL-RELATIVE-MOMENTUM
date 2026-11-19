@@ -5,13 +5,17 @@
 - Account: `mexc-usdt-forward-100usdt-v4`
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
-- Generated: 2026-11-18 20:47:58 UTC
-- Latest workflow: [44394606913](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44394606913)
-- Recorded primary events: **2**
+- Generated: 2026-11-19 01:21:07 UTC
+- Latest workflow: [44432297120](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44432297120)
+- Recorded primary events: **6**
 
 | Timestamp (UTC) | Symbol | Side | Action | Quantity | Price | Fee (USDT) | Realized net P&L (USDT) | Funding (USDT) | Event ID |
 |---|---|---|---|---:|---:|---:|---:|---:|---|
 | 2026-11-18 15:33:17 UTC | VSTOCK_USDT | long | OPENED | 0.24 | 414.88 | 0.01991424 | — | — | `paper_account_initialized-account-init-1795015985612` |
 | 2026-11-18 15:33:17 UTC | BILL_USDT | short | OPENED | 24300 | 0.004092905349794238683127572016 | 0.000000 | — | — | `paper_account_initialized-account-init-1795015985612` |
+| 2026-11-19 01:20:14 UTC | VSTOCK_USDT | long | CLOSED | 0.24 | 414.88 | 0.01991424 | — | — | `daily_portfolio_decision-daily-1794960000000` |
+| 2026-11-19 01:20:14 UTC | BILL_USDT | short | CLOSED | 24300 | 0.004092905349794238683127572016 | 0.000000 | — | — | `daily_portfolio_decision-daily-1794960000000` |
+| 2026-11-19 01:20:33 UTC | WMTSTOCK_USDT | long | OPENED | 0.80 | 127.68 | 0.02042880 | — | — | `daily_portfolio_decision-daily-1794960000000` |
+| 2026-11-19 01:20:33 UTC | BILL_USDT | short | OPENED | 25500 | 0.003998 | 0.000000 | — | — | `daily_portfolio_decision-daily-1794960000000` |
 
 This journal covers only the primary paper account. The inverse-volatility alternative path has no separate trade journal, positions or event stream.
