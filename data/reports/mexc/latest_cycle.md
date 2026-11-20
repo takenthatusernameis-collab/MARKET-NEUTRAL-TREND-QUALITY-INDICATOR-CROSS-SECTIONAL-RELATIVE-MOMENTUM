@@ -1,60 +1,100 @@
 # MEXC Trend-Quality Paper Research
 
-- Run (UTC): 2026-11-19T19:02:48.735000+00:00
-- Active cross-margin USDT perpetuals: not refreshed in snapshot mode
-- Bootstrap remaining: not refreshed in snapshot mode
-- History coverage gate: not checked in snapshot mode
+- Run (UTC): 2026-11-20T00:35:12.211270+00:00
+- Active cross-margin USDT perpetuals: 1075
+- Bootstrap remaining: 0
+- History coverage gate: True
 - State write mode: UNPROTECTED_SINGLE_WRITER_APPEND_ONLY
 - Paper simulation enabled: True
-- Decision: MONITORING_ONLY_NO_STRATEGY_DECISIONS
+- Decision: PAIR_REBUILT
 
 ## Research long ranking
 
 | Symbol | Q | B |
 |---|---:|---:|
+| INDA_USDT | 24.856839872746576 | 96.13255136775622 |
+| WMTSTOCK_USDT | 24.032016008003946 | 96.00511600951258 |
+| APPSTOCK_USDT | 21.43691951556898 | 95.5430601812067 |
+| AONSTOCK_USDT | 21.058489033306245 | 95.46659792295794 |
+| MARSTOCK_USDT | 20.765439549386436 | 95.40556027949278 |
+| WENSTOCK_USDT | 20.545888775162094 | 95.35874332948015 |
+| SPOTSTOCK_USDT | 18.786367775224335 | 94.94601530023029 |
+| TOYOTASTOCK_USDT | 16.42857142857149 | 94.26229508196724 |
+| SONYSTOCK_USDT | 15.693581780538286 | 94.00967381867791 |
+| GILDSTOCK_USDT | 15.517860348231954 | 93.94594712076592 |
+| CMCSASTOCK_USDT | 14.940529825193757 | 93.72668279557737 |
+| COSTSTOCK_USDT | 14.42482636416853 | 93.51694484987543 |
+| MCDSTOCK_USDT | 12.884354765848501 | 92.79764874303189 |
+| REGNSTOCK_USDT | 12.644640740315873 | 92.67111520902638 |
+| DISSTOCK_USDT | 11.80165557539361 | 92.1885103523475 |
+| BRKBSTOCK_USDT | 11.247056086994409 | 91.83477243105031 |
+| TA_USDT | 11.218405954411534 | 91.81562632858059 |
+| ARIA_USDT | 10.764360699865408 | 91.49975059833518 |
+| SHEINSTOCK_USDT | 10.694698354661796 | 91.44911677348757 |
+| XLU_USDT | 10.57183930995924 | 91.35833143535483 |
 
 ## Research short ranking
 
 | Symbol | Q | B |
 |---|---:|---:|
+| BILL_USDT | -244.66247214575623 | 99.59293741886361 |
+| TOKYOELSTOCK_USDT | -206.7959967096265 | 99.51875877503194 |
+| CYS_USDT | -146.64209664209625 | 99.32268639992012 |
+| US_USDT | -110.48120926362387 | 99.1029878428792 |
+| KIOXIASTOCK_USDT | -102.19423198372002 | 99.030953590354 |
+| LONGXIA_USDT | -100.51406738450865 | 99.01491485292155 |
+| SOXX_USDT | -85.39696117968134 | 98.84255188336974 |
+| FOGO_USDT | -81.02376063361712 | 98.78084107303151 |
+| RIVER_USDT | -77.77716907484746 | 98.73059667954062 |
+| ROBO_USDT | -73.80167597765363 | 98.66313155831062 |
+| INTW_USDT | -71.29694245667957 | 98.61681564113282 |
+| TRY_USDT | -70.25925925925884 | 98.59667359667358 |
+| PRL_USDT | -68.47964280308773 | 98.56072950341138 |
+| ANSEM_USDT | -66.18507326529453 | 98.51157414675833 |
+| RVN_USDT | -57.41686460807602 | 98.28816557220404 |
+| BLUR_USDT | -55.39455782312936 | 98.22677925211097 |
+| UAI_USDT | -55.180127685448014 | 98.2200111655157 |
+| IBIDENSTOCK_USDT | -53.83081570996967 | 98.17620805554024 |
+| CIFRSTOCK_USDT | -51.23092573753815 | 98.08542547182674 |
+| PONS_USDT | -48.46234971525 | 97.97826022063873 |
 
 ## Data completeness
 
-- Ticker coverage: 2
+- Ticker coverage: 1157
 - Missing latest daily bars: 0
 - API failures: 0
-- Excluded/unranked records sampled: 0
+- Excluded/unranked records sampled: 50
 
 ## Portfolio accounting
 
 - Currency: USDT
-- Cash: 102.4085004800000000000000000
-- NAV: 83.8470004800000000000000000
-- Realized gross P&L: 2.468799999999999999999999989
-- Unrealized P&L: -18.5615000000000000000000000
-- Fees paid: 0.06029952
+- Cash: 91.5422352400000000000000000
+- NAV: 91.48783524000000000000000000
+- Realized gross P&L: -8.359000000000000000000000011
+- Unrealized P&L: -0.05440000000000000000000000
+- Fees paid: 0.09876476
 - Confirmed funding: 0
-- Gross exposure: 2.631823425247471655291347400
-- Net exposure: -0.2190477881719925778792749009
+- Gross exposure: 1.992413521664609888303659463
+- Net exposure: -0.001014342505280158818194373969
 - Open positions: 2
-- Closed trades: 2
+- Closed trades: 4
 - Performance report status: AVAILABLE_WITH_SAMPLE_GATES
-- total_return: 0.02379484408761386
-- maximum_drawdown: 0.0
-- maximum_drawdown_duration_days: 0.0
-- current_drawdown_duration_days: 0.0
-- recovery_period_days: Unavailable (No drawdown occurred)
+- total_return: -0.08382421222107286
+- maximum_drawdown: 0.10511779477127055
+- maximum_drawdown_duration_days: 1.0
+- current_drawdown_duration_days: 1.0
+- recovery_period_days: Unavailable (Maximum drawdown has not recovered by the latest observation)
 - cagr: Unavailable (At least 365 elapsed calendar days are required for formal CAGR)
 - annualized_daily_volatility: Unavailable (At least 30 daily returns are required)
 - sharpe: Unavailable (At least 30 daily returns are required)
 - sortino: Unavailable (Requires at least 20 daily returns and 5 negative daily returns)
-- calmar: Unavailable (Maximum drawdown is zero)
-- closed_trade_count: 2.0
-- win_rate: 1.0
-- expectancy_net_pnl: 1.21446464
+- calmar: Unavailable (CAGR is unavailable for the observation period)
+- closed_trade_count: 4.0
+- win_rate: 0.5
+- expectancy_net_pnl: -2.10988539
 - average_winner_net_pnl: 1.21446464
-- average_loser_net_pnl: Unavailable (No losing closed trades)
-- profit_factor: Unavailable (No losing closed trades; profit factor is undefined or uninformative)
+- average_loser_net_pnl: -5.43423542
+- profit_factor: 0.22348399473646655
 
 ## Daily equity curve
 
@@ -62,5 +102,6 @@
 |---|---:|
 | 2026-11-17T00:00:00+00:00 | 99.85838575999999999999999999 |
 | 2026-11-18T00:00:00+00:00 | 102.2345004800000000000000000 |
+| 2026-11-19T00:00:00+00:00 | 91.48783524000000000000000000 |
 
 No exchange orders were submitted. All execution records are simulated.
