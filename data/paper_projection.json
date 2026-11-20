@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-20T10:37:20.053000+00:00",
+  "last_run_utc": "2026-11-20T10:38:38.417000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-100usdt-v4",
     "cash": "91.5422352400000000000000000",
@@ -688,13 +688,32 @@
         "short_notional_usdt": "85.90400",
         "timestamp_ms": 1795171040053,
         "utc_date": "2026-11-20"
+      },
+      {
+        "daily_drawdown_pct": "-0.6366183143959990418788941100",
+        "daily_peak_nav": "98.64623524000000000000000000",
+        "daily_return_pct": "16.90130198918715094386403270",
+        "daily_starting_nav": "83.8470004800000000000000000",
+        "daily_starting_reference": "previous_utc_day_last_snapshot",
+        "drawdown_window_reference": "daily_portfolio_full_refresh",
+        "drawdown_window_starting_nav": "91.48783524000000000000000000",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.823162797845124721100824422",
+        "long_notional_usdt": "92.5704",
+        "nav": "98.01823524000000000000000000",
+        "roi_pct": "-1.98176476000000000000000000",
+        "short_notional_usdt": "86.132800",
+        "timestamp_ms": 1795171118417,
+        "utc_date": "2026-11-20"
       }
     ],
     "fees_paid": "0.09876476",
     "initial_capital": "100",
     "last_decision_attempt_daily_bar_ms": 1795046400000,
     "last_processed_daily_bar_ms": 1795046400000,
-    "last_snapshot_ms": 1795171040053,
+    "last_snapshot_ms": 1795171118417,
     "partial_realized_net_pnls": [],
     "pending_entry_signal": null,
     "positions": [
@@ -707,7 +726,7 @@
         "initial_margin_usdt": "45.5580",
         "instrument_id": 1681,
         "last_funding_timestamp_ms": 1795134882135,
-        "last_mark_price": "128.55",
+        "last_mark_price": "128.57",
         "leverage": "2",
         "lowest_since_entry": "126.55",
         "quantity": "0.72",
@@ -725,7 +744,7 @@
         "initial_margin_usdt": "45.577200",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1795134882135,
-        "last_mark_price": "0.00413",
+        "last_mark_price": "0.004141",
         "leverage": "2",
         "lowest_since_entry": "0.004382423076923076923076923077",
         "quantity": "20800",
@@ -743,9 +762,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "14098e413cfaa26c5828335f48b32954c07987c4b1e3e33194ad2d60aa76f290",
-    "commit_sha": "daefda2f84d5450f3b70947fab2092ad8fa5ee11",
+    "batch_hash": "d4b669eaef1146fc23a517070299a928bce6609f7b824b279baa6b17f03115ec",
+    "commit_sha": "43b2ce55cf95ad5b37b36f6aa95fcb549832bb0e",
     "created": true,
-    "path": "events/2026/11/snapshot-1795171040053.json"
+    "path": "events/2026/11/snapshot-1795171118417.json"
   }
 }
