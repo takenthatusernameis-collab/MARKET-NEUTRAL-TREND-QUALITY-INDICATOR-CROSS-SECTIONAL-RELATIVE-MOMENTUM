@@ -8,8 +8,8 @@
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
 - Account state: **INITIALIZED — FORWARD PAPER**
-- Last report build: 2026-11-20 05:59:22 UTC
-- Latest workflow run: [44684416917](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44684416917) · run #123, attempt 1 · success · workflow_dispatch
+- Last report build: 2026-11-20 07:47:10 UTC
+- Latest workflow run: [44697470298](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44697470298) · run #124, attempt 1 · failure · workflow_dispatch
 - Latest processed daily candle: 2026-11-19 00:00:00 UTC
 - Latest account event: 2026-11-20 05:58:46 UTC
 - Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)
