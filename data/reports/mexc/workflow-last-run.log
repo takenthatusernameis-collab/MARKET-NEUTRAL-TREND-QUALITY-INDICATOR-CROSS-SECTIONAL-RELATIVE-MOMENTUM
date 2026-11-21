@@ -1,33 +1,490 @@
+[mexc-history] resolved batch size=1159 for 1159 active cross-margin perpetuals (0 configuration means full universe)
+[mexc-history] selected 1159 stale instruments from 1159 active contracts for daily bar 1795132800000
+[mexc-history] checkpoint 25/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 50/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 75/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 100/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 125/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 150/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 175/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 200/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 225/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 250/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 275/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 300/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 325/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 350/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 375/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 400/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 425/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 450/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 475/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 500/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 525/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 550/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 575/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 600/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 625/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 650/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 675/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 700/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 725/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 750/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 775/1159; new histories bootstrapped=0; bootstrap histories remaining=3; API failures=0
+[mexc-history] checkpoint 800/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 825/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 850/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 875/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 900/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 925/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 950/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 975/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 1000/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 1025/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 1050/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 1075/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 1100/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 1125/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] checkpoint 1150/1159; new histories bootstrapped=1; bootstrap histories remaining=2; API failures=0
+[mexc-history] batch finished: checked=1159/1159; new histories bootstrapped=3; bootstrap histories remaining=0; API failures=0
 {
-  "active_cross_usdt_perpetual_count": "not refreshed in snapshot mode",
+  "account_id": "mexc-usdt-forward-100usdt-v4",
+  "active_cross_margin_perpetual_count": 1159,
+  "active_cross_usdt_perpetual_count": 1077,
   "api_failure_count": 0,
-  "bootstrap_remaining": "not refreshed in snapshot mode",
+  "api_failure_sample": [],
+  "asset_class_counts": {
+    "commodity": 15,
+    "crypto": 808,
+    "equity": 129,
+    "fx": 6,
+    "unclassified": 201
+  },
+  "bootstrap_completed_this_run": 3,
+  "bootstrap_remaining": 0,
+  "candle_rows_stored": 275645,
   "credentials_used": false,
-  "daily_decision_due": false,
-  "emergency_exits": [],
-  "emergency_risk_status": "MONITORING_ONLY_NO_STRATEGY_DECISIONS",
-  "entry_retry": null,
-  "excluded_or_unranked_sample": [],
-  "execution_long_top": [],
-  "execution_short_top": [],
+  "daily_decision_due": true,
+  "daily_refresh_complete": true,
+  "excluded_or_unranked_sample": [
+    "ZEC_USDT:NO_VALID_Q",
+    "BTC_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "ETH_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "LTC_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "XRP_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "ADA_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "LIT_USDT:NO_VALID_Q",
+    "ONE_USDT:NO_VALID_Q",
+    "HOT_USDT:NO_VALID_Q",
+    "RSR_USDT:NO_VALID_Q",
+    "WOO_USDT:NO_VALID_Q",
+    "LUNC_USDT:NO_VALID_Q",
+    "INJ_USDT:NO_VALID_Q",
+    "STX_USDT:NO_VALID_Q",
+    "USDC_USDT:NO_VALID_Q",
+    "DODO_USDT:NO_VALID_Q",
+    "PAXG_USDT:NO_VALID_Q",
+    "PEPE_USDT:NO_VALID_Q",
+    "CETUS_USDT:TURNOVER_CAP",
+    "CYBER_USDT:NO_VALID_Q",
+    "BEAMX_USDT:NO_VALID_Q",
+    "RARE_USDT:NO_VALID_Q",
+    "PROM_USDT:NO_VALID_Q",
+    "ETHFI_USDT:NO_VALID_Q",
+    "MERL_USDT:NO_VALID_Q",
+    "HMSTR_USDT:NO_VALID_Q",
+    "SCR_USDT:NO_VALID_Q",
+    "ACT_USDT:NO_VALID_Q",
+    "CLANKER_USDT:NO_VALID_Q",
+    "LINK_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "AVAX_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "SOL_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "DOGE_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "SUI_USD:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "USUAL_USDT:NO_VALID_Q",
+    "FLUID_USDT:NO_VALID_Q",
+    "SWARMS_USDT:NO_VALID_Q",
+    "PIPPIN_USDT:NO_VALID_Q",
+    "GPS_USDT:NO_VALID_Q",
+    "VVV_USDT:NO_VALID_Q",
+    "GANG_USDT:INSUFFICIENT_HISTORY:25",
+    "XAUT_USDT:NO_VALID_Q",
+    "SHELL_USDT:NO_VALID_Q",
+    "RED_USDT:NO_VALID_Q",
+    "SIREN_USDT:NO_VALID_Q",
+    "BTC_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "ETH_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "SOL_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "TRUMP_USDC:NON_USDT_SETTLEMENT_RESEARCH_ONLY",
+    "PEPE_USDC:NO_VALID_Q"
+  ],
+  "execution_long_top": [
+    {
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "long",
+      "instrument_id": 1681,
+      "q": "22.748524203069625",
+      "symbol": "WMTSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 24,
+      "direction": "long",
+      "instrument_id": 2026,
+      "q": "21.194439677364013",
+      "symbol": "WENSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 42,
+      "direction": "long",
+      "instrument_id": 2149,
+      "q": "17.926675094816744",
+      "symbol": "GILDSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 56,
+      "direction": "long",
+      "instrument_id": 1683,
+      "q": "17.715323081702376",
+      "symbol": "COSTSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "long",
+      "instrument_id": 1984,
+      "q": "15.089096113008976",
+      "symbol": "CMCSASTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 49,
+      "direction": "long",
+      "instrument_id": 2011,
+      "q": "15.073028237585186",
+      "symbol": "SONYSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 37,
+      "direction": "long",
+      "instrument_id": 1368,
+      "q": "14.218337730870713",
+      "symbol": "MCDSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 17,
+      "direction": "long",
+      "instrument_id": 1503,
+      "q": "13.645058859975219",
+      "symbol": "APPSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "long",
+      "instrument_id": 1919,
+      "q": "12.882693319305629",
+      "symbol": "DISSTOCK_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 36,
+      "direction": "long",
+      "instrument_id": 1431,
+      "q": "12.834280625474733",
+      "symbol": "ARIA_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 29,
+      "direction": "long",
+      "instrument_id": 1346,
+      "q": "11.183032977810464",
+      "symbol": "TA_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "long",
+      "instrument_id": 1917,
+      "q": "10.938581831204454",
+      "symbol": "BRKBSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 22,
+      "direction": "long",
+      "instrument_id": 2326,
+      "q": "10.56132214369846",
+      "symbol": "FASTRETAILSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 38,
+      "direction": "long",
+      "instrument_id": 2167,
+      "q": "10.347901379838603",
+      "symbol": "REGNSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "long",
+      "instrument_id": 2305,
+      "q": "9.853613906678852",
+      "symbol": "TAKEDASTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 43,
+      "direction": "long",
+      "instrument_id": 1763,
+      "q": "9.217939214232757",
+      "symbol": "KOSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "long",
+      "instrument_id": 2262,
+      "q": "9.213578374520475",
+      "symbol": "CMESTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 38,
+      "direction": "long",
+      "instrument_id": 1657,
+      "q": "8.035479632063076",
+      "symbol": "PEPSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 17,
+      "direction": "long",
+      "instrument_id": 2287,
+      "q": "7.7349181430814085",
+      "symbol": "SHEINSTOCK_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 43,
+      "direction": "long",
+      "instrument_id": 1686,
+      "q": "7.546501328609391",
+      "symbol": "COLLECT_USDT"
+    }
+  ],
+  "execution_short_top": [
+    {
+      "category": "crypto",
+      "cycle_age": 129,
+      "direction": "short",
+      "instrument_id": 1899,
+      "q": "-249.12498332665982",
+      "symbol": "BILL_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 53,
+      "direction": "short",
+      "instrument_id": 2029,
+      "q": "-171.29600361255473",
+      "symbol": "TOKYOELSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 82,
+      "direction": "short",
+      "instrument_id": 1662,
+      "q": "-132.36782224601774",
+      "symbol": "CYS_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 1664,
+      "q": "-129.2016874898575",
+      "symbol": "US_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 67,
+      "direction": "short",
+      "instrument_id": 1610,
+      "q": "-102.6067933759881",
+      "symbol": "UAI_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 56,
+      "direction": "short",
+      "instrument_id": 1790,
+      "q": "-97.96638940757087",
+      "symbol": "LONGXIA_USDT"
+    },
+    {
+      "category": "equity",
+      "cycle_age": 53,
+      "direction": "short",
+      "instrument_id": 1975,
+      "q": "-83.3718493344659",
+      "symbol": "KIOXIASTOCK_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 59,
+      "direction": "short",
+      "instrument_id": 1700,
+      "q": "-81.67106420404603",
+      "symbol": "FOGO_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 1880,
+      "q": "-78.01855875096643",
+      "symbol": "SOXX_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 91,
+      "direction": "short",
+      "instrument_id": 1513,
+      "q": "-76.83275943555456",
+      "symbol": "RIVER_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 91,
+      "direction": "short",
+      "instrument_id": 1814,
+      "q": "-75.47762191048777",
+      "symbol": "PRL_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 46,
+      "direction": "short",
+      "instrument_id": 2104,
+      "q": "-69.44070695552993",
+      "symbol": "INTW_USDT"
+    },
+    {
+      "category": "unclassified",
+      "cycle_age": 84,
+      "direction": "short",
+      "instrument_id": 1770,
+      "q": "-63.933604012419416",
+      "symbol": "ROBO_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 78,
+      "direction": "short",
+      "instrument_id": 2031,
+      "q": "-56.87515069682211",
+      "symbol": "ANSEM_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 54,
+      "direction": "short",
+      "instrument_id": 2109,
+      "q": "-49.90985189954927",
+      "symbol": "PONS_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 83,
+      "direction": "short",
+      "instrument_id": 226,
+      "q": "-46.48981525343439",
+      "symbol": "RVN_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "short",
+      "instrument_id": 326,
+      "q": "-46.098877374784166",
+      "symbol": "BLUR_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 53,
+      "direction": "short",
+      "instrument_id": 2268,
+      "q": "-46.074782167329225",
+      "symbol": "IBIDENSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 108,
+      "direction": "short",
+      "instrument_id": 1924,
+      "q": "-43.37907249779867",
+      "symbol": "FLNCSTOCK_USDT"
+    },
+    {
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 59,
+      "q": "-41.35064935064938",
+      "symbol": "THETA_USDT"
+    }
+  ],
   "funding_events": [],
-  "history_coverage_pass": "not checked in snapshot mode",
-  "latest_completed_daily_bar_ms": 1795046400000,
+  "history_coverage_pass": true,
+  "initial_capital_usdt": "100",
+  "instrument_count_all": 1169,
+  "latest_completed_daily_bar_ms": 1795132800000,
+  "lifecycle_counts": {
+    "active": 1160
+  },
+  "minimum_order_size_diagnostics": {
+    "contracts_satisfying_minimum_quantity_and_step": {
+      "at_10_usdt_per_leg": 1066,
+      "at_1_usdt_per_leg": 806
+    },
+    "contracts_with_minimum_notional_above_10_usdt": 11,
+    "contracts_with_minimum_notional_above_1_usdt": 271,
+    "evaluated_contracts": 1077,
+    "minimum_order_notional_usdt": {
+      "maximum": "81.45",
+      "median": "0.25650",
+      "p10": "0.02795",
+      "p75": "1.0138",
+      "p90": "2.6058"
+    },
+    "scope_note": "Minimum quantity and lot-step affordability only; turnover, book depth, fees and shortfall remain separate execution gates.",
+    "status": "MEASURED_FROM_CURRENT_PUBLIC_TICKERS"
+  },
   "missing_latest_bar_count": 0,
-  "missing_position_marks": [],
+  "missing_latest_bar_sample": [],
   "missing_ticker_count": 0,
-  "mode": "PORTFOLIO_SNAPSHOT_ONLY",
+  "missing_ticker_sample": [],
+  "mode": "DAILY_CLOSE_RESEARCH_AND_DECISION",
   "orders_submitted": 0,
-  "ordinary_strategy_decisions": false,
-  "pair_stop_triggered_symbols": [],
+  "ordinary_strategy_decisions": true,
+  "paper_account_initial_capital_usdt": null,
+  "paper_account_initialized_this_cycle": false,
   "paper_account_recovery_status": "RESTORED_FROM_VERIFIED_EVENT_CHAIN",
   "paper_account_restored_from_state_branch": true,
-  "paper_decision_status": "MONITORING_ONLY_NO_STRATEGY_DECISIONS",
+  "paper_decision_status": "PAIR_REBUILT",
   "paper_simulation_enabled": true,
   "paper_state_write_requested": true,
   "portfolio": {
-    "cash": "91.5422352400000000000000000",
-    "closed_trade_count": 4,
+    "cash": "106.6663267600000000000000000",
+    "closed_trade_count": 6,
     "confirmed_funding": "0",
     "currency": "USDT",
     "daily_equity_curve": [
@@ -42,27 +499,31 @@
       {
         "nav": "91.48783524000000000000000000",
         "timestamp_ms": 1795046400000
+      },
+      {
+        "nav": "106.6917267600000000000000000",
+        "timestamp_ms": 1795132800000
       }
     ],
     "daily_risk": {
-      "calendar_day_starting_nav": "83.8470004800000000000000000",
+      "calendar_day_starting_nav": "99.87183524000000000000000000",
       "calendar_day_starting_reference": "previous_utc_day_last_snapshot",
       "flatten_attempts": 0,
       "flattened": false,
-      "peak_nav": "105.9342352400000000000000000",
-      "peak_timestamp_ms": 1795195040039,
-      "risk_window_reset_at_ms": 1795134882135,
+      "peak_nav": "106.6917267600000000000000000",
+      "peak_timestamp_ms": 1795235401744,
+      "risk_window_reset_at_ms": 1795235401744,
       "risk_window_reset_reason": "daily_portfolio_full_refresh",
-      "starting_nav": "91.48783524000000000000000000",
+      "starting_nav": "106.6917267600000000000000000",
       "starting_reference": "daily_portfolio_full_refresh",
-      "starting_timestamp_ms": 1795134882135,
+      "starting_timestamp_ms": 1795235401744,
       "stop_reason": null,
       "stop_triggered": false,
       "stop_triggered_at_ms": null,
-      "utc_date": "2026-11-20"
+      "utc_date": "2026-11-21"
     },
-    "dollar_neutrality_imbalance": "0.08301840033354332500198481383",
-    "effective_gross_leverage": "1.764565551203742954268354947",
+    "dollar_neutrality_imbalance": "0.0001762086018374232937571775411",
+    "effective_gross_leverage": "1.993108617300252981677395808",
     "equity_curve": [
       {
         "daily_drawdown_pct": "0",
@@ -766,22 +1227,60 @@
         "short_notional_usdt": "83.969600",
         "timestamp_ms": 1795216328909,
         "utc_date": "2026-11-20"
+      },
+      {
+        "daily_drawdown_pct": "0",
+        "daily_peak_nav": "106.7414352400000000000000000",
+        "daily_return_pct": "6.878415704980090040448124200",
+        "daily_starting_nav": "99.87183524000000000000000000",
+        "daily_starting_reference": "previous_utc_day_last_snapshot",
+        "drawdown_window_reference": "previous_utc_day_last_snapshot",
+        "drawdown_window_starting_nav": "99.87183524000000000000000000",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.585970805239474312318605845",
+        "long_notional_usdt": "92.2248",
+        "nav": "106.7414352400000000000000000",
+        "roi_pct": "6.7414352400000000000000000",
+        "short_notional_usdt": "77.064000",
+        "timestamp_ms": 1795235383070,
+        "utc_date": "2026-11-21"
+      },
+      {
+        "daily_drawdown_pct": "0",
+        "daily_peak_nav": "106.6917267600000000000000000",
+        "daily_return_pct": "6.828643434469043006243248400",
+        "daily_starting_nav": "99.87183524000000000000000000",
+        "daily_starting_reference": "previous_utc_day_last_snapshot",
+        "drawdown_window_reference": "daily_portfolio_full_refresh",
+        "drawdown_window_starting_nav": "106.6917267600000000000000000",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "1.993108617300252981677395808",
+        "long_notional_usdt": "106.3147",
+        "nav": "106.6917267600000000000000000",
+        "roi_pct": "6.6917267600000000000000000",
+        "short_notional_usdt": "106.333500",
+        "timestamp_ms": 1795235401744,
+        "utc_date": "2026-11-21"
       }
     ],
-    "fees_paid": "0.09876476",
-    "gross_exposure": "1.764565551203742954268354947",
+    "fees_paid": "0.13847324",
+    "gross_exposure": "1.993108617300252981677395808",
     "initial_capital": "100",
     "lifetime_max_drawdown_pct": "-18.47562923442812246569729620",
-    "long_margin_used_usdt": "46.1304",
-    "long_notional_usdt": "92.2608",
-    "nav": "99.87183524000000000000000000",
-    "net_exposure": "0.08301840033354332500198481383",
+    "long_margin_used_usdt": "53.15735",
+    "long_notional_usdt": "106.3147",
+    "nav": "106.6917267600000000000000000",
+    "net_exposure": "-0.0001762086018374232937571775411",
     "partial_realized_event_count": 0,
     "partial_realized_net_pnl": "0",
     "performance": {
       "metrics": {
         "annualized_daily_volatility": {
-          "observations": 2,
+          "observations": 3,
           "reason": "At least 30 daily returns are required",
           "value": null
         },
@@ -791,161 +1290,508 @@
           "value": -5.43423542
         },
         "average_winner_net_pnl": {
-          "observations": 2,
+          "observations": 4,
           "reason": null,
-          "value": 1.21446464
+          "value": 4.3890153
         },
         "cagr": {
-          "observations": 2,
+          "observations": 3,
           "reason": "At least 365 elapsed calendar days are required for formal CAGR",
           "value": null
         },
         "calmar": {
-          "observations": 2,
+          "observations": 3,
           "reason": "CAGR is unavailable for the observation period",
           "value": null
         },
         "closed_trade_count": {
-          "observations": 4,
+          "observations": 6,
           "reason": null,
-          "value": 4.0
+          "value": 6.0
         },
         "current_drawdown_duration_days": {
-          "observations": 3,
-          "reason": null,
-          "value": 1.0
-        },
-        "expectancy_net_pnl": {
           "observations": 4,
           "reason": null,
-          "value": -2.10988539
+          "value": 0.0
+        },
+        "expectancy_net_pnl": {
+          "observations": 6,
+          "reason": null,
+          "value": 1.1145983933333334
         },
         "maximum_drawdown": {
-          "observations": 3,
+          "observations": 4,
           "reason": null,
           "value": 0.10511779477127055
         },
         "maximum_drawdown_duration_days": {
-          "observations": 3,
+          "observations": 4,
+          "reason": null,
+          "value": 2.0
+        },
+        "profit_factor": {
+          "observations": 6,
+          "reason": null,
+          "value": 1.6153202652379752
+        },
+        "recovery_period_days": {
+          "observations": 4,
           "reason": null,
           "value": 1.0
         },
-        "profit_factor": {
-          "observations": 4,
-          "reason": null,
-          "value": 0.22348399473646655
-        },
-        "recovery_period_days": {
-          "observations": 3,
-          "reason": "Maximum drawdown has not recovered by the latest observation",
-          "value": null
-        },
         "sharpe": {
-          "observations": 2,
+          "observations": 3,
           "reason": "At least 30 daily returns are required",
           "value": null
         },
         "sortino": {
-          "observations": 2,
+          "observations": 3,
           "reason": "Requires at least 20 daily returns and 5 negative daily returns",
           "value": null
         },
         "total_return": {
-          "observations": 2,
+          "observations": 3,
           "reason": null,
-          "value": -0.08382421222107286
+          "value": 0.06843031707345316
         },
         "win_rate": {
-          "observations": 4,
+          "observations": 6,
           "reason": null,
-          "value": 0.5
+          "value": 0.6666666666666666
         }
       },
-      "observations": 3,
+      "observations": 4,
       "status": "AVAILABLE_WITH_SAMPLE_GATES"
     },
     "position_count": 2,
     "positions": [
       {
         "category": "crypto",
-        "entry_fee": "0.01822320",
-        "entry_price": "126.55",
-        "entry_timestamp_ms": 1795134882135,
-        "highest_since_entry": "126.55",
-        "initial_margin_usdt": "45.5580",
+        "entry_fee": "0.02126360",
+        "entry_price": "128.0939759036144578313253012",
+        "entry_timestamp_ms": 1795235401744,
+        "highest_since_entry": "128.0939759036144578313253012",
+        "initial_margin_usdt": "53.1590",
         "instrument_id": 1681,
-        "last_funding_timestamp_ms": 1795134882135,
-        "last_mark_price": "128.14",
+        "last_funding_timestamp_ms": 1795235401744,
+        "last_mark_price": "128.09",
         "leverage": "2",
-        "lowest_since_entry": "126.55",
-        "quantity": "0.72",
+        "lowest_since_entry": "128.0939759036144578313253012",
+        "quantity": "0.83",
         "side": "long",
-        "stop_price": "118.688169264332455",
+        "stop_price": "119.9001330776374528313253012",
         "symbol": "WMTSTOCK_USDT",
         "unresolved_funding_count": 0
       },
       {
         "category": "crypto",
         "entry_fee": "0.000000",
-        "entry_price": "0.004382423076923076923076923077",
-        "entry_timestamp_ms": 1795134882135,
-        "highest_since_entry": "0.004382423076923076923076923077",
-        "initial_margin_usdt": "45.577200",
+        "entry_price": "0.003706",
+        "entry_timestamp_ms": 1795235401744,
+        "highest_since_entry": "0.003706",
+        "initial_margin_usdt": "53.181100",
         "instrument_id": 1899,
-        "last_funding_timestamp_ms": 1795134882135,
-        "last_mark_price": "0.004037",
+        "last_funding_timestamp_ms": 1795235401744,
+        "last_mark_price": "0.003705",
         "leverage": "2",
-        "lowest_since_entry": "0.004382423076923076923076923077",
-        "quantity": "20800",
+        "lowest_since_entry": "0.003706",
+        "quantity": "28700",
         "side": "short",
-        "stop_price": "0.006001655484104638523076923077",
+        "stop_price": "0.0053552872352400214",
         "symbol": "BILL_USDT",
         "unresolved_funding_count": 0
       }
     ],
-    "realized_gross_pnl": "-8.359000000000000000000000011",
-    "roi_pct": "-0.12816476000000000000000000",
-    "short_margin_used_usdt": "41.984800",
-    "short_notional_usdt": "83.969600",
-    "total_margin_used_usdt": "88.115200",
-    "unrealized_pnl": "8.32960000000000000000000000"
+    "realized_gross_pnl": "6.804799999999999999999999967",
+    "roi_pct": "6.6917267600000000000000000",
+    "short_margin_used_usdt": "53.166750",
+    "short_notional_usdt": "106.333500",
+    "total_margin_used_usdt": "106.324100",
+    "unrealized_pnl": "0.0254000000000000000000000"
   },
-  "portfolio_snapshot": {
-    "daily_drawdown_pct": "-5.722795832966830789762729780",
-    "daily_peak_nav": "105.9342352400000000000000000",
-    "daily_return_pct": "19.11199526311307827001231330",
-    "daily_starting_nav": "83.8470004800000000000000000",
-    "daily_starting_reference": "previous_utc_day_last_snapshot",
-    "drawdown_window_reference": "daily_portfolio_full_refresh",
-    "drawdown_window_starting_nav": "91.48783524000000000000000000",
-    "emergency_stop_flattened": false,
-    "emergency_stop_newly_triggered": false,
-    "emergency_stop_triggered": false,
-    "gross_exposure": "1.764565551203742954268354947",
-    "long_notional_usdt": "92.2608",
-    "nav": "99.87183524000000000000000000",
-    "roi_pct": "-0.12816476000000000000000000",
-    "short_notional_usdt": "83.969600",
-    "timestamp_ms": 1795216328909,
-    "utc_date": "2026-11-20"
-  },
-  "position_ticker_errors": [],
   "private_endpoints_used": false,
   "provider": "mexc",
-  "q_rankings_recalculated": false,
-  "research_long_top": [],
-  "research_refresh_performed": false,
-  "research_short_top": [],
-  "run_utc": "2026-11-20T23:12:08.909000+00:00",
+  "q_rankings_recalculated": true,
+  "research_long_top": [
+    {
+      "b": "95.8967607958022",
+      "category": "crypto",
+      "cycle_age": 36,
+      "direction": "long",
+      "instrument_id": 2165,
+      "q": "23.370989606868513",
+      "symbol": "AONSTOCK_USDT"
+    },
+    {
+      "b": "95.78921203082275",
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "long",
+      "instrument_id": 1681,
+      "q": "22.748524203069625",
+      "symbol": "WMTSTOCK_USDT"
+    },
+    {
+      "b": "95.49436699219807",
+      "category": "crypto",
+      "cycle_age": 24,
+      "direction": "long",
+      "instrument_id": 2026,
+      "q": "21.194439677364013",
+      "symbol": "WENSTOCK_USDT"
+    },
+    {
+      "b": "95.42057138521076",
+      "category": "crypto",
+      "cycle_age": 23,
+      "direction": "long",
+      "instrument_id": 2084,
+      "q": "20.83678541839271",
+      "symbol": "INDA_USDT"
+    },
+    {
+      "b": "94.986649996063",
+      "category": "crypto",
+      "cycle_age": 61,
+      "direction": "long",
+      "instrument_id": 1985,
+      "q": "18.946742182666227",
+      "symbol": "MARSTOCK_USDT"
+    },
+    {
+      "b": "94.71645180682656",
+      "category": "crypto",
+      "cycle_age": 42,
+      "direction": "long",
+      "instrument_id": 2149,
+      "q": "17.926675094816744",
+      "symbol": "GILDSTOCK_USDT"
+    },
+    {
+      "b": "94.6567847339078",
+      "category": "crypto",
+      "cycle_age": 56,
+      "direction": "long",
+      "instrument_id": 1683,
+      "q": "17.715323081702376",
+      "symbol": "COSTSTOCK_USDT"
+    },
+    {
+      "b": "93.78461044066086",
+      "category": "crypto",
+      "cycle_age": 35,
+      "direction": "long",
+      "instrument_id": 1984,
+      "q": "15.089096113008976",
+      "symbol": "CMCSASTOCK_USDT"
+    },
+    {
+      "b": "93.77839704367844",
+      "category": "crypto",
+      "cycle_age": 49,
+      "direction": "long",
+      "instrument_id": 2011,
+      "q": "15.073028237585186",
+      "symbol": "SONYSTOCK_USDT"
+    },
+    {
+      "b": "93.42898010489358",
+      "category": "crypto",
+      "cycle_age": 37,
+      "direction": "long",
+      "instrument_id": 1368,
+      "q": "14.218337730870713",
+      "symbol": "MCDSTOCK_USDT"
+    },
+    {
+      "b": "93.17175840970508",
+      "category": "crypto",
+      "cycle_age": 17,
+      "direction": "long",
+      "instrument_id": 1503,
+      "q": "13.645058859975219",
+      "symbol": "APPSTOCK_USDT"
+    },
+    {
+      "b": "92.79678678337312",
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "long",
+      "instrument_id": 1919,
+      "q": "12.882693319305629",
+      "symbol": "DISSTOCK_USDT"
+    },
+    {
+      "b": "92.77157933200677",
+      "category": "unclassified",
+      "cycle_age": 36,
+      "direction": "long",
+      "instrument_id": 1431,
+      "q": "12.834280625474733",
+      "symbol": "ARIA_USDT"
+    },
+    {
+      "b": "92.49331082215183",
+      "category": "crypto",
+      "cycle_age": 17,
+      "direction": "long",
+      "instrument_id": 2266,
+      "q": "12.32145205839805",
+      "symbol": "TOYOTASTOCK_USDT"
+    },
+    {
+      "b": "92.05498508554078",
+      "category": "equity",
+      "cycle_age": 17,
+      "direction": "long",
+      "instrument_id": 2486,
+      "q": "11.586508782759955",
+      "symbol": "MCKSTOCK_USDT"
+    },
+    {
+      "b": "91.79186330841141",
+      "category": "unclassified",
+      "cycle_age": 29,
+      "direction": "long",
+      "instrument_id": 1346,
+      "q": "11.183032977810464",
+      "symbol": "TA_USDT"
+    },
+    {
+      "b": "91.62379573940473",
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "long",
+      "instrument_id": 1917,
+      "q": "10.938581831204454",
+      "symbol": "BRKBSTOCK_USDT"
+    },
+    {
+      "b": "91.35047023540423",
+      "category": "crypto",
+      "cycle_age": 22,
+      "direction": "long",
+      "instrument_id": 2326,
+      "q": "10.56132214369846",
+      "symbol": "FASTRETAILSTOCK_USDT"
+    },
+    {
+      "b": "91.18779793260575",
+      "category": "crypto",
+      "cycle_age": 38,
+      "direction": "long",
+      "instrument_id": 2167,
+      "q": "10.347901379838603",
+      "symbol": "REGNSTOCK_USDT"
+    },
+    {
+      "b": "90.78647896822051",
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "long",
+      "instrument_id": 2305,
+      "q": "9.853613906678852",
+      "symbol": "TAKEDASTOCK_USDT"
+    }
+  ],
+  "research_refresh_performed": true,
+  "research_short_top": [
+    {
+      "b": "99.60019987339929",
+      "category": "crypto",
+      "cycle_age": 129,
+      "direction": "short",
+      "instrument_id": 1899,
+      "q": "-249.12498332665982",
+      "symbol": "BILL_USDT"
+    },
+    {
+      "b": "99.41960348526207",
+      "category": "crypto",
+      "cycle_age": 53,
+      "direction": "short",
+      "instrument_id": 2029,
+      "q": "-171.29600361255473",
+      "symbol": "TOKYOELSTOCK_USDT"
+    },
+    {
+      "b": "99.25019394996542",
+      "category": "crypto",
+      "cycle_age": 82,
+      "direction": "short",
+      "instrument_id": 1662,
+      "q": "-132.36782224601774",
+      "symbol": "CYS_USDT"
+    },
+    {
+      "b": "99.23196079921938",
+      "category": "unclassified",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 1664,
+      "q": "-129.2016874898575",
+      "symbol": "US_USDT"
+    },
+    {
+      "b": "99.0348123251233",
+      "category": "crypto",
+      "cycle_age": 67,
+      "direction": "short",
+      "instrument_id": 1610,
+      "q": "-102.6067933759881",
+      "symbol": "UAI_USDT"
+    },
+    {
+      "b": "98.98955594319833",
+      "category": "crypto",
+      "cycle_age": 56,
+      "direction": "short",
+      "instrument_id": 1790,
+      "q": "-97.96638940757087",
+      "symbol": "LONGXIA_USDT"
+    },
+    {
+      "b": "98.81477055690007",
+      "category": "equity",
+      "cycle_age": 53,
+      "direction": "short",
+      "instrument_id": 1975,
+      "q": "-83.3718493344659",
+      "symbol": "KIOXIASTOCK_USDT"
+    },
+    {
+      "b": "98.79038692724235",
+      "category": "unclassified",
+      "cycle_age": 59,
+      "direction": "short",
+      "instrument_id": 1700,
+      "q": "-81.67106420404603",
+      "symbol": "FOGO_USDT"
+    },
+    {
+      "b": "98.73447451357397",
+      "category": "crypto",
+      "cycle_age": 41,
+      "direction": "short",
+      "instrument_id": 1880,
+      "q": "-78.01855875096643",
+      "symbol": "SOXX_USDT"
+    },
+    {
+      "b": "98.71519395271089",
+      "category": "crypto",
+      "cycle_age": 91,
+      "direction": "short",
+      "instrument_id": 1513,
+      "q": "-76.83275943555456",
+      "symbol": "RIVER_USDT"
+    },
+    {
+      "b": "98.69242796125324",
+      "category": "unclassified",
+      "cycle_age": 91,
+      "direction": "short",
+      "instrument_id": 1814,
+      "q": "-75.47762191048777",
+      "symbol": "PRL_USDT"
+    },
+    {
+      "b": "98.58036632052641",
+      "category": "crypto",
+      "cycle_age": 46,
+      "direction": "short",
+      "instrument_id": 2104,
+      "q": "-69.44070695552993",
+      "symbol": "INTW_USDT"
+    },
+    {
+      "b": "98.45996535197902",
+      "category": "unclassified",
+      "cycle_age": 84,
+      "direction": "short",
+      "instrument_id": 1770,
+      "q": "-63.933604012419416",
+      "symbol": "ROBO_USDT"
+    },
+    {
+      "b": "98.27214272799309",
+      "category": "crypto",
+      "cycle_age": 78,
+      "direction": "short",
+      "instrument_id": 2031,
+      "q": "-56.87515069682211",
+      "symbol": "ANSEM_USDT"
+    },
+    {
+      "b": "98.03574364747101",
+      "category": "crypto",
+      "cycle_age": 54,
+      "direction": "short",
+      "instrument_id": 2109,
+      "q": "-49.90985189954927",
+      "symbol": "PONS_USDT"
+    },
+    {
+      "b": "97.8942853437871",
+      "category": "crypto",
+      "cycle_age": 83,
+      "direction": "short",
+      "instrument_id": 226,
+      "q": "-46.48981525343439",
+      "symbol": "RVN_USDT"
+    },
+    {
+      "b": "97.87680714331553",
+      "category": "crypto",
+      "cycle_age": 44,
+      "direction": "short",
+      "instrument_id": 326,
+      "q": "-46.098877374784166",
+      "symbol": "BLUR_USDT"
+    },
+    {
+      "b": "97.87572038794472",
+      "category": "crypto",
+      "cycle_age": 53,
+      "direction": "short",
+      "instrument_id": 2268,
+      "q": "-46.074782167329225",
+      "symbol": "IBIDENSTOCK_USDT"
+    },
+    {
+      "b": "97.74668567025684",
+      "category": "crypto",
+      "cycle_age": 108,
+      "direction": "short",
+      "instrument_id": 1924,
+      "q": "-43.37907249779867",
+      "symbol": "FLNCSTOCK_USDT"
+    },
+    {
+      "b": "97.63876111622203",
+      "category": "crypto",
+      "cycle_age": 40,
+      "direction": "short",
+      "instrument_id": 59,
+      "q": "-41.35064935064938",
+      "symbol": "THETA_USDT"
+    }
+  ],
+  "run_utc": "2026-11-21T04:30:36.268008+00:00",
+  "snapshot_partition": "../market-data/data/snapshots/2026-11-21/04.jsonl.gz",
   "state_event": {
-    "batch_hash": "550d95fbfd09cd294b0b07b5f06dc74c7636fcb46518dc404178fe0825a1fad0",
-    "commit_sha": "f92840caf465c990c69a5472eaddf755cd8a907e",
+    "batch_hash": "5ebc25203c3829d1eef74a10d68d83877aba7be790e0e4eb496bc4e94412e0c0",
+    "commit_sha": "c7f0250934ea534914f2e928b6f1c3c4563b02b0",
     "created": true,
-    "path": "events/2026/11/snapshot-1795216328909.json"
+    "path": "events/2026/11/daily-1795132800000.json"
   },
+  "state_recovery_probe_verified_from_prior_checkout": true,
   "state_write_mode": "UNPROTECTED_SINGLE_WRITER_APPEND_ONLY",
-  "ticker_coverage": 2,
+  "stop_exits": [],
+  "ticker_count": 1237,
+  "ticker_coverage": 1159,
+  "trailing_stop_updates": [],
   "unresolved_funding_count": 2,
   "wallet_used": false,
-  "workflow_mode": "FIVE_MINUTE_PORTFOLIO_SNAPSHOT"
+  "workflow_mode": "DAILY_CLOSE_RESEARCH_AND_DECISION"
 }
