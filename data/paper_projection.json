@@ -1,5 +1,5 @@
 {
-  "last_run_utc": "2026-11-21T08:29:53.858000+00:00",
+  "last_run_utc": "2026-11-21T08:30:55.159000+00:00",
   "portfolio_state": {
     "account_id": "mexc-usdt-forward-100usdt-v4",
     "cash": "106.6663267600000000000000000",
@@ -827,13 +827,32 @@
         "short_notional_usdt": "109.576600",
         "timestamp_ms": 1795249793858,
         "utc_date": "2026-11-21"
+      },
+      {
+        "daily_drawdown_pct": "-3.063686472478646384596203340",
+        "daily_peak_nav": "106.6917267600000000000000000",
+        "daily_return_pct": "3.555748736834767311120856500",
+        "daily_starting_nav": "99.87183524000000000000000000",
+        "daily_starting_reference": "previous_utc_day_last_snapshot",
+        "drawdown_window_reference": "daily_portfolio_full_refresh",
+        "drawdown_window_starting_nav": "106.6917267600000000000000000",
+        "emergency_stop_flattened": false,
+        "emergency_stop_newly_triggered": false,
+        "emergency_stop_triggered": false,
+        "gross_exposure": "2.086101197759994855520896380",
+        "long_notional_usdt": "106.2317",
+        "nav": "103.4230267600000000000000000",
+        "roi_pct": "3.4230267600000000000000000",
+        "short_notional_usdt": "109.519200",
+        "timestamp_ms": 1795249855159,
+        "utc_date": "2026-11-21"
       }
     ],
     "fees_paid": "0.13847324",
     "initial_capital": "100",
     "last_decision_attempt_daily_bar_ms": 1795132800000,
     "last_processed_daily_bar_ms": 1795132800000,
-    "last_snapshot_ms": 1795249793858,
+    "last_snapshot_ms": 1795249855159,
     "partial_realized_net_pnls": [],
     "pending_entry_signal": null,
     "positions": [
@@ -864,7 +883,7 @@
         "initial_margin_usdt": "53.181100",
         "instrument_id": 1899,
         "last_funding_timestamp_ms": 1795235401744,
-        "last_mark_price": "0.003818",
+        "last_mark_price": "0.003816",
         "leverage": "2",
         "lowest_since_entry": "0.003706",
         "quantity": "28700",
@@ -882,9 +901,9 @@
   },
   "schema_version": 1,
   "state_event": {
-    "batch_hash": "5a241f965c46cd6933492b7582a4461e3725a2ddd751239782555552dd7efdb2",
-    "commit_sha": "af372c58edb74d6fa5bb0ae785905dc869b8bf0a",
+    "batch_hash": "170e46836debf94ef83625a56399a105b76243a9915123663c89dfb952754aaa",
+    "commit_sha": "6068c6b1bf77d82351bc502703ea5766aac61887",
     "created": true,
-    "path": "events/2026/11/snapshot-1795249793858.json"
+    "path": "events/2026/11/snapshot-1795249855159.json"
   }
 }
