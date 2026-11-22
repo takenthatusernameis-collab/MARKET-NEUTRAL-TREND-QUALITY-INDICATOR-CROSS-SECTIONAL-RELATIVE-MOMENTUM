@@ -5,9 +5,9 @@
 - Account: `mexc-usdt-forward-100usdt-v4`
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
-- Generated: 2026-11-21 19:44:57 UTC
-- Latest workflow: [44942481308](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44942481308)
-- Recorded primary events: **14**
+- Generated: 2026-11-22 00:36:48 UTC
+- Latest workflow: [44964283066](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44964283066)
+- Recorded primary events: **18**
 
 | Timestamp (UTC) | Symbol | Side | Action | Quantity | Price | Fee (USDT) | Realized net P&L (USDT) | Funding (USDT) | Event ID |
 |---|---|---|---|---:|---:|---:|---:|---:|---|
@@ -25,5 +25,9 @@
 | 2026-11-21 04:29:43 UTC | BILL_USDT | short | CLOSED | 20800 | 0.004382423076923076923076923077 | 0.000000 | — | — | `daily_portfolio_decision-daily-1795132800000` |
 | 2026-11-21 04:30:01 UTC | WMTSTOCK_USDT | long | OPENED | 0.83 | 128.0939759036144578313253012 | 0.02126360 | — | — | `daily_portfolio_decision-daily-1795132800000` |
 | 2026-11-21 04:30:01 UTC | BILL_USDT | short | OPENED | 28700 | 0.003706 | 0.000000 | — | — | `daily_portfolio_decision-daily-1795132800000` |
+| 2026-11-22 00:35:15 UTC | WMTSTOCK_USDT | long | CLOSED | 0.83 | 128.0939759036144578313253012 | 0.02126360 | — | — | `daily_portfolio_decision-daily-1795219200000` |
+| 2026-11-22 00:35:15 UTC | BILL_USDT | short | CLOSED | 28700 | 0.003706 | 0.000000 | — | — | `daily_portfolio_decision-daily-1795219200000` |
+| 2026-11-22 00:35:33 UTC | WMTSTOCK_USDT | long | OPENED | 0.77 | 128.4154545454545454545454545 | 0.01977598 | — | — | `daily_portfolio_decision-daily-1795219200000` |
+| 2026-11-22 00:35:33 UTC | BILL_USDT | short | OPENED | 24900 | 0.003974473895582329317269076305 | 0.000000 | — | — | `daily_portfolio_decision-daily-1795219200000` |
 
 This journal covers only the primary paper account. The inverse-volatility alternative path has no separate trade journal, positions or event stream.
