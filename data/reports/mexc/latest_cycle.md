@@ -1,6 +1,6 @@
 # MEXC Trend-Quality Paper Research
 
-- Run (UTC): 2026-11-22T04:12:25.501000+00:00
+- Run (UTC): 2026-11-22T06:28:23.483000+00:00
 - Active cross-margin USDT perpetuals: not refreshed in snapshot mode
 - Bootstrap remaining: not refreshed in snapshot mode
 - History coverage gate: not checked in snapshot mode
@@ -29,13 +29,13 @@
 
 - Currency: USDT
 - Cash: 99.1101404000000000000000000
-- NAV: 101.3084404000000000000000000
+- NAV: 101.1662404000000000000000000
 - Realized gross P&L: -0.710300000000000000000000065
-- Unrealized P&L: 2.1983000000000000000000000
+- Unrealized P&L: 2.0561000000000000000000000
 - Fees paid: 0.17955960
 - Confirmed funding: 0
-- Gross exposure: 1.929132451633319191833102190
-- Net exposure: 0.02086499398918789396347276115
+- Gross exposure: 1.931422965086285839678193675
+- Net exposure: 0.01948871473531599183555307844
 - Open positions: 2
 - Closed trades: 8
 - Performance report status: AVAILABLE_WITH_SAMPLE_GATES

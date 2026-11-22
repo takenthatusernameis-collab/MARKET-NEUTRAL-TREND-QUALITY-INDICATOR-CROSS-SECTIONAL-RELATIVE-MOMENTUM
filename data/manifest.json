@@ -50572,10 +50572,10 @@
   "last_daily_workflow_bar_ms": 1795219200000,
   "last_processed_daily_bar_ms": 1795219200000,
   "last_research_daily_bar_ms": 1795219200000,
-  "last_snapshot_ms": 1795320745501,
+  "last_snapshot_ms": 1795328903483,
   "last_state_recovery_probe_ms": 1795004591521,
   "provider": "mexc",
   "schema_version": 1,
   "selected_provider": "mexc",
-  "updated_at_ms": 1795320745501
+  "updated_at_ms": 1795328903483
 }
