@@ -8,10 +8,10 @@
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
 - Account state: **INITIALIZED — FORWARD PAPER**
-- Last report build: 2026-11-22 06:29:03 UTC
-- Latest workflow run: [44993854033](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/44993854033) · run #141, attempt 1 · success · schedule
+- Last report build: 2026-11-22 14:51:04 UTC
+- Latest workflow run: [45034938491](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/45034938491) · run #142, attempt 1 · success · schedule
 - Latest processed daily candle: 2026-11-21 00:00:00 UTC
-- Latest account event: 2026-11-22 06:28:23 UTC
+- Latest account event: 2026-11-22 14:50:12 UTC
 - Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)
 
 ## Current performance
@@ -19,15 +19,15 @@
 | Metric | Value |
 |---|---:|
 | Initial capital | 100.00000000 USDT |
-| **NAV** | **101.16624040 USDT** |
-| Total return | +1.166% |
+| **NAV** | **97.31264040 USDT** |
+| Total return | -2.687% |
 | Cash | 99.11014040 USDT |
-| Unrealized P&L | +2.05610000 USDT |
+| Unrealized P&L | -1.79750000 USDT |
 | Fees paid | 0.17955960 USDT |
 | Confirmed funding | +0.00000000 USDT |
-| Gross exposure | 1.931× NAV |
+| Gross exposure | 2.048× NAV |
 | Net exposure | 0.019× NAV |
-| Current drawdown from risk-window peak | -0.140% |
+| Current drawdown from risk-window peak | -3.944% |
 | Lifetime / cross-session maximum drawdown | -18.476% |
 | Worst risk-session maximum drawdown | -18.476% |
 | Sharpe ratio | Unavailable — At least 30 daily returns are required |
@@ -47,14 +47,14 @@
 | 2026-11-21 00:00:00 UTC | 106.74143524 | 106.74143524 | +0.000% | 1 |
 | 2026-11-21 04:30:01 UTC | 106.69172676 | 102.14162676 | -4.265% | 6 |
 | 2026-11-22 00:00:00 UTC | 99.13432676 | 99.13432676 | +0.000% | 1 |
-| 2026-11-22 00:35:33 UTC | 99.02764040 | 101.16624040 | -0.140% | 3 |
+| 2026-11-22 00:35:33 UTC | 99.02764040 | 97.31264040 | -3.944% | 4 |
 
 ## Open positions
 
 | Symbol | Side | Quantity | Entry price | Mark | Notional (USDT) |
 |---|---|---:|---:|---:|---:|
-| WMTSTOCK_USDT | long | 0.77 | 128.4154545454545454545454545 | 128.16 | 98.683200 |
-| BILL_USDT | short | 24900 | 0.003974473895582329317269076305 | 0.003884 | 96.711600 |
+| WMTSTOCK_USDT | long | 0.77 | 128.4154545454545454545454545 | 128.2 | 98.714000 |
+| BILL_USDT | short | 24900 | 0.003974473895582329317269076305 | 0.00404 | 100.596000 |
 
 ## Primary path — equal exposure
 
