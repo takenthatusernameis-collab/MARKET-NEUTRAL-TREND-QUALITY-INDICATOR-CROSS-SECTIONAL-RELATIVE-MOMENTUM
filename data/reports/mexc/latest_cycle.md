@@ -1,32 +1,112 @@
 # MEXC Trend-Quality Paper Research
 
-- Run (UTC): 2026-11-24T16:15:35.875000+00:00
-- Active cross-margin USDT perpetuals: not refreshed in snapshot mode
-- Bootstrap remaining: not refreshed in snapshot mode
-- History coverage gate: not checked in snapshot mode
+- Run (UTC): 2026-11-25T01:23:37.335919+00:00
+- Active cross-margin USDT perpetuals: 1082
+- Bootstrap remaining: 0
+- History coverage gate: True
 - State write mode: UNPROTECTED_SINGLE_WRITER_APPEND_ONLY
 - Paper simulation enabled: True
-- Decision: UNAVAILABLE_STALE_OR_MISSING_POSITION_MARK
+- Decision: PAIR_REBUILT
 
 ## Research long ranking
 
 | Symbol | Q | B |
 |---|---:|---:|
+| COSTSTOCK_USDT | 26.110922467458952 | 96.31144974428555 |
+| WMTSTOCK_USDT | 20.102817974105086 | 95.26129637649777 |
+| MCDSTOCK_USDT | 19.922775601566894 | 95.22051940410282 |
+| WENSTOCK_USDT | 19.718193803559686 | 95.17332442450565 |
+| SONYSTOCK_USDT | 16.39819004524885 | 94.2522756827048 |
+| INDA_USDT | 16.23419461242443 | 94.19758206003382 |
+| CMCSASTOCK_USDT | 16.053375196232395 | 94.1360581791402 |
+| AONSTOCK_USDT | 15.117259267264677 | 93.79547115661859 |
+| COLLECT_USDT | 12.4816086316822 | 92.58248754047074 |
+| ARIA_USDT | 11.53101710100125 | 92.01980180906385 |
+| TAKEDASTOCK_USDT | 11.444020356234079 | 91.96401185972803 |
+| DISSTOCK_USDT | 10.325146525258175 | 91.17009216816994 |
+| FASTRETAILSTOCK_USDT | 10.162253521126763 | 91.04123555241507 |
+| TA_USDT | 9.379811663637867 | 90.36591382960097 |
+| O_USDT | 8.24457593688363 | 89.18284617025816 |
+| APPSTOCK_USDT | 8.097697350300221 | 89.00820766512967 |
+| CAHSTOCK_USDT | 7.557845744680855 | 88.31481625359335 |
+| NGAS_USDT | 7.346163585717905 | 88.01844716162506 |
+| MCKSTOCK_USDT | 6.976531424025452 | 87.46322246047971 |
+| JST_USDT | 6.242280285035617 | 86.19219416202031 |
 
 ## Research short ranking
 
 | Symbol | Q | B |
 |---|---:|---:|
+| UAI_USDT | -347.2366339765885 | 99.71283894270951 |
+| BILL_USDT | -297.7265500794892 | 99.66524569050394 |
+| US_USDT | -155.47549874104072 | 99.36092231177038 |
+| TOKYOELSTOCK_USDT | -154.5702730030341 | 99.35720367349326 |
+| LONGXIA_USDT | -145.2558257345489 | 99.3162665521338 |
+| CYS_USDT | -125.65780375887847 | 99.21047107219407 |
+| PRL_USDT | -91.37774183766307 | 98.91748815233294 |
+| KIOXIASTOCK_USDT | -90.94246575342478 | 98.91236330045592 |
+| INTW_USDT | -84.639661510716 | 98.83231672993608 |
+| SOXX_USDT | -84.08256880733921 | 98.82467112357128 |
+| RIVER_USDT | -76.93828956941589 | 98.71693360795484 |
+| FOGO_USDT | -72.63435459568085 | 98.64193825627873 |
+| PLAY_USDT | -68.12101548269581 | 98.55326199562225 |
+| ROBO_USDT | -65.93952993976608 | 98.50611439772608 |
+| HNT_USDT | -64.61502782931372 | 98.47595888764792 |
+| ANSEM_USDT | -64.405353930801 | 98.47107317688702 |
+| 1000RATS_USDT | -58.838504375497216 | 98.3288352367151 |
+| THETA_USDT | -57.08381171067755 | 98.27834990413315 |
+| Q_USDT | -55.6586978636826 | 98.23504591932921 |
+| PONS_USDT | -53.80562320123974 | 98.17536971283381 |
 
 ## Data completeness
 
-- Ticker coverage: 0
+- Ticker coverage: 1164
 - Missing latest daily bars: 0
 - API failures: 0
-- Excluded/unranked records sampled: 0
+- Excluded/unranked records sampled: 50
 
 ## Portfolio accounting
 
-Not initialized. Ranking and market-data collection do not imply a paper account. The immutable state branch must be protected and the explicit writer gate enabled.
+- Currency: USDT
+- Cash: 95.07899684800000000000000003
+- NAV: 94.96938684800000000000000003
+- Realized gross P&L: -4.628600000000000000000000039
+- Unrealized P&L: -0.10961000000000000000000000
+- Fees paid: 0.292403152
+- Confirmed funding: 0
+- Gross exposure: 2.000419148794376345892863397
+- Net exposure: -0.001870497492884897939990962423
+- Open positions: 2
+- Closed trades: 14
+- Performance report status: AVAILABLE_WITH_SAMPLE_GATES
+- total_return: -0.04895932249245684
+- maximum_drawdown: 0.17172671617935673
+- maximum_drawdown_duration_days: 4.0
+- current_drawdown_duration_days: 4.0
+- recovery_period_days: Unavailable (Maximum drawdown has not recovered by the latest observation)
+- cagr: Unavailable (At least 365 elapsed calendar days are required for formal CAGR)
+- annualized_daily_volatility: Unavailable (At least 30 daily returns are required)
+- sharpe: Unavailable (At least 30 daily returns are required)
+- sortino: Unavailable (Requires at least 20 daily returns and 5 negative daily returns)
+- calmar: Unavailable (CAGR is unavailable for the observation period)
+- closed_trade_count: 14.0
+- win_rate: 0.5714285714285714
+- expectancy_net_pnl: -0.35014389514285715
+- average_winner_net_pnl: 3.1731659235
+- average_loser_net_pnl: -5.04789032
+- profit_factor: 0.8381497278649271
+
+## Daily equity curve
+
+| UTC daily bar | NAV (USDT) |
+|---|---:|
+| 2026-11-17T00:00:00+00:00 | 99.85838575999999999999999999 |
+| 2026-11-18T00:00:00+00:00 | 102.2345004800000000000000000 |
+| 2026-11-19T00:00:00+00:00 | 91.48783524000000000000000000 |
+| 2026-11-20T00:00:00+00:00 | 106.6917267600000000000000000 |
+| 2026-11-21T00:00:00+00:00 | 99.02764040000000000000000003 |
+| 2026-11-22T00:00:00+00:00 | 96.41910130000000000000000003 |
+| 2026-11-23T00:00:00+00:00 | 88.36990688000000000000000003 |
+| 2026-11-24T00:00:00+00:00 | 94.96938684800000000000000003 |
 
 No exchange orders were submitted. All execution records are simulated.
