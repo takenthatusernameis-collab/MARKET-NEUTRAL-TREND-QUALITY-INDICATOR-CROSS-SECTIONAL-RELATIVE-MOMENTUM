@@ -8,10 +8,10 @@
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
 - Account state: **INITIALIZED — FORWARD PAPER**
-- Last report build: 2026-11-26 20:22:18 UTC
-- Latest workflow run: [45890354156](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/45890354156) · run #162, attempt 1 · success · schedule
-- Latest processed daily candle: 2026-11-25 00:00:00 UTC
-- Latest account event: 2026-11-26 20:21:00 UTC
+- Last report build: 2026-11-27 03:30:12 UTC
+- Latest workflow run: [45931495332](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/45931495332) · run #163, attempt 1 · success · schedule
+- Latest processed daily candle: 2026-11-26 00:00:00 UTC
+- Latest account event: 2026-11-27 03:28:45 UTC
 - Primary execution journal: [PAPER_TRADE_JOURNAL.md](PAPER_TRADE_JOURNAL.md)
 
 ## Current performance
@@ -19,15 +19,15 @@
 | Metric | Value |
 |---|---:|
 | Initial capital | 100.00000000 USDT |
-| **NAV** | **92.02233464 USDT** |
-| Total return | -7.978% |
-| Cash | 91.88844464 USDT |
-| Unrealized P&L | +0.13389000 USDT |
-| Fees paid | 0.32963536 USDT |
+| **NAV** | **91.25158389 USDT** |
+| Total return | -8.748% |
+| Cash | 91.28263389 USDT |
+| Unrealized P&L | -0.03105000 USDT |
+| Fees paid | 0.36596611 USDT |
 | Confirmed funding | +0.00000000 USDT |
-| Gross exposure | 1.992× NAV |
-| Net exposure | 0.002× NAV |
-| Current drawdown from risk-window peak | -0.543% |
+| Gross exposure | 1.986× NAV |
+| Net exposure | 0.007× NAV |
+| Current drawdown from risk-window peak | +0.000% |
 | Lifetime / cross-session maximum drawdown | -18.476% |
 | Worst risk-session maximum drawdown | -18.476% |
 | Sharpe ratio | Unavailable — At least 30 daily returns are required |
@@ -56,13 +56,15 @@
 | 2026-11-25 01:22:27 UTC | 94.96938685 | 93.17790685 | -6.446% | 4 |
 | 2026-11-26 00:00:00 UTC | 91.86435685 | 91.86435685 | +0.000% | 1 |
 | 2026-11-26 02:55:44 UTC | 91.71492464 | 92.02233464 | -2.419% | 4 |
+| 2026-11-27 00:00:00 UTC | 91.39392464 | 91.39392464 | +0.000% | 1 |
+| 2026-11-27 03:29:06 UTC | 91.25158389 | 91.25158389 | +0.000% | 1 |
 
 ## Open positions
 
 | Symbol | Side | Quantity | Entry price | Mark | Notional (USDT) |
 |---|---|---:|---:|---:|---:|
-| COSTSTOCK_USDT | long | 0.084 | 1089.18 | 1090.4 | 91.593600 |
-| UAI_USDT | short | 3141 | 0.02922 | 0.02921 | 91.748610 |
+| COSTSTOCK_USDT | long | 0.083 | 1088.23 | 1087.78 | 90.285740 |
+| BILL_USDT | short | 22900 | 0.003971275109170305676855895197 | 0.003971 | 90.935900 |
 
 ## Primary path — equal exposure
 
@@ -76,9 +78,9 @@ This chart is a **visual-only counterfactual**, not an executed account. It reus
 
 At each rebalance, the quieter leg receives the larger share using inverse 30-completed-day realized volatility. The leverage overlay is the ratio of equal-exposure pair volatility to the inverse-volatility pair’s base estimated volatility. It increases modeled gross exposure only when the alternative has lower estimated volatility. Estimates use only data available at that rebalance.
 
-- Latest long / short allocation: **93.8% / 6.2%** of alternative gross notional.
-- Latest volatility-matching leverage multiplier: **5.315×**.
-- Estimated base volatility reduction before leverage: **+81.18%**.
+- Latest long / short allocation: **80.7% / 19.3%** of alternative gross notional.
+- Latest volatility-matching leverage multiplier: **1.761×**.
+- Estimated base volatility reduction before leverage: **+43.20%**.
 - Volatility observations used: **30**; status: `RISK_MATCHED_INVERSE_VOLATILITY`.
 
 ![Inverse-volatility alternative equity curve](alternative_path_equity_curve.svg)
