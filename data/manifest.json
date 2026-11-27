@@ -12180,7 +12180,7 @@
       "last_bootstrap_error": null,
       "last_candle_timestamp_ms": 1795651200000,
       "last_checked_daily_bar_ms": 1795651200000,
-      "last_funding_timestamp_ms": 1795737600000,
+      "last_funding_timestamp_ms": 1795766400000,
       "last_seen_at_ms": 1795748367878,
       "maker_fee_rate": "0",
       "max_contracts": "115500",
@@ -18472,7 +18472,7 @@
       "last_bootstrap_error": null,
       "last_candle_timestamp_ms": 1795651200000,
       "last_checked_daily_bar_ms": 1795651200000,
-      "last_funding_timestamp_ms": 1795752000000,
+      "last_funding_timestamp_ms": 1795780800000,
       "last_seen_at_ms": 1795748367878,
       "maker_fee_rate": "0",
       "max_contracts": "2000",
@@ -51023,10 +51023,10 @@
   "last_daily_workflow_bar_ms": 1795651200000,
   "last_processed_daily_bar_ms": 1795651200000,
   "last_research_daily_bar_ms": 1795651200000,
-  "last_snapshot_ms": 1795758979360,
+  "last_snapshot_ms": 1795780809090,
   "last_state_recovery_probe_ms": 1795004591521,
   "provider": "mexc",
   "schema_version": 1,
   "selected_provider": "mexc",
-  "updated_at_ms": 1795758979360
+  "updated_at_ms": 1795780809090
 }
