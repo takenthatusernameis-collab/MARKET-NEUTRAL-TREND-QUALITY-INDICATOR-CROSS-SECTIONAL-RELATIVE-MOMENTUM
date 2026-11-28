@@ -5,9 +5,9 @@
 - Account: `mexc-usdt-forward-100usdt-v4`
 - Strategy generation: `trend-quality-daily-cross-sectional-v4-100usdt`
 - Starting capital: **100.00000000 USDT**
-- Generated: 2026-11-28 03:45:54 UTC
-- Latest workflow: [46101970388](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/46101970388)
-- Recorded primary events: **38**
+- Generated: 2026-11-28 05:41:52 UTC
+- Latest workflow: [46112981212](https://github.com/takenthatusernameis-collab/MARKET-NEUTRAL-TREND-QUALITY-INDICATOR-CROSS-SECTIONAL-RELATIVE-MOMENTUM/actions/runs/46112981212)
+- Recorded primary events: **42**
 
 | Timestamp (UTC) | Symbol | Side | Action | Quantity | Price | Fee (USDT) | Realized net P&L (USDT) | Funding (USDT) | Event ID |
 |---|---|---|---|---:|---:|---:|---:|---:|---|
@@ -49,5 +49,9 @@
 | 2026-11-27 03:28:45 UTC | UAI_USDT | short | CLOSED | 3141 | 0.02922 | 0.00000 | — | — | `daily_portfolio_decision-daily-1795651200000` |
 | 2026-11-27 03:29:06 UTC | COSTSTOCK_USDT | long | OPENED | 0.083 | 1088.23 | 0.018064618 | — | — | `daily_portfolio_decision-daily-1795651200000` |
 | 2026-11-27 03:29:06 UTC | BILL_USDT | short | OPENED | 22900 | 0.003971275109170305676855895197 | 0.000000 | — | — | `daily_portfolio_decision-daily-1795651200000` |
+| 2026-11-28 05:40:43 UTC | COSTSTOCK_USDT | long | CLOSED | 0.083 | 1088.23 | 0.018064618 | — | — | `daily_portfolio_decision-daily-1795737600000` |
+| 2026-11-28 05:40:43 UTC | BILL_USDT | short | CLOSED | 22900 | 0.003971275109170305676855895197 | 0.000000 | — | — | `daily_portfolio_decision-daily-1795737600000` |
+| 2026-11-28 05:41:03 UTC | COSTSTOCK_USDT | long | OPENED | 0.081 | 1101.259753086419753086419753 | 0.017840408 | — | — | `daily_portfolio_decision-daily-1795737600000` |
+| 2026-11-28 05:41:03 UTC | LONGXIA_USDT | short | OPENED | 6100 | 0.01459 | 0.00000 | — | — | `daily_portfolio_decision-daily-1795737600000` |
 
 This journal covers only the primary paper account. The inverse-volatility alternative path has no separate trade journal, positions or event stream.
